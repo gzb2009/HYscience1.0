@@ -17,9 +17,11 @@ import { Shell } from "@/shell/shell"
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 import { HYscience } from "@/hyscience"
+import { ProcessEnvironment } from "@/process/environment"
+import { ProcessPolicy } from "@/process/policy"
 
 const MAX_METADATA_LENGTH = 30_000
-const DEFAULT_TIMEOUT = Flag.HYSCIENCE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 0
+const DEFAULT_TIMEOUT = Flag.HYSCIENCE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS ?? 120_000
 
 export const log = Log.create({ service: "bash-tool" })
 
@@ -86,7 +88,11 @@ export const BashTool = Tool.define("bash", async () => {
       if (params.timeout !== undefined && params.timeout < 0) {
         throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
       }
-      const timeout = params.timeout ?? DEFAULT_TIMEOUT
+      const timeout = ProcessPolicy.timeout({
+        requested: params.timeout,
+        configured: await ProcessEnvironment.bashTimeout(),
+        fallback: DEFAULT_TIMEOUT,
+      })
       const tree = await parser().then((p) => p.parse(params.command))
       if (!tree) {
         throw new Error("Failed to parse command")
@@ -168,7 +174,7 @@ export const BashTool = Tool.define("bash", async () => {
       const proc = spawn(params.command, {
         shell,
         cwd,
-        env: await HYscience.subprocessEnv(process.env),
+        env: await ProcessEnvironment.resolve("bash"),
         stdio: ["ignore", "pipe", "pipe"],
         detached: process.platform !== "win32",
       })

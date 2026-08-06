@@ -52,6 +52,22 @@ describe("ProcessPolicy.baseline", () => {
       APPDATA: "C:\\Users\\researcher\\AppData\\Roaming",
     })
   })
+
+  test("allows the SSH agent only for the remote profile", () => {
+    const source = {
+      PATH: "/usr/bin",
+      SSH_AUTH_SOCK: "/tmp/agent.sock",
+      GITHUB_TOKEN: "gh-secret",
+    }
+
+    expect(ProcessPolicy.baseline(source, "linux", "bash")).toEqual({
+      PATH: "/usr/bin",
+    })
+    expect(ProcessPolicy.baseline(source, "linux", "remote")).toEqual({
+      PATH: "/usr/bin",
+      SSH_AUTH_SOCK: "/tmp/agent.sock",
+    })
+  })
 })
 
 describe("ProcessPolicy.environment", () => {
@@ -92,5 +108,20 @@ describe("ProcessPolicy.environment", () => {
       LEGACY_MCP_TOKEN: "legacy-secret",
       MCP_MODE: "compat",
     })
+  })
+})
+
+describe("ProcessPolicy.timeout", () => {
+  test("uses a finite default when no override is provided", () => {
+    expect(ProcessPolicy.timeout({ fallback: 120_000 })).toBe(120_000)
+  })
+
+  test("prefers per-call and then configured values", () => {
+    expect(ProcessPolicy.timeout({ requested: 5_000, configured: 60_000, fallback: 120_000 })).toBe(5_000)
+    expect(ProcessPolicy.timeout({ configured: 60_000, fallback: 120_000 })).toBe(60_000)
+  })
+
+  test("preserves zero as an explicit timeout disable", () => {
+    expect(ProcessPolicy.timeout({ requested: 0, configured: 60_000, fallback: 120_000 })).toBe(0)
   })
 })

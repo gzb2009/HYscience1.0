@@ -5,7 +5,7 @@ import path from "path"
 import os from "os"
 import { unlinkSync } from "fs"
 import { Instance } from "@/project/instance"
-import { HYscience } from "@/hyscience"
+import { ProcessEnvironment } from "@/process/environment"
 import type {
   Kernel,
   KernelManager,
@@ -176,9 +176,10 @@ interface RawPayload {
 
 async function findPython(override?: string): Promise<string> {
   const candidates = override ? [override] : ["python3", "python"]
+  const env = await ProcessEnvironment.resolve("notebook")
   for (const bin of candidates) {
     try {
-      const proc = Bun.spawn([bin, "--version"], { stdout: "pipe", stderr: "pipe" })
+      const proc = Bun.spawn([bin, "--version"], { stdout: "pipe", stderr: "pipe", env })
       await proc.exited
       if (proc.exitCode === 0) return bin
     } catch {}
@@ -236,7 +237,11 @@ class PythonKernel implements Kernel {
     const bin = await findPython(opts?.binary)
     const proc = spawn(bin, ["-u", scriptPath], {
       cwd: opts?.cwd ?? Instance.directory,
-      env: { ...(await HYscience.subprocessEnv(process.env)), ...(opts?.env ?? {}), PYTHONUNBUFFERED: "1" },
+      env: await ProcessEnvironment.resolve("notebook", {
+        ...(opts?.env ?? {}),
+        MPLBACKEND: "Agg",
+        PYTHONUNBUFFERED: "1",
+      }),
       stdio: ["pipe", "pipe", "pipe"],
     })
     this.proc = proc

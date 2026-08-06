@@ -610,6 +610,14 @@ export type QuestionInfo = {
   custom?: boolean
 }
 
+export type QuestionDecision = {
+  id: string
+  taskID: string
+  recommendation: string
+  reason?: string
+  expiresAt: number
+}
+
 export type QuestionRequest = {
   id: string
   sessionID: string
@@ -621,13 +629,7 @@ export type QuestionRequest = {
     messageID: string
     callID: string
   }
-  decision?: {
-    id: string
-    taskID: string
-    recommendation: string
-    reason?: string
-    expiresAt: number
-  }
+  decision?: QuestionDecision
   auto?: "recommended"
 }
 
@@ -662,6 +664,31 @@ export type EventSessionCompacted = {
   }
 }
 
+export type EventMcpToolsChanged = {
+  type: "mcp.tools.changed"
+  properties: {
+    server: string
+  }
+}
+
+export type EventMcpBrowserOpenFailed = {
+  type: "mcp.browser.open.failed"
+  properties: {
+    mcpName: string
+    url: string
+  }
+}
+
+export type EventCommandExecuted = {
+  type: "command.executed"
+  properties: {
+    name: string
+    sessionID: string
+    arguments: string
+    messageID: string
+  }
+}
+
 export type Todo = {
   /**
    * Brief description of the task
@@ -686,31 +713,6 @@ export type EventTodoUpdated = {
   properties: {
     sessionID: string
     todos: Array<Todo>
-  }
-}
-
-export type EventMcpToolsChanged = {
-  type: "mcp.tools.changed"
-  properties: {
-    server: string
-  }
-}
-
-export type EventMcpBrowserOpenFailed = {
-  type: "mcp.browser.open.failed"
-  properties: {
-    mcpName: string
-    url: string
-  }
-}
-
-export type EventCommandExecuted = {
-  type: "command.executed"
-  properties: {
-    name: string
-    sessionID: string
-    arguments: string
-    messageID: string
   }
 }
 
@@ -753,6 +755,20 @@ export type Session = {
     partID?: string
     snapshot?: string
     diff?: string
+  }
+  taskScope?: {
+    currentID: string
+    items: Array<{
+      id: string
+      messageID: string
+      status: "active" | "archived"
+      summary?: string
+      mergedScopeIDs?: Array<string>
+      time: {
+        created: number
+        archived?: number
+      }
+    }>
   }
 }
 
@@ -878,10 +894,10 @@ export type Event =
   | EventQuestionReplied
   | EventQuestionRejected
   | EventSessionCompacted
-  | EventTodoUpdated
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
+  | EventTodoUpdated
   | EventSessionCreated
   | EventSessionUpdated
   | EventSessionDeleted
@@ -1498,6 +1514,10 @@ export type McpLocalConfig = {
     [key: string]: string
   }
   /**
+   * Environment inheritance mode. Defaults to 'safe' (minimal runtime variables plus explicit environment). Use 'inherit' only as a temporary compatibility escape hatch.
+   */
+  environmentMode?: "safe" | "inherit"
+  /**
    * Enable or disable the MCP server on startup
    */
   enabled?: boolean
@@ -1568,6 +1588,63 @@ export type Config = {
   keybinds?: KeybindsConfig
   logLevel?: LogLevel
   server?: ServerConfig
+  /**
+   * Security profiles for tool subprocesses. Safe environment filtering and no BYOK injection are the defaults.
+   */
+  process?: {
+    bash?: {
+      /**
+       * Environment inheritance mode. Defaults to 'safe'. Use 'inherit' only as a temporary compatibility escape hatch.
+       */
+      environmentMode?: "safe" | "inherit"
+      /**
+       * Explicit environment variables exposed to this subprocess profile
+       */
+      environment?: {
+        [key: string]: string
+      }
+      /**
+       * Provider IDs whose user-owned API keys may be injected into this subprocess profile
+       */
+      byokProviders?: Array<string>
+      /**
+       * Default bash timeout in milliseconds. Defaults to 120000; set 0 to disable.
+       */
+      timeout?: number
+    }
+    notebook?: {
+      /**
+       * Environment inheritance mode. Defaults to 'safe'. Use 'inherit' only as a temporary compatibility escape hatch.
+       */
+      environmentMode?: "safe" | "inherit"
+      /**
+       * Explicit environment variables exposed to this subprocess profile
+       */
+      environment?: {
+        [key: string]: string
+      }
+      /**
+       * Provider IDs whose user-owned API keys may be injected into this subprocess profile
+       */
+      byokProviders?: Array<string>
+    }
+    remote?: {
+      /**
+       * Environment inheritance mode. Defaults to 'safe'. Use 'inherit' only as a temporary compatibility escape hatch.
+       */
+      environmentMode?: "safe" | "inherit"
+      /**
+       * Explicit environment variables exposed to this subprocess profile
+       */
+      environment?: {
+        [key: string]: string
+      }
+      /**
+       * Provider IDs whose user-owned API keys may be injected into this subprocess profile
+       */
+      byokProviders?: Array<string>
+    }
+  }
   /**
    * Command configuration, see https://hyscience.ai/docs/commands
    */
@@ -1727,6 +1804,10 @@ export type Config = {
      * Enable pruning of old tool outputs (default: true)
      */
     prune?: boolean
+    /**
+     * Additional tool IDs to protect from pruning
+     */
+    protectedTools?: Array<string>
   }
   experimental?: {
     hook?: {
@@ -2119,6 +2200,11 @@ export type Agent = {
     providerID: string
   }
   prompt?: string
+  promptText?: string
+  gates?: Array<"literature" | "task_profile" | "compute">
+  hasArtifact?: boolean
+  biologyQueries?: boolean
+  biologyRuntime?: boolean
   options: {
     [key: string]: unknown
   }
@@ -3897,7 +3983,7 @@ export type SessionListData = {
   path?: never
   query?: {
     /**
-     * Filter sessions by project directory
+     * Project workspace hint; sessions are scoped by project
      */
     directory?: string
     /**
@@ -4377,6 +4463,8 @@ export type SessionPromptData = {
     variant?: string
     tier?: "fast" | "pro" | "ultra"
     fast?: boolean
+    newTask?: boolean
+    mergeTaskContext?: boolean
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
@@ -4566,6 +4654,8 @@ export type SessionPromptAsyncData = {
     variant?: string
     tier?: "fast" | "pro" | "ultra"
     fast?: boolean
+    newTask?: boolean
+    mergeTaskContext?: boolean
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {

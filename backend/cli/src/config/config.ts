@@ -511,6 +511,42 @@ export namespace Config {
     })
   export type McpLocal = z.infer<typeof McpLocal>
 
+  const ProcessProfile = z
+    .object({
+      environmentMode: z
+        .enum(["safe", "inherit"])
+        .optional()
+        .describe(
+          "Environment inheritance mode. Defaults to 'safe'. Use 'inherit' only as a temporary compatibility escape hatch.",
+        ),
+      environment: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Explicit environment variables exposed to this subprocess profile"),
+      byokProviders: z
+        .array(z.string())
+        .optional()
+        .describe("Provider IDs whose user-owned API keys may be injected into this subprocess profile"),
+    })
+    .strict()
+
+  const Process = z
+    .object({
+      bash: ProcessProfile.extend({
+        timeout: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe("Default bash timeout in milliseconds. Defaults to 120000; set 0 to disable."),
+      })
+        .strict()
+        .optional(),
+      notebook: ProcessProfile.optional(),
+      remote: ProcessProfile.optional(),
+    })
+    .strict()
+
   export const McpOAuth = z
     .object({
       clientId: z
@@ -951,6 +987,9 @@ export namespace Config {
       keybinds: Keybinds.optional().describe("Custom keybind configurations"),
       logLevel: Log.Level.optional().describe("Log level"),
       server: Server.optional().describe("Server configuration for hyscience serve and web commands"),
+      process: Process.optional().describe(
+        "Security profiles for tool subprocesses. Safe environment filtering and no BYOK injection are the defaults.",
+      ),
       command: z
         .record(z.string(), Command)
         .optional()

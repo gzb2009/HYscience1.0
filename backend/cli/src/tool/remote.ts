@@ -4,6 +4,7 @@ import crypto from "crypto"
 import { Tool } from "./tool"
 import { ComputeSettings } from "../server/routes/settings/compute"
 import { Truncate } from "./truncation"
+import { ProcessEnvironment } from "@/process/environment"
 
 const parameters = z.object({
   command: z.string().describe("Remote shell command to run"),
@@ -133,8 +134,9 @@ export const RemoteTool = Tool.define<typeof parameters, Metadata>("remote", {
     args.push(plan.target, params.command)
 
     const timeout = plan.timeout_ms
+    const env = await ProcessEnvironment.resolve("remote")
     const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
-      const child = spawn("ssh", args, { env: process.env })
+      const child = spawn("ssh", args, { env })
       const out: Buffer[] = []
       const err: Buffer[] = []
       const timer = setTimeout(() => {
