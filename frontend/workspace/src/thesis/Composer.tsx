@@ -678,9 +678,7 @@ export function Composer(): JSX.Element {
     if (!sid) return
     try {
       const pending = sync.data.question?.[sid] ?? []
-      await Promise.all(
-        pending.map((q) => sdk.client.question.reject({ requestID: q.id }).catch(() => undefined)),
-      )
+      await Promise.all(pending.map((q) => sdk.client.question.reject({ requestID: q.id }).catch(() => undefined)))
       await sdk.client.session.abort({ sessionID: sid } as any)
     } catch (e: any) {
       console.error("session.abort failed", e)

@@ -247,290 +247,295 @@ export function FileView(props: {
           overflow: "hidden",
         }}
       >
-      {/* header */}
-      <div
-        style={{
-          display: "flex",
-          "align-items": "center",
-          gap: "10px",
-          padding: "10px 12px 10px 16px",
-          "border-bottom": "1px solid var(--color-border)",
-          background: "var(--color-bg)",
-          "flex-shrink": 0,
-        }}
-      >
-        <IconFile size={14} strokeWidth={1.5} />
-        <div style={{ flex: 1, "min-width": 0, display: "flex", "flex-direction": "column", gap: "1px" }}>
-          <span
-            title={props.path}
-            style={{
-              "font-family": FONT_CODE,
-              "font-size": "12px",
-              color: "var(--color-text)",
-              overflow: "hidden",
-              "text-overflow": "ellipsis",
-              "white-space": "nowrap",
-            }}
-          >
-            {name()}
-          </span>
-          <Show when={props.subtitle}>
+        {/* header */}
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "10px",
+            padding: "10px 12px 10px 16px",
+            "border-bottom": "1px solid var(--color-border)",
+            background: "var(--color-bg)",
+            "flex-shrink": 0,
+          }}
+        >
+          <IconFile size={14} strokeWidth={1.5} />
+          <div style={{ flex: 1, "min-width": 0, display: "flex", "flex-direction": "column", gap: "1px" }}>
             <span
-              title={props.subtitle}
+              title={props.path}
               style={{
-                "font-family": FONT_MONO,
-                "font-size": "10px",
-                color: "var(--color-text-faint)",
+                "font-family": FONT_CODE,
+                "font-size": "12px",
+                color: "var(--color-text)",
                 overflow: "hidden",
                 "text-overflow": "ellipsis",
                 "white-space": "nowrap",
               }}
             >
-              {props.subtitle}
+              {name()}
             </span>
+            <Show when={props.subtitle}>
+              <span
+                title={props.subtitle}
+                style={{
+                  "font-family": FONT_MONO,
+                  "font-size": "10px",
+                  color: "var(--color-text-faint)",
+                  overflow: "hidden",
+                  "text-overflow": "ellipsis",
+                  "white-space": "nowrap",
+                }}
+              >
+                {props.subtitle}
+              </span>
+            </Show>
+          </div>
+          <span
+            style={{
+              "flex-shrink": 0,
+              padding: "2px 8px",
+              "border-radius": "4px",
+              border: "1px solid var(--color-border)",
+              background: "var(--color-bg-subtle)",
+              "font-family": FONT_MONO,
+              "font-size": "10px",
+              color: "var(--color-text-faint)",
+              "letter-spacing": "0.03em",
+            }}
+          >
+            {badge()}
+          </span>
+
+          <Show when={dirty()}>
+            <button type="button" onClick={() => setDraft(savedText())} style={ctlBtn()}>
+              reset
+            </button>
+            <button type="button" onClick={() => void save()} style={ctlBtn(true)}>
+              {saving() ? "saving…" : "save"}
+            </button>
+          </Show>
+
+          <Show when={toggleable()}>
+            <button
+              type="button"
+              onClick={() => setShowSource((v) => !v)}
+              title={showSource() ? "rendered view" : kind() === "code" ? "edit source" : "raw source"}
+              style={iconBtn(showSource())}
+            >
+              <Show when={showSource()} fallback={<IconBraces size={13} strokeWidth={1.6} />}>
+                <IconBookOpen size={13} strokeWidth={1.6} />
+              </Show>
+            </button>
+          </Show>
+
+          <Show when={!isBinary()}>
+            <button type="button" onClick={() => void copy()} title="copy contents" style={iconBtn()}>
+              <IconCopy size={13} strokeWidth={1.6} />
+            </button>
+          </Show>
+          <Show when={isBinary()}>
+            <a href={dataUrl()} download={name()} title="download" style={{ ...iconBtn(), "text-decoration": "none" }}>
+              <IconDownload size={13} strokeWidth={1.6} />
+            </a>
+          </Show>
+          <Show when={kind() === "image"}>
+            <button
+              type="button"
+              onClick={() => setZoom((value) => (value === 1 ? 2 : 1))}
+              title={zoom() === 1 ? "zoom in" : "reset zoom"}
+              style={iconBtn(zoom() !== 1)}
+            >
+              {zoom() === 1 ? "+" : "1:1"}
+            </button>
+          </Show>
+
+          <button type="button" onClick={() => setRefreshKey((k) => k + 1)} title="refresh" style={iconBtn()}>
+            <IconRefresh size={13} strokeWidth={1.6} />
+          </button>
+
+          <Show when={props.onClose}>
+            <button type="button" onClick={() => props.onClose!()} title="close" style={iconBtn()}>
+              <IconX size={14} strokeWidth={1.7} />
+            </button>
           </Show>
         </div>
-        <span
-          style={{
-            "flex-shrink": 0,
-            padding: "2px 8px",
-            "border-radius": "4px",
-            border: "1px solid var(--color-border)",
-            background: "var(--color-bg-subtle)",
-            "font-family": FONT_MONO,
-            "font-size": "10px",
-            color: "var(--color-text-faint)",
-            "letter-spacing": "0.03em",
-          }}
-        >
-          {badge()}
-        </span>
 
-        <Show when={dirty()}>
-          <button type="button" onClick={() => setDraft(savedText())} style={ctlBtn()}>
-            reset
-          </button>
-          <button type="button" onClick={() => void save()} style={ctlBtn(true)}>
-            {saving() ? "saving…" : "save"}
-          </button>
-        </Show>
-
-        <Show when={toggleable()}>
-          <button
-            type="button"
-            onClick={() => setShowSource((v) => !v)}
-            title={showSource() ? "rendered view" : kind() === "code" ? "edit source" : "raw source"}
-            style={iconBtn(showSource())}
-          >
-            <Show when={showSource()} fallback={<IconBraces size={13} strokeWidth={1.6} />}>
-              <IconBookOpen size={13} strokeWidth={1.6} />
-            </Show>
-          </button>
-        </Show>
-
-        <Show when={!isBinary()}>
-          <button type="button" onClick={() => void copy()} title="copy contents" style={iconBtn()}>
-            <IconCopy size={13} strokeWidth={1.6} />
-          </button>
-        </Show>
-        <Show when={isBinary()}>
-          <a href={dataUrl()} download={name()} title="download" style={{ ...iconBtn(), "text-decoration": "none" }}>
-            <IconDownload size={13} strokeWidth={1.6} />
-          </a>
-        </Show>
-        <Show when={kind() === "image"}>
-          <button
-            type="button"
-            onClick={() => setZoom((value) => (value === 1 ? 2 : 1))}
-            title={zoom() === 1 ? "zoom in" : "reset zoom"}
-            style={iconBtn(zoom() !== 1)}
-          >
-            {zoom() === 1 ? "+" : "1:1"}
-          </button>
-        </Show>
-
-        <button type="button" onClick={() => setRefreshKey((k) => k + 1)} title="refresh" style={iconBtn()}>
-          <IconRefresh size={13} strokeWidth={1.6} />
-        </button>
-
-        <Show when={props.onClose}>
-          <button type="button" onClick={() => props.onClose!()} title="close" style={iconBtn()}>
-            <IconX size={14} strokeWidth={1.7} />
-          </button>
-        </Show>
-      </div>
-
-      {/* body */}
-      <Show
-        when={!file.loading}
-        fallback={
-          <div
-            style={{ padding: "20px", "font-family": FONT_MONO, "font-size": "12px", color: "var(--color-text-faint)" }}
-          >
-            loading…
-          </div>
-        }
-      >
+        {/* body */}
         <Show
-          when={!file.error}
+          when={!file.loading}
           fallback={
             <div
               style={{
-                flex: 1,
-                "min-height": 0,
-                display: "flex",
-                "flex-direction": "column",
-                "align-items": "center",
-                "justify-content": "center",
-                gap: "10px",
-                padding: "40px 24px",
-                "text-align": "center",
-                background: "var(--color-bg-subtle)",
+                padding: "20px",
+                "font-family": FONT_MONO,
+                "font-size": "12px",
+                color: "var(--color-text-faint)",
               }}
             >
-              <IconFile size={20} strokeWidth={1.4} />
-              <div
-                style={{
-                  "font-family": FONT_SANS,
-                  "font-size": "13px",
-                  "font-weight": 500,
-                  color: "var(--color-text)",
-                }}
-              >
-                couldn't open this file
-              </div>
-              <div
-                style={{
-                  "font-family": FONT_SANS,
-                  "font-size": "12px",
-                  color: "var(--color-text-faint)",
-                  "line-height": 1.5,
-                  "max-width": "340px",
-                }}
-              >
-                {file.error instanceof Error ? file.error.message : String(file.error)}
-              </div>
-              <button type="button" onClick={() => setRefreshKey((k) => k + 1)} style={retryBtn()}>
-                retry
-              </button>
+              loading…
             </div>
           }
         >
-          <div
-            class="thesis-scroll"
-            style={{
-              flex: 1,
-              "min-height": 0,
-              overflow: "auto",
-              background: "var(--color-bg-subtle)",
-            }}
+          <Show
+            when={!file.error}
+            fallback={
+              <div
+                style={{
+                  flex: 1,
+                  "min-height": 0,
+                  display: "flex",
+                  "flex-direction": "column",
+                  "align-items": "center",
+                  "justify-content": "center",
+                  gap: "10px",
+                  padding: "40px 24px",
+                  "text-align": "center",
+                  background: "var(--color-bg-subtle)",
+                }}
+              >
+                <IconFile size={20} strokeWidth={1.4} />
+                <div
+                  style={{
+                    "font-family": FONT_SANS,
+                    "font-size": "13px",
+                    "font-weight": 500,
+                    color: "var(--color-text)",
+                  }}
+                >
+                  couldn't open this file
+                </div>
+                <div
+                  style={{
+                    "font-family": FONT_SANS,
+                    "font-size": "12px",
+                    color: "var(--color-text-faint)",
+                    "line-height": 1.5,
+                    "max-width": "340px",
+                  }}
+                >
+                  {file.error instanceof Error ? file.error.message : String(file.error)}
+                </div>
+                <button type="button" onClick={() => setRefreshKey((k) => k + 1)} style={retryBtn()}>
+                  retry
+                </button>
+              </div>
+            }
           >
-            <Switch>
-              {/* markdown */}
-              <Match when={kind() === "markdown" && !showSource()}>
-                <div style={{ padding: "22px 26px", "max-width": "820px", margin: "0 auto" }}>
-                  <Markdown class="thesis-md" text={draft()} />
-                </div>
-              </Match>
+            <div
+              class="thesis-scroll"
+              style={{
+                flex: 1,
+                "min-height": 0,
+                overflow: "auto",
+                background: "var(--color-bg-subtle)",
+              }}
+            >
+              <Switch>
+                {/* markdown */}
+                <Match when={kind() === "markdown" && !showSource()}>
+                  <div style={{ padding: "22px 26px", "max-width": "820px", margin: "0 auto" }}>
+                    <Markdown class="thesis-md" text={draft()} />
+                  </div>
+                </Match>
 
-              {/* pdf */}
-              <Match when={kind() === "pdf"}>
-                <div style={{ padding: "14px" }}>
-                  <PdfViewer kind="pdf" data={{ base64: b64(), maxPages: 40 }} height={100000} />
-                </div>
-              </Match>
+                {/* pdf */}
+                <Match when={kind() === "pdf"}>
+                  <div style={{ padding: "14px" }}>
+                    <PdfViewer kind="pdf" data={{ base64: b64(), maxPages: 40 }} height={100000} />
+                  </div>
+                </Match>
 
-              {/* image */}
-              <Match when={kind() === "image"}>
-                <div
-                  style={{
-                    display: "grid",
-                    "place-items": "center",
-                    padding: "22px",
-                    "min-height": "100%",
-                    overflow: zoom() === 1 ? "hidden" : "auto",
-                  }}
-                >
-                  <img
-                    src={dataUrl()}
-                    alt={name()}
-                    onClick={() => setZoom((value) => (value === 1 ? 2 : 1))}
-                    style={{
-                      width: zoom() === 1 ? "auto" : `${zoom() * 100}%`,
-                      "max-width": zoom() === 1 ? "100%" : "none",
-                      "max-height": zoom() === 1 ? "100%" : "none",
-                      "object-fit": "contain",
-                      "border-radius": "4px",
-                      cursor: zoom() === 1 ? "zoom-in" : "zoom-out",
-                    }}
-                  />
-                </div>
-              </Match>
-
-              {/* binary */}
-              <Match when={kind() === "binary"}>
-                <div
-                  style={{
-                    display: "grid",
-                    "place-items": "center",
-                    padding: "40px 24px",
-                    "min-height": "100%",
-                    "text-align": "center",
-                  }}
-                >
+                {/* image */}
+                <Match when={kind() === "image"}>
                   <div
                     style={{
-                      "font-family": FONT_SANS,
-                      "font-size": "13px",
-                      color: "var(--color-text-muted)",
-                      "line-height": 1.6,
+                      display: "grid",
+                      "place-items": "center",
+                      padding: "22px",
+                      "min-height": "100%",
+                      overflow: zoom() === 1 ? "hidden" : "auto",
                     }}
                   >
-                    Binary file — no inline preview.
-                    <br />
-                    Use the download button above to open it.
+                    <img
+                      src={dataUrl()}
+                      alt={name()}
+                      onClick={() => setZoom((value) => (value === 1 ? 2 : 1))}
+                      style={{
+                        width: zoom() === 1 ? "auto" : `${zoom() * 100}%`,
+                        "max-width": zoom() === 1 ? "100%" : "none",
+                        "max-height": zoom() === 1 ? "100%" : "none",
+                        "object-fit": "contain",
+                        "border-radius": "4px",
+                        cursor: zoom() === 1 ? "zoom-in" : "zoom-out",
+                      }}
+                    />
                   </div>
-                </div>
-              </Match>
+                </Match>
 
-              {/* code / text — editable source, or highlighted read view */}
-              <Match when={kind() === "code" && showSource()}>
-                <textarea
-                  value={draft()}
-                  spellcheck={false}
-                  onInput={(ev) => setDraft(ev.currentTarget.value)}
-                  class="thesis-scroll"
-                  style={{
-                    all: "unset",
-                    "box-sizing": "border-box",
-                    display: "block",
-                    width: "100%",
-                    "min-height": "100%",
-                    padding: "16px 18px",
-                    "font-family": FONT_CODE,
-                    "font-size": "12px",
-                    "line-height": 1.65,
-                    color: "var(--color-text)",
-                    "white-space": "pre",
-                    "tab-size": 2,
-                  }}
-                />
-              </Match>
-              <Match when={kind() === "code" || (kind() === "markdown" && showSource())}>
-                <div style={{ padding: "14px 16px" }}>
-                  <Markdown
-                    class="thesis-md"
-                    text={fence(
-                      showSource() && kind() !== "code" ? langFor(kind(), e()) : (LANG[e()] ?? "text"),
-                      draft(),
-                    )}
+                {/* binary */}
+                <Match when={kind() === "binary"}>
+                  <div
+                    style={{
+                      display: "grid",
+                      "place-items": "center",
+                      padding: "40px 24px",
+                      "min-height": "100%",
+                      "text-align": "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        "font-family": FONT_SANS,
+                        "font-size": "13px",
+                        color: "var(--color-text-muted)",
+                        "line-height": 1.6,
+                      }}
+                    >
+                      Binary file — no inline preview.
+                      <br />
+                      Use the download button above to open it.
+                    </div>
+                  </div>
+                </Match>
+
+                {/* code / text — editable source, or highlighted read view */}
+                <Match when={kind() === "code" && showSource()}>
+                  <textarea
+                    value={draft()}
+                    spellcheck={false}
+                    onInput={(ev) => setDraft(ev.currentTarget.value)}
+                    class="thesis-scroll"
+                    style={{
+                      all: "unset",
+                      "box-sizing": "border-box",
+                      display: "block",
+                      width: "100%",
+                      "min-height": "100%",
+                      padding: "16px 18px",
+                      "font-family": FONT_CODE,
+                      "font-size": "12px",
+                      "line-height": 1.65,
+                      color: "var(--color-text)",
+                      "white-space": "pre",
+                      "tab-size": 2,
+                    }}
                   />
-                </div>
-              </Match>
-            </Switch>
-          </div>
+                </Match>
+                <Match when={kind() === "code" || (kind() === "markdown" && showSource())}>
+                  <div style={{ padding: "14px 16px" }}>
+                    <Markdown
+                      class="thesis-md"
+                      text={fence(
+                        showSource() && kind() !== "code" ? langFor(kind(), e()) : (LANG[e()] ?? "text"),
+                        draft(),
+                      )}
+                    />
+                  </div>
+                </Match>
+              </Switch>
+            </div>
+          </Show>
         </Show>
-      </Show>
       </div>
     </Suspense>
   )

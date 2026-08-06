@@ -24,7 +24,14 @@ export function AgentIcon(props: AgentIconProps) {
       aria-hidden="true"
     >
       <g data-slot="agent-icon-ring">
-        <circle cx="12" cy="12" r="10" fill="var(--agent-icon-paper)" stroke="var(--agent-icon-ink)" stroke-width="0.8" />
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+          fill="var(--agent-icon-paper)"
+          stroke="var(--agent-icon-ink)"
+          stroke-width="0.8"
+        />
         <path
           d="M12 2A10 10 0 0 0 12 22C15 22 15 18.6 12 17C10 16.1 10 7.9 12 7C15 5.4 15 2 12 2Z"
           fill="var(--agent-icon-ink)"

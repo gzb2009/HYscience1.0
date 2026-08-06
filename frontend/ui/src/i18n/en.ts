@@ -125,5 +125,6 @@ export const dict = {
   "ui.question.action.skip": "Skip — you decide",
   "ui.question.action.useRecommended": "Continue with recommendation",
   "ui.question.skip.default": "Agent decides",
-  "ui.question.decision.waiting": "Recommendation kept. Continue with it, pick another option, or stop — answering is optional.",
+  "ui.question.decision.waiting":
+    "Recommendation kept. Continue with it, pick another option, or stop — answering is optional.",
 }

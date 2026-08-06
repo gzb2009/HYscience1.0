@@ -115,7 +115,9 @@ export function SetupDialog(props: { onDismiss?: () => void }): JSX.Element {
         </Show>
 
         <Show when={view() === "done"}>
-          <p class="text-13-regular text-text-weak">Provider key saved. You can add more keys anytime in Settings → Credentials.</p>
+          <p class="text-13-regular text-text-weak">
+            Provider key saved. You can add more keys anytime in Settings → Credentials.
+          </p>
           <Button variant="primary" onClick={() => dialog.close()}>
             Done
           </Button>

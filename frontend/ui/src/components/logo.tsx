@@ -1,25 +1,11 @@
 import { AgentIcon } from "./agent-icon"
 
 export const Mark = (props: { class?: string; animated?: boolean }) => {
-  return (
-    <AgentIcon
-      data-component="logo-mark"
-      class={props.class}
-      size={16}
-      animated={props.animated}
-    />
-  )
+  return <AgentIcon data-component="logo-mark" class={props.class} size={16} animated={props.animated} />
 }
 
 export const Splash = (props: { class?: string; animated?: boolean }) => {
-  return (
-    <AgentIcon
-      data-component="logo-splash"
-      class={props.class}
-      size={80}
-      animated={props.animated}
-    />
-  )
+  return <AgentIcon data-component="logo-splash" class={props.class} size={80} animated={props.animated} />
 }
 
 export const Logo = (props: { class?: string; animated?: boolean }) => {

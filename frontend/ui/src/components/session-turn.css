@@ -397,7 +397,10 @@
       border-radius: 7px;
       background: var(--surface-base);
       cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+      transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        transform 0.15s ease;
     }
 
     [data-slot="session-turn-result-file-tile"]:hover {

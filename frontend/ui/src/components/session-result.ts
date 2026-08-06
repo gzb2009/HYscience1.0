@@ -42,7 +42,6 @@ function resultRole(name: string, parentDir?: string): ResultFile["role"] {
 
 const RESULT_EXTS = /\.(xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|rds)$/i
 
-
 /** @deprecated Prefer collectTaskFileNames or collectRecentTurnFileNames */
 export function collectSessionFileNames(input: {
   assistantMessages: { id: string }[]
@@ -305,15 +304,16 @@ export function organizeResultFiles(files: ResultFile[]): OrganizedResults {
     const superseded = group.filter((file) => file.path !== latest.path)
     hiddenCount += superseded.length
 
-    const intermediateLatest =
-      isIntermediateArtifact(latest.name) && latest.role !== "primary"
+    const intermediateLatest = isIntermediateArtifact(latest.name) && latest.role !== "primary"
     if (intermediateLatest) intermediate.push(latest)
     else deliverables.push(latest)
 
     for (const file of superseded) intermediate.push(file)
   }
 
-  deliverables.sort((a, b) => Number(b.role === "primary") - Number(a.role === "primary") || a.name.localeCompare(b.name))
+  deliverables.sort(
+    (a, b) => Number(b.role === "primary") - Number(a.role === "primary") || a.name.localeCompare(b.name),
+  )
   intermediate.sort((a, b) => a.name.localeCompare(b.name))
 
   return { deliverables, intermediate, hiddenCount }

@@ -568,7 +568,9 @@ export default function Page(): JSX.Element {
     >
       <ToastContainer />
       <Show when={uiStore.imagePreview()}>
-        {(artifact) => <ArtifactImagePreview artifact={artifact()} onClose={() => uiStore.setImagePreview(undefined)} />}
+        {(artifact) => (
+          <ArtifactImagePreview artifact={artifact()} onClose={() => uiStore.setImagePreview(undefined)} />
+        )}
       </Show>
       <HelpOverlay open={uiStore.helpOpen()} onClose={() => uiStore.setHelpOpen(false)} />
       <CommandPalette open={uiStore.paletteOpen()} onClose={() => uiStore.setPaletteOpen(false)} />
@@ -721,10 +723,7 @@ export default function Page(): JSX.Element {
                                     file={file}
                                   />
                                 ) : file.kind === "pdf" ? (
-                                  <ArtifactPdfThumb
-                                    directory={sync.data.path.directory || sdk.directory}
-                                    file={file}
-                                  />
+                                  <ArtifactPdfThumb directory={sync.data.path.directory || sdk.directory} file={file} />
                                 ) : file.kind === "csv" || file.kind === "tsv" ? (
                                   <ArtifactTableThumb
                                     directory={sync.data.path.directory || sdk.directory}
@@ -1273,7 +1272,6 @@ function FilesError(props: { error: unknown }): JSX.Element {
   )
 }
 
-
 function ArtifactImageThumb(props: { directory: string; file: ResultFile }): JSX.Element {
   const sdk = useSDK()
   const [data] = createResource(
@@ -1285,12 +1283,7 @@ function ArtifactImageThumb(props: { directory: string; file: ResultFile }): JSX
   )
   const src = () => artifactImageUrl(data(), props.file.mime)
   return (
-    <Show
-      when={src()}
-      fallback={
-        <div data-slot="session-turn-result-file-preview-loading">loading preview…</div>
-      }
-    >
+    <Show when={src()} fallback={<div data-slot="session-turn-result-file-preview-loading">loading preview…</div>}>
       <img src={src()} alt={props.file.name} loading="lazy" decoding="async" />
     </Show>
   )
@@ -1506,17 +1499,34 @@ function ArtifactImagePreview(props: {
                 <span style={{ flex: 1, overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
                   {props.artifact.name}
                 </span>
-                <button type="button" title="缩小" onClick={() => setZoomBounded(zoom() - 0.25)} style={previewButton()}>
+                <button
+                  type="button"
+                  title="缩小"
+                  onClick={() => setZoomBounded(zoom() - 0.25)}
+                  style={previewButton()}
+                >
                   −
                 </button>
-                <span style={{ width: "38px", "text-align": "center", "font-size": "10px" }}>{Math.round(zoom() * 100)}%</span>
-                <button type="button" title="放大" onClick={() => setZoomBounded(zoom() + 0.25)} style={previewButton()}>
+                <span style={{ width: "38px", "text-align": "center", "font-size": "10px" }}>
+                  {Math.round(zoom() * 100)}%
+                </span>
+                <button
+                  type="button"
+                  title="放大"
+                  onClick={() => setZoomBounded(zoom() + 0.25)}
+                  style={previewButton()}
+                >
                   +
                 </button>
                 <button type="button" title="原始比例" onClick={() => setZoom(1)} style={previewButton()}>
                   1:1
                 </button>
-                <a href={image()} download={props.artifact.name} title="下载" style={{ ...previewButton(), "text-decoration": "none" }}>
+                <a
+                  href={image()}
+                  download={props.artifact.name}
+                  title="下载"
+                  style={{ ...previewButton(), "text-decoration": "none" }}
+                >
                   ↓
                 </a>
                 <button type="button" title="关闭" onClick={props.onClose} style={previewButton()}>

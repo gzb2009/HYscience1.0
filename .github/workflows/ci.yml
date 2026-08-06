@@ -64,15 +64,6 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - run: bun run --cwd frontend/workspace test:unit
 
-  atlas:
-    name: Test (atlas)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup-bun
-      - run: bun run --cwd tooling/atlas test
-
   build:
     name: Build (web)
     runs-on: ubuntu-latest

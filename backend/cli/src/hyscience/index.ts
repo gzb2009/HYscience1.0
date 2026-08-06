@@ -57,12 +57,64 @@ export class InsufficientCreditsError extends Error {
   }
 }
 
+export type Session = {
+  api_key: string
+}
+
+export type SyncResult = {
+  user?: unknown
+  credentials: number
+}
+
+export type BillingMode = {
+  mode: "byok" | "managed"
+  balance_cents?: number
+  balance_usd?: number
+  managed_supported?: boolean
+}
+
+export type Credits = {
+  balanceUsd?: number
+  lifetimeSpentCents?: number
+}
+
+export type Transaction = {
+  id: string
+  amountCents: number
+  source: string
+  description: string
+  createdAt: string
+}
+
+export type SkillReviewSkill = {
+  namespace: string
+  name: string
+  description: string
+  content: string
+  scripts: { path: string; content: string }[]
+}
+
+export type SkillReviewResult = {
+  per_skill: { name: string; verdict: string; reasoning: string }[]
+}
+
+export type InstalledSkill = {
+  namespace: string
+  name: string
+  description: string
+  review_verdict: string
+}
+
+export type DeleteNamespaceResult = {
+  archived: number
+}
+
 export namespace HYscience {
   export async function refreshIfStale(): Promise<void> {}
 
   export async function flushPendingUsage(): Promise<void> {}
 
-  export async function getSession(): Promise<null> {
+  export async function getSession(): Promise<Session | null> {
     return null
   }
 
@@ -70,33 +122,33 @@ export namespace HYscience {
     return false
   }
 
-  export async function syncServices(): Promise<null> {
+  export async function syncServices(): Promise<SyncResult | null> {
     return null
   }
 
-  export async function getBalance(): Promise<null> {
+  export async function getBalance(): Promise<number | null> {
     return null
   }
 
   export function invalidateBalance(): void {}
 
-  export async function getBillingMode(): Promise<null> {
+  export async function getBillingMode(): Promise<BillingMode | null> {
     return null
   }
 
-  export async function setBillingMode(_mode: string): Promise<null> {
+  export async function setBillingMode(_mode: string): Promise<BillingMode | null> {
     return null
   }
 
-  export async function getCredits(): Promise<null> {
+  export async function getCredits(): Promise<Credits | null> {
     return null
   }
 
-  export async function getTransactions(_limit?: number): Promise<null> {
+  export async function getTransactions(_limit?: number): Promise<Transaction[] | null> {
     return null
   }
 
-  export async function listDevices(): Promise<null> {
+  export async function listDevices(): Promise<unknown[] | null> {
     return null
   }
 
@@ -124,7 +176,7 @@ export namespace HYscience {
 
   export async function reportUsage(_entry: Record<string, unknown>): Promise<void> {}
 
-  export async function fetchSkillIndex(): Promise<null> {
+  export async function fetchSkillIndex(): Promise<unknown[] | null> {
     return null
   }
 
@@ -132,7 +184,7 @@ export namespace HYscience {
     return null
   }
 
-  export async function fetchLearnedSkills(): Promise<null> {
+  export async function fetchLearnedSkills(): Promise<unknown[] | null> {
     return null
   }
 
@@ -149,7 +201,7 @@ export namespace HYscience {
     return false
   }
 
-  export async function fetchInstalledSkills(): Promise<null> {
+  export async function fetchInstalledSkills(): Promise<InstalledSkill[] | null> {
     return null
   }
 
@@ -161,15 +213,15 @@ export namespace HYscience {
     return false
   }
 
-  export async function deleteInstalledNamespace(_namespace: string): Promise<null> {
+  export async function deleteInstalledNamespace(_namespace: string): Promise<DeleteNamespaceResult | null> {
     return null
   }
 
-  export async function requestSkillReview(_payload: Record<string, unknown>): Promise<null> {
+  export async function requestSkillReview(_payload: SkillReviewSkill[]): Promise<SkillReviewResult | null> {
     return null
   }
 
-  export async function atlasCliVersion(): Promise<null> {
+  export async function atlasCliVersion(): Promise<string | null> {
     return null
   }
 

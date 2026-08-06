@@ -8,7 +8,6 @@ import { State } from "../project/state"
 import { runtimeRegexPass, classifierInjectionRegexPass } from "./install/review"
 import { NamedError } from "@hysci/util/error"
 import { ConfigMarkdown } from "../config/markdown"
-import { ConfigMarkdown } from "../config/markdown"
 import { Log } from "../util/log"
 import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
@@ -16,7 +15,6 @@ import { Flag } from "@/flag/flag"
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { Session } from "@/session"
-import { Flag } from "@/flag/flag"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })

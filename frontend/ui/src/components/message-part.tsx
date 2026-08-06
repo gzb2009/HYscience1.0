@@ -1623,7 +1623,9 @@ function QuestionPrompt(props: { request: QuestionRequest }) {
       const exact = q.options.find((opt) => opt.label === rec)
       if (exact) return exact.label
       const loose = q.options.find(
-        (opt) => opt.label.includes(rec) || rec.includes(opt.label.replace(/\s*[\(（](?:Recommended|推荐)[\)）]\s*$/i, "").trim()),
+        (opt) =>
+          opt.label.includes(rec) ||
+          rec.includes(opt.label.replace(/\s*[\(（](?:Recommended|推荐)[\)）]\s*$/i, "").trim()),
       )
       if (loose) return loose.label
     }
@@ -1859,9 +1861,7 @@ function QuestionPrompt(props: { request: QuestionRequest }) {
           {i18n.t("ui.question.action.stop")}
         </Button>
         <Button variant="secondary" size="small" onClick={skip}>
-          {decision()?.recommendation
-            ? i18n.t("ui.question.action.useRecommended")
-            : i18n.t("ui.question.action.skip")}
+          {decision()?.recommendation ? i18n.t("ui.question.action.useRecommended") : i18n.t("ui.question.action.skip")}
         </Button>
         <Show when={!single()}>
           <Show when={confirm()}>

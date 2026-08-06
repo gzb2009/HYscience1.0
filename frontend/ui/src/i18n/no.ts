@@ -127,5 +127,6 @@ export const dict: Record<Keys, string> = {
   "ui.question.action.skip": "Hopp over — du bestemmer",
   "ui.question.action.useRecommended": "Fortsett med anbefaling",
   "ui.question.skip.default": "Agenten bestemmer",
-  "ui.question.decision.waiting": "Anbefaling beholdt. Fortsett med den, velg et annet alternativ, eller stopp — svar er valgfritt.",
+  "ui.question.decision.waiting":
+    "Anbefaling beholdt. Fortsett med den, velg et annet alternativ, eller stopp — svar er valgfritt.",
 }

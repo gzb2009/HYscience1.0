@@ -556,9 +556,12 @@ export const dict = {
   "chat.welcome.lead": "Describe your research question, or start from a suggestion below.",
   "chat.welcome.noModel": "No model is connected yet — set one up to start, with managed credits or your own key.",
   "chat.welcome.setup": "Set up models →",
-  "chat.welcome.prompt1": "Run QC, normalization, and clustering on a scRNA-seq dataset, then identify major cell types.",
-  "chat.welcome.prompt2": "Analyze IMC / CODEX spatial proteomics data and compare cell composition and neighborhoods across tissue regions.",
-  "chat.welcome.prompt3": "Draft a next-step experiment plan from the current results, with hypotheses, metrics, and controls.",
+  "chat.welcome.prompt1":
+    "Run QC, normalization, and clustering on a scRNA-seq dataset, then identify major cell types.",
+  "chat.welcome.prompt2":
+    "Analyze IMC / CODEX spatial proteomics data and compare cell composition and neighborhoods across tissue regions.",
+  "chat.welcome.prompt3":
+    "Draft a next-step experiment plan from the current results, with hypotheses, metrics, and controls.",
 
   "app.name.desktop": "HYscience Desktop",
 
