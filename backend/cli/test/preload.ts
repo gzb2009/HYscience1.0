@@ -77,6 +77,12 @@ delete process.env["FIREWORKS_API_KEY"]
 delete process.env["CEREBRAS_API_KEY"]
 delete process.env["SAMBANOVA_API_KEY"]
 
+// Linux CI only: settle Agent ↔ ToolRegistry ↔ ReadTool before test files import
+// Agent at module scope (see test/tool/read.test.ts).
+if (process.platform === "linux") {
+  await import("../src/tool/read")
+}
+
 // Now safe to import from src/
 const { Log } = await import("../src/util/log")
 
