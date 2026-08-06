@@ -629,7 +629,7 @@ export function injectResearchContract(messages: MessageV2.WithParts[], userMess
   }
   if (contract.mustClarify) {
     lines.push(
-      `Execution is blocked only by: ${contract.missingPremises.join("; ")}. State what can be answered generally, then request only this missing information.`,
+      `Execution is blocked only by: ${contract.missingPremises.join("; ")}. State what can be answered generally, then use the question tool (max 1-2 focused questions) to collect only this missing information — do not proceed with fabricated inputs.`,
     )
   }
   if (contract.gates.includes("literature")) {
@@ -744,8 +744,14 @@ async function applyDynamicInjections(
   note("error-recovery")
   const researchAgents = ["research", "biology", "physics", "ml"]
   if (researchAgents.includes(input.agent.name)) {
+    injectInteractionContract(userMessage)
+    note("interaction-contract")
     injectResultDelivery(userMessage)
     injectResearchContract(messages, userMessage)
+    if (input.agent.name === "biology") {
+      injectDataGate(userMessage)
+      note("data-gate")
+    }
     if (task) await injectResearchContext(userMessage, input.session.id, task.id)
     note("research-intent")
   }
@@ -796,6 +802,20 @@ export async function injectResearchContext(userMessage: MessageV2.WithParts, se
   })
 }
 
+export function injectInteractionContract(userMessage: MessageV2.WithParts) {
+  pushHybioText(
+    userMessage,
+    [
+      '<system-reminder id="interaction-contract">',
+      "## User-visible progress and interaction",
+      "When extended thinking/reasoning is available, start each major segment with a bold one-line label (e.g. **检查数据文件**) so the UI can show live status.",
+      "When execution needs missing files/parameters, an irreversible method choice, or high-impact confirmation, use the question tool (max 1-2 questions per turn) — not only prose asking the user to reply in chat.",
+      "Answer what you can first, then ask. Do not block on a checklist when a partial answer is possible.",
+      "</system-reminder>",
+    ].join("\n"),
+  )
+}
+
 export function injectDataGate(userMessage: MessageV2.WithParts) {
   const textParts = userMessage.parts.filter((p): p is MessageV2.TextPart => p.type === "text")
   const text = textParts.map((p) => p.text).join(" ")
@@ -839,8 +859,8 @@ export function injectDataGate(userMessage: MessageV2.WithParts) {
   const lines = [
     '<system-reminder id="data-gate">',
     "## DATA GATE",
-    "No data files attached. Reply ONLY by asking for file path, format, and column names.",
-    "Do not output any analysis results, code, tables, or suggestions.",
+    "No data files attached. Use the question tool to ask for file path, format, and key column names (max 1-2 questions).",
+    "Do not output analysis results, code, tables, or suggestions until data is available.",
     "</system-reminder>",
   ]
   userMessage.parts.push({
