@@ -8,6 +8,7 @@ import type { WSContext } from "hono/ws"
 import { Instance } from "../project/instance"
 import { lazy } from "@hysci/util/lazy"
 import { Shell } from "@/shell/shell"
+import { ProcessEnvironment } from "@/process/environment"
 
 export namespace Pty {
   const log = Log.create({ service: "pty" })
@@ -96,18 +97,23 @@ export namespace Pty {
   export async function create(input: CreateInput) {
     const id = Identifier.create("pty", false)
     const command = input.command || Shell.preferred()
-    const args = input.args || []
-    if (command.endsWith("sh")) {
+    const args = [...(input.args ?? [])]
+    const mode = await ProcessEnvironment.mode("pty")
+    if (!input.command && mode === "inherit" && command.endsWith("sh")) {
       args.push("-l")
+    }
+    if (!input.command && mode === "safe") {
+      if (command.endsWith("zsh")) args.push("-f")
+      if (command.endsWith("bash")) args.push("--noprofile", "--norc")
+      if (command.endsWith("fish")) args.push("--no-config")
     }
 
     const cwd = input.cwd || Instance.directory
-    const env = {
-      ...process.env,
+    const env = await ProcessEnvironment.resolve("pty", {
       ...input.env,
       TERM: "xterm-256color",
       HYSCIENCE_TERMINAL: "1",
-    } as Record<string, string>
+    })
     log.info("creating session", { id, cmd: command, args, cwd })
 
     const spawn = await pty()

@@ -1,6 +1,6 @@
 export namespace ProcessPolicy {
   export type Mode = "safe" | "inherit"
-  export type Profile = "runtime" | "bash" | "notebook" | "remote"
+  export type Profile = "runtime" | "bash" | "notebook" | "remote" | "pty"
 
   const COMMON = new Set([
     "COLORTERM",
@@ -44,6 +44,7 @@ export namespace ProcessPolicy {
     bash: new Set(),
     notebook: new Set(),
     remote: new Set(["SSH_AUTH_SOCK"]),
+    pty: new Set(),
   }
 
   function values(env: NodeJS.ProcessEnv) {

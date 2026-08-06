@@ -1644,6 +1644,22 @@ export type Config = {
        */
       byokProviders?: Array<string>
     }
+    pty?: {
+      /**
+       * Environment inheritance mode. Defaults to 'safe'. Use 'inherit' only as a temporary compatibility escape hatch.
+       */
+      environmentMode?: "safe" | "inherit"
+      /**
+       * Explicit environment variables exposed to this subprocess profile
+       */
+      environment?: {
+        [key: string]: string
+      }
+      /**
+       * Provider IDs whose user-owned API keys may be injected into this subprocess profile
+       */
+      byokProviders?: Array<string>
+    }
   }
   /**
    * Command configuration, see https://hyscience.ai/docs/commands

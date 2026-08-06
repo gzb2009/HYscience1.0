@@ -57,6 +57,7 @@ import { correctImageMime } from "@/util/image"
 import { insertReminders } from "./prompt-inject"
 import { resolveTools } from "./prompt-tools"
 import { Shell } from "@/shell/shell"
+import { ProcessEnvironment } from "@/process/environment"
 import { Truncate } from "@/tool/truncation"
 import { Memory } from "@/settings/memory"
 import { TaskScope } from "./task-scope"
@@ -1313,26 +1314,10 @@ export namespace SessionPrompt {
         args: ["-c", input.command],
       },
       zsh: {
-        args: [
-          "-c",
-          "-l",
-          `
-            [[ -f ~/.zshenv ]] && source ~/.zshenv >/dev/null 2>&1 || true
-            [[ -f "\${ZDOTDIR:-$HOME}/.zshrc" ]] && source "\${ZDOTDIR:-$HOME}/.zshrc" >/dev/null 2>&1 || true
-            eval ${JSON.stringify(input.command)}
-          `,
-        ],
+        args: ["-c", input.command],
       },
       bash: {
-        args: [
-          "-c",
-          "-l",
-          `
-            shopt -s expand_aliases
-            [[ -f ~/.bashrc ]] && source ~/.bashrc >/dev/null 2>&1 || true
-            eval ${JSON.stringify(input.command)}
-          `,
-        ],
+        args: ["-c", input.command],
       },
       // Windows cmd
       cmd: {
@@ -1354,15 +1339,15 @@ export namespace SessionPrompt {
 
     const matchingInvocation = invocations[shellName] ?? invocations[""]
     const args = matchingInvocation?.args
+    const timeout = await ProcessEnvironment.bashTimeout()
 
     const proc = spawn(shell, args, {
       cwd: Instance.directory,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
+      env: await ProcessEnvironment.resolve("bash", {
         TERM: "dumb",
-      },
+      }),
     })
 
     let output = ""
@@ -1390,6 +1375,7 @@ export namespace SessionPrompt {
     })
 
     let aborted = false
+    let timedOut = false
     let exited = false
 
     const kill = () => Shell.killTree(proc, { exited: () => exited })
@@ -1405,10 +1391,18 @@ export namespace SessionPrompt {
     }
 
     abort.addEventListener("abort", abortHandler, { once: true })
+    const timer =
+      timeout > 0
+        ? setTimeout(() => {
+            timedOut = true
+            void kill()
+          }, timeout + 100)
+        : undefined
 
     await new Promise<void>((resolve) => {
       proc.on("close", () => {
         exited = true
+        if (timer) clearTimeout(timer)
         abort.removeEventListener("abort", abortHandler)
         resolve()
       })
@@ -1416,6 +1410,10 @@ export namespace SessionPrompt {
 
     if (aborted) {
       output += "\n\n" + ["<metadata>", "User aborted the command", "</metadata>"].join("\n")
+    }
+    if (timedOut) {
+      output +=
+        "\n\n" + ["<metadata>", `Command terminated after exceeding timeout ${timeout} ms`, "</metadata>"].join("\n")
     }
     msg.time.completed = Date.now()
     await Session.updateMessage(msg)

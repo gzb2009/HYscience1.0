@@ -17,6 +17,9 @@ describe("process security profiles", () => {
         remote: {
           environmentMode: "inherit",
         },
+        pty: {
+          environment: { EDITOR_MODE: "safe" },
+        },
       },
     })
 
@@ -24,6 +27,7 @@ describe("process security profiles", () => {
     expect(config.process?.bash?.byokProviders).toEqual(["openrouter"])
     expect(config.process?.notebook?.environment).toEqual({ UV_CACHE_DIR: "/tmp/uv" })
     expect(config.process?.remote?.environmentMode).toBe("inherit")
+    expect(config.process?.pty?.environment).toEqual({ EDITOR_MODE: "safe" })
   })
 
   test("allows zero to disable the default bash timeout", () => {

@@ -14403,6 +14403,37 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "pty": {
+                "type": "object",
+                "properties": {
+                  "environmentMode": {
+                    "description": "Environment inheritance mode. Defaults to 'safe'. Use 'inherit' only as a temporary compatibility escape hatch.",
+                    "type": "string",
+                    "enum": [
+                      "safe",
+                      "inherit"
+                    ]
+                  },
+                  "environment": {
+                    "description": "Explicit environment variables exposed to this subprocess profile",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "byokProviders": {
+                    "description": "Provider IDs whose user-owned API keys may be injected into this subprocess profile",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false

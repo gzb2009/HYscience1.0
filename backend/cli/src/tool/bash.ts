@@ -11,17 +11,14 @@ import { Language } from "web-tree-sitter"
 import { $ } from "bun"
 import { Filesystem } from "@/util/filesystem"
 import { fileURLToPath } from "url"
-import { Flag } from "@/flag/flag.ts"
 import { Shell } from "@/shell/shell"
 
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 import { HYscience } from "@/hyscience"
 import { ProcessEnvironment } from "@/process/environment"
-import { ProcessPolicy } from "@/process/policy"
 
 const MAX_METADATA_LENGTH = 30_000
-const DEFAULT_TIMEOUT = Flag.HYSCIENCE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS ?? 120_000
 
 export const log = Log.create({ service: "bash-tool" })
 
@@ -88,11 +85,7 @@ export const BashTool = Tool.define("bash", async () => {
       if (params.timeout !== undefined && params.timeout < 0) {
         throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
       }
-      const timeout = ProcessPolicy.timeout({
-        requested: params.timeout,
-        configured: await ProcessEnvironment.bashTimeout(),
-        fallback: DEFAULT_TIMEOUT,
-      })
+      const timeout = await ProcessEnvironment.bashTimeout(params.timeout)
       const tree = await parser().then((p) => p.parse(params.command))
       if (!tree) {
         throw new Error("Failed to parse command")

@@ -544,6 +544,7 @@ export namespace Config {
         .optional(),
       notebook: ProcessProfile.optional(),
       remote: ProcessProfile.optional(),
+      pty: ProcessProfile.optional(),
     })
     .strict()
 
