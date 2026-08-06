@@ -262,6 +262,7 @@ export function SessionTurn(
     onRevealFile?: (path: string) => void
     onOpenInApp?: (path: string, app?: "excel") => void
     hideTools?: string[]
+    hideResponse?: boolean
     classes?: {
       root?: string
       content?: string
@@ -826,9 +827,9 @@ export function SessionTurn(
                     </Show>
                     {/* Response */}
                     <div class="sr-only" aria-live="polite">
-                      {!working() && response() ? response() : ""}
+                      {!props.hideResponse && !working() && response() ? response() : ""}
                     </div>
-                    <Show when={response() || hasDiffs()}>
+                    <Show when={!props.hideResponse && (response() || hasDiffs())}>
                       <div
                         data-slot="session-turn-summary-section"
                         data-streaming={working() && !!response()}

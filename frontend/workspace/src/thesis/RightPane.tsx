@@ -1,7 +1,8 @@
 import { createSignal, Show, type JSX } from "solid-js"
 import { uiStore } from "@/thesis/store/ui"
 import { TerminalTab } from "@/thesis/RightPane/TerminalTab"
-import { IconChevronLeft, IconChevronRight, IconTerminal } from "@/thesis/shared/Icon"
+import { ReviewInspector } from "@/thesis/RightPane/ReviewInspector"
+import { IconBrain, IconChevronLeft, IconChevronRight, IconTerminal } from "@/thesis/shared/Icon"
 
 const WIDTH_KEY = "thesis-right-pane-width-v1"
 const MIN_WIDTH = 256
@@ -41,11 +42,16 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
     } catch {}
   }
 
+  function open(tab: "terminal" | "review") {
+    uiStore.setRightPaneTab(tab)
+    uiStore.setRightPaneOpen(true)
+  }
+
   return (
     <Show
       when={uiStore.rightPaneOpen()}
       fallback={
-        <aside class="cs-rightpane-rail" aria-label="Terminal" style={rail()}>
+        <aside class="cs-rightpane-rail" aria-label="Inspector" style={rail()}>
           <button
             type="button"
             title="展开终端"
@@ -59,15 +65,26 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
             type="button"
             title="终端"
             aria-label="打开终端"
-            onClick={() => uiStore.setRightPaneOpen(true)}
+            onClick={() => open("terminal")}
             style={railButton()}
+            data-active={uiStore.rightPaneTab() === "terminal" ? "true" : undefined}
           >
             <IconTerminal size={15} strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            title="Review"
+            aria-label="Open review inspector"
+            onClick={() => open("review")}
+            style={railButton()}
+            data-active={uiStore.rightPaneTab() === "review" ? "true" : undefined}
+          >
+            <IconBrain size={15} strokeWidth={1.5} />
           </button>
         </aside>
       }
     >
-      <aside class="cs-rightpane-fixed" aria-label="Terminal" style={pane(width())}>
+      <aside class="cs-rightpane-fixed" aria-label="Inspector" style={pane(width())}>
         <div
           role="separator"
           aria-orientation="vertical"
@@ -77,10 +94,24 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
           style={resizeHandle()}
         />
         <header style={header()}>
-          <span style={title()}>
-            <IconTerminal size={13} strokeWidth={1.6} />
-            终端
-          </span>
+          <nav class="cs-rightpane-tabs" aria-label="Inspector views">
+            <button
+              type="button"
+              data-active={uiStore.rightPaneTab() === "terminal" ? "true" : undefined}
+              onClick={() => uiStore.setRightPaneTab("terminal")}
+            >
+              <IconTerminal size={13} strokeWidth={1.6} />
+              Terminal
+            </button>
+            <button
+              type="button"
+              data-active={uiStore.rightPaneTab() === "review" ? "true" : undefined}
+              onClick={() => uiStore.setRightPaneTab("review")}
+            >
+              <IconBrain size={13} strokeWidth={1.6} />
+              Review
+            </button>
+          </nav>
           <button
             type="button"
             title="收起"
@@ -92,7 +123,12 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
           </button>
         </header>
         <div style={{ flex: 1, "min-height": 0, display: "flex" }}>
-          <TerminalTab />
+          <Show when={uiStore.rightPaneTab() === "terminal"}>
+            <TerminalTab />
+          </Show>
+          <Show when={uiStore.rightPaneTab() === "review"}>
+            <ReviewInspector sessionID={props.sessionID} />
+          </Show>
         </div>
       </aside>
     </Show>
@@ -146,18 +182,6 @@ function header(): JSX.CSSProperties {
     "justify-content": "space-between",
     gap: "8px",
     padding: "8px 12px",
-  }
-}
-
-function title(): JSX.CSSProperties {
-  return {
-    display: "inline-flex",
-    "align-items": "center",
-    gap: "6px",
-    "font-family": "var(--font-sans)",
-    "font-size": "11px",
-    "font-weight": 600,
-    color: "var(--color-text)",
   }
 }
 

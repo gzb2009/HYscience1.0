@@ -3535,3 +3535,503 @@ button.cs-composer-label:hover {
     padding-inline: 12px;
   }
 }
+
+.cs-rightpane-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-bg);
+}
+
+.cs-rightpane-tabs button {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border-radius: 3px;
+  color: var(--color-text-faint);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cs-rightpane-tabs button:hover,
+.cs-rightpane-tabs button[data-active="true"] {
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+}
+
+.cs-rightpane-tabs button:focus-visible,
+.cs-rightpane-rail button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.cs-rightpane-rail button[data-active="true"] {
+  background: var(--color-accent-subtle) !important;
+  color: var(--color-accent) !important;
+}
+
+.cs-review-inspector {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border);
+}
+
+.cs-review-inspector-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  padding: 28px 22px;
+  color: var(--color-text-faint);
+  text-align: center;
+}
+
+.cs-review-inspector-empty strong {
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.cs-review-inspector-empty span {
+  max-width: 220px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cs-review-history {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cs-review-history-row {
+  --review-tone: var(--color-text-faint);
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.cs-review-history-row[data-tone="clean"] {
+  --review-tone: var(--color-success);
+}
+
+.cs-review-history-row[data-tone="flagged"] {
+  --review-tone: var(--color-warning);
+}
+
+.cs-review-history-row[data-tone="error"],
+.cs-review-history-row[data-tone="blocked"] {
+  --review-tone: var(--color-error);
+}
+
+.cs-review-history-row:hover,
+.cs-review-history-row[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--review-tone) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--review-tone) 7%, var(--color-bg));
+  color: var(--color-text);
+}
+
+.cs-review-history-row:focus-visible {
+  outline: 2px solid var(--review-tone);
+  outline-offset: 1px;
+}
+
+.cs-review-history-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--review-tone);
+}
+
+.cs-review-history-label {
+  font-weight: 700;
+}
+
+.cs-review-history-meta {
+  color: var(--color-text-faint);
+}
+
+.cs-review-inspector-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.cs-review-inspector-verdict {
+  --review-tone: var(--color-text-faint);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--review-tone) 32%, var(--color-border));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--review-tone) 7%, var(--color-bg));
+}
+
+.cs-review-inspector-verdict[data-tone="clean"] {
+  --review-tone: var(--color-success);
+}
+
+.cs-review-inspector-verdict[data-tone="flagged"] {
+  --review-tone: var(--color-warning);
+}
+
+.cs-review-inspector-verdict[data-tone="error"],
+.cs-review-inspector-verdict[data-tone="blocked"] {
+  --review-tone: var(--color-error);
+}
+
+.cs-review-inspector-verdict-icon {
+  display: grid;
+  place-items: center;
+  color: var(--review-tone);
+}
+
+.cs-review-inspector-verdict div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cs-review-inspector-verdict strong {
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.cs-review-inspector-verdict span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-text-faint);
+}
+
+.cs-review-inspector-summary {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  text-wrap: pretty;
+}
+
+.cs-review-inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.cs-review-inspector-section h3 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+}
+
+.cs-review-agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-review-agent-color {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+}
+
+.cs-review-agent div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cs-review-agent strong {
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-review-agent span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-text-faint);
+}
+
+.cs-review-agent button {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 4px;
+  border-radius: 3px;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.cs-review-agent button:hover {
+  background: var(--color-accent-subtle);
+}
+
+.cs-review-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cs-review-finding {
+  margin: 0;
+  padding: 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-bg);
+}
+
+.cs-review-finding[data-severity="blocking"] {
+  border-color: color-mix(in srgb, var(--color-error) 30%, var(--color-border));
+}
+
+.cs-review-finding header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+}
+
+.cs-review-finding[data-severity="blocking"] header strong {
+  color: var(--color-error);
+}
+
+.cs-review-finding p {
+  margin: 7px 0 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text);
+  text-wrap: pretty;
+}
+
+.cs-review-finding ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 7px 8px 7px 22px;
+  border-radius: 3px;
+  background: var(--color-bg-subtle);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cs-review-inspector-clear {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--color-success);
+}
+
+.cs-review-run-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 7px;
+  margin: 0;
+}
+
+.cs-review-run-details div {
+  min-width: 0;
+  padding: 7px;
+  border-radius: 4px;
+  background: var(--color-bg);
+}
+
+.cs-review-run-details dt {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--color-text-faint);
+}
+
+.cs-review-run-details dd {
+  margin: 4px 0 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .cs-session-layout {
+    position: relative;
+  }
+
+  .cs-rightpane-fixed {
+    position: absolute !important;
+    z-index: 30;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(320px, calc(100% - 52px)) !important;
+    min-width: 256px !important;
+    box-shadow: -12px 0 32px color-mix(in srgb, var(--color-text) 8%, transparent);
+  }
+}
+
+.cs-review-status {
+  --review-tone: var(--color-text-faint);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--review-tone) 32%, var(--color-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--review-tone) 6%, var(--color-bg));
+  color: var(--color-text);
+}
+
+.cs-review-status[data-tone="clean"] {
+  --review-tone: var(--color-success);
+  padding-block: 7px;
+}
+
+.cs-review-status[data-tone="flagged"] {
+  --review-tone: var(--color-warning);
+}
+
+.cs-review-status[data-tone="error"],
+.cs-review-status[data-tone="blocked"] {
+  --review-tone: var(--color-error);
+}
+
+.cs-review-status[data-tone="blocked"] {
+  border-width: 1.5px;
+  background: color-mix(in srgb, var(--color-error) 9%, var(--color-bg));
+}
+
+.cs-review-status-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding-top: 1px;
+  color: var(--review-tone);
+}
+
+.cs-review-status-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cs-review-status-title {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.cs-review-status-summary {
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-review-status-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-text-faint);
+}
+
+.cs-review-status-action {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  padding: 3px 4px;
+  border-radius: 4px;
+  color: var(--review-tone);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cs-review-status-action:hover {
+  background: color-mix(in srgb, var(--review-tone) 10%, transparent);
+}
+
+.cs-review-status-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--review-tone) 60%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .cs-review-status {
+    margin-inline: 12px;
+  }
+
+  .cs-review-status-summary {
+    white-space: normal;
+  }
+}
