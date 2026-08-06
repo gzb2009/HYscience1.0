@@ -42,7 +42,10 @@ __pycache__/
 # Local analysis data / outputs (never commit)
 /data/
 /results/
+/figures/
+/HYscience1_0_Result/
 /pbmc_analysis.py
+.hyscience/memory/
 *.h5ad
 frontend/workspace/dist/
 backend/cli/dist/

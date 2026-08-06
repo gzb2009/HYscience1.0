@@ -1916,4 +1916,53 @@ describe("ProviderTransform.variants", () => {
       expect(result).toEqual({})
     })
   })
+
+  describe("gitlab-ai-provider", () => {
+    test("maps duo-chat opus models to anthropic-style effort", () => {
+      const model = createMockModel({
+        id: "duo-chat-opus-5",
+        providerID: "gitlab",
+        api: {
+          id: "duo-chat-opus-5",
+          url: "https://gitlab.com",
+          npm: "gitlab-ai-provider",
+        },
+        capabilities: { reasoning: true },
+      })
+      const result = ProviderTransform.variants(model)
+      expect(result.low).toEqual({ effort: "low" })
+      expect(result.max).toEqual({ effort: "max" })
+      expect(result.xhigh).toEqual({ effort: "xhigh" })
+    })
+
+    test("maps duo-chat gpt models to openai-style reasoningEffort", () => {
+      const model = createMockModel({
+        id: "duo-chat-gpt-5-6-luna",
+        providerID: "gitlab",
+        api: {
+          id: "duo-chat-gpt-5-6-luna",
+          url: "https://gitlab.com",
+          npm: "@gitlab/gitlab-ai-provider",
+        },
+        capabilities: { reasoning: true },
+      })
+      const result = ProviderTransform.variants(model)
+      expect(result.low).toEqual({ reasoningEffort: "low" })
+      expect(result.none).toEqual({ reasoningEffort: "none" })
+    })
+  })
+
+  describe("catalogEffortVariants", () => {
+    test("builds effort variants from models.dev reasoning_options", () => {
+      const result = ProviderTransform.catalogEffortVariants([
+        { type: "effort", values: ["low", "medium", "high", "max"] },
+      ])
+      expect(result).toEqual({
+        low: { reasoningEffort: "low" },
+        medium: { reasoningEffort: "medium" },
+        high: { reasoningEffort: "high" },
+        max: { reasoningEffort: "max" },
+      })
+    })
+  })
 })

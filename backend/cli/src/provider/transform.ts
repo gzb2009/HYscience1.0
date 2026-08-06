@@ -35,8 +35,19 @@ export namespace ProviderTransform {
         return "gateway"
       case "@openrouter/ai-sdk-provider":
         return "openrouter"
+      case "@gitlab/gitlab-ai-provider":
+      case "gitlab-ai-provider":
+        return "gitlab"
     }
     return undefined
+  }
+
+  type CatalogEffort = { type: string; values?: string[] }
+
+  export function catalogEffortVariants(reasoning?: CatalogEffort[]) {
+    const effort = reasoning?.find((item) => item.type === "effort")
+    if (!effort?.values?.length) return {}
+    return Object.fromEntries(effort.values.map((value) => [value, { reasoningEffort: value }]))
   }
 
   function normalizeMessages(
@@ -416,6 +427,22 @@ export namespace ProviderTransform {
   const OPENAI_EFFORTS = ["none", "minimal", ...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
   const OPENAI_GPT55_EFFORTS = ["none", ...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
 
+  function gitlabVariants(id: string) {
+    const isGpt = id.includes("gpt") || id.includes("codex")
+    if (isGpt) {
+      const efforts = id.includes("gpt-5.5") ? OPENAI_GPT55_EFFORTS : OPENAI_EFFORTS
+      return Object.fromEntries(efforts.map((effort) => [effort, { reasoningEffort: effort }]))
+    }
+    const supportsXhigh = id.includes("opus-5") || id.includes("opus-4-8")
+    return {
+      low: { effort: "low" },
+      medium: { effort: "medium" },
+      high: { effort: "high" },
+      ...(supportsXhigh ? { xhigh: { effort: "xhigh" } } : {}),
+      max: { effort: "max" },
+    }
+  }
+
   export function variants(model: Provider.Model): Record<string, Record<string, any>> {
     if (!model.capabilities.reasoning) return {}
 
@@ -709,6 +736,10 @@ export namespace ProviderTransform {
       case "@ai-sdk/perplexity":
         // https://v5.ai-sdk.dev/providers/ai-sdk-providers/perplexity
         return {}
+
+      case "@gitlab/gitlab-ai-provider":
+      case "gitlab-ai-provider":
+        return gitlabVariants(id)
     }
     return {}
   }

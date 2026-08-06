@@ -69,8 +69,8 @@ Routing logic: `src/session/system.ts` → `SystemPrompt.provider(model)`.
 
 | File                    | Agent(s)                                |
 | ----------------------- | --------------------------------------- |
-| `research.txt`          | `research` (default harness)            |
-| `biology.txt`           | `biology` (specialist)                  |
+| `research-core-v2.txt`  | `research` (default harness)            |
+| `biology-core-v2.txt`   | `biology` (specialist)                  |
 | `physics.txt`           | `physics` (specialist)                  |
 | `ml.txt`                | `ml` (specialist)                       |
 | `physics-critique.txt`  | `physics-critique` (subagent)           |

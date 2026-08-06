@@ -745,6 +745,11 @@ export namespace Provider {
     return m
   }
 
+  function normalizeProviderNpm(npm: string) {
+    if (npm === "gitlab-ai-provider") return "@gitlab/gitlab-ai-provider"
+    return npm
+  }
+
   function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model): Model {
     const m: Model = {
       id: model.id,
@@ -754,7 +759,7 @@ export namespace Provider {
       api: {
         id: model.id,
         url: provider.api!,
-        npm: model.provider?.npm ?? provider.npm ?? "@ai-sdk/openai-compatible",
+        npm: normalizeProviderNpm(model.provider?.npm ?? provider.npm ?? "@ai-sdk/openai-compatible"),
       },
       status: model.status ?? "active",
       headers: model.headers ?? {},
@@ -807,7 +812,10 @@ export namespace Provider {
       variants: {},
     }
 
-    m.variants = mapValues(ProviderTransform.variants(m), (v) => v)
+    const catalogReasoning = (model as { reasoning_options?: { type: string; values?: string[] }[] }).reasoning_options
+    const sdkVariants = ProviderTransform.variants(m)
+    const catalogVariants = ProviderTransform.catalogEffortVariants(catalogReasoning)
+    m.variants = mapValues(Object.keys(sdkVariants).length > 0 ? sdkVariants : catalogVariants, (v) => v)
 
     return m
   }
@@ -1297,7 +1305,9 @@ export namespace Provider {
 
       // Special case: google-vertex-anthropic uses a subpath import
       const bundledKey =
-        model.providerID === "google-vertex-anthropic" ? "@ai-sdk/google-vertex/anthropic" : model.api.npm
+        model.providerID === "google-vertex-anthropic"
+          ? "@ai-sdk/google-vertex/anthropic"
+          : normalizeProviderNpm(model.api.npm)
       const bundledFn = BUNDLED_PROVIDERS[bundledKey]
       if (bundledFn) {
         log.info("using bundled provider", { providerID: model.providerID, pkg: bundledKey })

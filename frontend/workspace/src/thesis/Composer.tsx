@@ -50,6 +50,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   mistral: "Mistral",
   xai: "xAI",
   cohere: "Cohere",
+  gitlab: "GitLab Duo",
   hysci: "HYscience Cloud",
 }
 
@@ -1826,45 +1827,65 @@ export function Composer(): JSX.Element {
                         </Show>
                       </div>
 
-                      {/* controls for the selected model — speed / context in the footer */}
-                      <Show when={!!model() && (supportsFast() || hasLongTier())}>
+                      {/* controls for the selected model — reasoning / speed / context */}
+                      <Show when={!!model() && (variantKeys().length > 0 || supportsFast() || hasLongTier())}>
                         <div
                           onClick={(e) => e.stopPropagation()}
                           style={{
                             display: "flex",
-                            "flex-wrap": "wrap",
-                            "align-items": "center",
-                            gap: "16px",
+                            "flex-direction": "column",
+                            gap: "12px",
                             padding: "9px 12px",
                             "border-top": "1px solid var(--color-border)",
                             "flex-shrink": 0,
                           }}
                         >
-                          <Show when={supportsFast()}>
-                            <span style={{ display: "inline-flex", "align-items": "center", gap: "6px" }}>
-                              <span style={CONTROL_LABEL}>speed</span>
-                              <Segmented
-                                options={[
-                                  { id: "normal", label: "normal" },
-                                  { id: "fast", label: "fast" },
-                                ]}
-                                value={fast() ? "fast" : "normal"}
-                                onPick={(id) => setFast(id === "fast")}
+                          <Show when={variantKeys().length > 0}>
+                            <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
+                              <span style={CONTROL_LABEL}>reasoning</span>
+                              <EffortSlider
+                                options={variantKeys()}
+                                value={effort() ?? variantKeys()[0]}
+                                onPick={setEffort}
                               />
-                            </span>
+                            </div>
                           </Show>
-                          <Show when={hasLongTier()}>
-                            <span style={{ display: "inline-flex", "align-items": "center", gap: "6px" }}>
-                              <span style={CONTROL_LABEL}>context</span>
-                              <Segmented
-                                options={[
-                                  { id: "std", label: "≤200k" },
-                                  { id: "long", label: ">200k" },
-                                ]}
-                                value={longCtx() ? "long" : "std"}
-                                onPick={(id) => setLongCtx(id === "long")}
-                              />
-                            </span>
+                          <Show when={supportsFast() || hasLongTier()}>
+                            <div
+                              style={{
+                                display: "flex",
+                                "flex-wrap": "wrap",
+                                "align-items": "center",
+                                gap: "16px",
+                              }}
+                            >
+                              <Show when={supportsFast()}>
+                                <span style={{ display: "inline-flex", "align-items": "center", gap: "6px" }}>
+                                  <span style={CONTROL_LABEL}>speed</span>
+                                  <Segmented
+                                    options={[
+                                      { id: "normal", label: "normal" },
+                                      { id: "fast", label: "fast" },
+                                    ]}
+                                    value={fast() ? "fast" : "normal"}
+                                    onPick={(id) => setFast(id === "fast")}
+                                  />
+                                </span>
+                              </Show>
+                              <Show when={hasLongTier()}>
+                                <span style={{ display: "inline-flex", "align-items": "center", gap: "6px" }}>
+                                  <span style={CONTROL_LABEL}>context</span>
+                                  <Segmented
+                                    options={[
+                                      { id: "std", label: "≤200k" },
+                                      { id: "long", label: ">200k" },
+                                    ]}
+                                    value={longCtx() ? "long" : "std"}
+                                    onPick={(id) => setLongCtx(id === "long")}
+                                  />
+                                </span>
+                              </Show>
+                            </div>
                           </Show>
                         </div>
                       </Show>
