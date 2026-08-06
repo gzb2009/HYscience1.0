@@ -491,6 +491,12 @@ export namespace Config {
         .record(z.string(), z.string())
         .optional()
         .describe("Environment variables to set when running the MCP server"),
+      environmentMode: z
+        .enum(["safe", "inherit"])
+        .optional()
+        .describe(
+          "Environment inheritance mode. Defaults to 'safe' (minimal runtime variables plus explicit environment). Use 'inherit' only as a temporary compatibility escape hatch.",
+        ),
       enabled: z.boolean().optional().describe("Enable or disable the MCP server on startup"),
       timeout: z
         .number()
@@ -503,6 +509,7 @@ export namespace Config {
     .meta({
       ref: "McpLocalConfig",
     })
+  export type McpLocal = z.infer<typeof McpLocal>
 
   export const McpOAuth = z
     .object({
