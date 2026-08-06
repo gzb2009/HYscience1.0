@@ -6,6 +6,7 @@ import { createSimpleContext } from "@hysci/ui/context"
 import { useGlobalSync } from "./global-sync"
 import { useSDK } from "./sdk"
 import type { Message, Part } from "@hysci/sdk/v2/client"
+import { mergeReviews } from "@/utils/review"
 
 const keyFor = (directory: string, id: string) => `${directory}\n${id}`
 
@@ -24,10 +25,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const inflight = new Map<string, Promise<void>>()
     const inflightDiff = new Map<string, Promise<void>>()
     const inflightTodo = new Map<string, Promise<void>>()
+    const inflightReview = new Map<string, Promise<void>>()
     const [meta, setMeta] = createStore({
       limit: {} as Record<string, number>,
       complete: {} as Record<string, boolean>,
       loading: {} as Record<string, boolean>,
+      review: {} as Record<string, boolean>,
     })
 
     const getSession = (sessionID: string) => {
@@ -282,6 +285,27 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             })
 
           inflightTodo.set(key, promise)
+          return promise
+        },
+        async review(sessionID: string) {
+          const directory = sdk.directory
+          const client = sdk.client
+          const [, setStore] = globalSync.child(directory)
+          const key = keyFor(directory, sessionID)
+          if (meta.review[key]) return
+          const pending = inflightReview.get(key)
+          if (pending) return pending
+
+          const promise = retry(() => client.session.review.list({ sessionID }))
+            .then((response) => {
+              setStore("review", sessionID, (records = []) => mergeReviews(records, response.data ?? []))
+              setMeta("review", key, true)
+            })
+            .finally(() => {
+              inflightReview.delete(key)
+            })
+
+          inflightReview.set(key, promise)
           return promise
         },
         history: {

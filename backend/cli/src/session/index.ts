@@ -20,6 +20,7 @@ import { Command } from "../command"
 import { Snapshot } from "@/snapshot"
 import { TaskScope } from "./task-scope"
 import { Question } from "../question"
+import { ReviewRecord } from "./review-record"
 
 import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
@@ -328,6 +329,7 @@ export namespace Session {
         }
         await Storage.remove(msg)
       }
+      await ReviewRecord.removeSession(sessionID)
       await Storage.remove(["session", project.id, sessionID])
       Bus.publish(Event.Deleted, {
         info: session,
@@ -352,6 +354,7 @@ export namespace Session {
     }),
     async (input) => {
       await Storage.remove(["message", input.sessionID, input.messageID])
+      await ReviewRecord.remove(input.sessionID, input.messageID)
       MessageV2.invalidateLastID(input.sessionID)
       Bus.publish(MessageV2.Event.Removed, {
         sessionID: input.sessionID,

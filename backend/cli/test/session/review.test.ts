@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { SessionReview } from "../../src/session/review"
+import { Identifier } from "../../src/id/id"
+import type { ReviewRecord } from "../../src/session/review-record"
+import { Config } from "../../src/config/config"
 
 // WS11 — the reviewer gate's runtime spawn hits a real model, so these cover the
 // pure decision surface: which turns get reviewed and by whom. When
@@ -58,5 +61,75 @@ describe("SessionReview.shouldReview — boundaries", () => {
   test("triggers on a decimal numeric data point in the text", () => {
     const text = "The measured effect held at 0.93 across every condition we swept in the study. ".repeat(7)
     expect(SessionReview.shouldReview({ agent: "biology", text })).toBe(true)
+  })
+})
+
+describe("SessionReview.parse", () => {
+  test("parses clean and flagged JSON verdicts", () => {
+    expect(SessionReview.parse('{"verdict":"CLEAN","findings":[]}')).toEqual({
+      verdict: "CLEAN",
+      findings: [],
+    })
+    expect(
+      SessionReview.parse(
+        '{"verdict":"FLAGGED","findings":[{"severity":"blocking","message":"Wrong metric","evidence":["results.csv:2"]}]}',
+      ),
+    ).toEqual({
+      verdict: "FLAGGED",
+      findings: [{ severity: "blocking", message: "Wrong metric", evidence: ["results.csv:2"] }],
+    })
+  })
+
+  test("rejects malformed or inconsistent verdicts", () => {
+    expect(() => SessionReview.parse("CLEAN")).toThrow()
+    expect(() => SessionReview.parse('{"verdict":"FLAGGED","findings":[]}')).toThrow()
+    expect(() =>
+      SessionReview.parse(
+        '{"verdict":"CLEAN","findings":[{"severity":"warning","message":"Unexpected","evidence":[]}]}',
+      ),
+    ).toThrow()
+  })
+})
+
+describe("SessionReview policy", () => {
+  const record = (mode: "annotate" | "enforce", verdict: "CLEAN" | "FLAGGED" | "ERROR") =>
+    ({
+      id: Identifier.ascending("review"),
+      sessionID: Identifier.ascending("session"),
+      messageID: Identifier.ascending("message"),
+      agent: "research",
+      reviewer: "reviewer",
+      verdict,
+      mode,
+      findings: verdict === "FLAGGED" ? [{ severity: "blocking", message: "Unsupported", evidence: [] }] : [],
+      model: { providerID: "test", modelID: "test" },
+      time: { started: 1, completed: 2 },
+    }) satisfies ReviewRecord.Info
+
+  test("defaults research agents to annotate and honors explicit policy", () => {
+    expect(SessionReview.modeFor("research")).toBe("annotate")
+    expect(SessionReview.modeFor("physics")).toBe("off")
+    expect(SessionReview.modeFor("research", "enforce")).toBe("enforce")
+    expect(SessionReview.modeFor("research", "off")).toBe("off")
+  })
+
+  test("accepts enforce policy and reviewer resource limits", () => {
+    const config = Config.Info.parse({
+      experimental: {
+        reviewGate: "enforce",
+        reviewTimeoutMs: 30_000,
+        reviewMaxSteps: 8,
+      },
+    })
+    expect(config.experimental?.reviewGate).toBe("enforce")
+    expect(config.experimental?.reviewTimeoutMs).toBe(30_000)
+    expect(config.experimental?.reviewMaxSteps).toBe(8)
+  })
+
+  test("annotate is fail-open while enforce blocks flagged and error records", () => {
+    expect(SessionReview.decide(record("annotate", "FLAGGED")).verdict).toBe("FLAGGED")
+    expect(SessionReview.decide(record("enforce", "CLEAN")).verdict).toBe("CLEAN")
+    expect(() => SessionReview.decide(record("enforce", "FLAGGED"))).toThrow(SessionReview.BlockedError)
+    expect(() => SessionReview.decide(record("enforce", "ERROR"))).toThrow(SessionReview.BlockedError)
   })
 })

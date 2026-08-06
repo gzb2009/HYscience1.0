@@ -9,6 +9,7 @@ import { Storage } from "../storage/storage"
 import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
 import { SessionSummary } from "./summary"
+import { ReviewRecord } from "./review-record"
 
 export namespace SessionRevert {
   const log = Log.create({ service: "session.revert" })
@@ -98,11 +99,13 @@ export namespace SessionRevert {
     msgs = preserve
     for (const msg of remove) {
       await Storage.remove(["message", sessionID, msg.info.id])
+      await ReviewRecord.remove(sessionID, msg.info.id)
       await Bus.publish(MessageV2.Event.Removed, { sessionID: sessionID, messageID: msg.info.id })
     }
     if (remove.length > 0) MessageV2.invalidateLastID(sessionID)
     const last = preserve.at(-1)
     if (session.revert.partID && last) {
+      await ReviewRecord.remove(sessionID, last.info.id)
       const partID = session.revert.partID
       const [preserveParts, removeParts] = splitWhen(last.parts, (x) => x.id === partID)
       last.parts = preserveParts

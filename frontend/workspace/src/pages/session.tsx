@@ -60,6 +60,8 @@ import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { useLanguage } from "@/context/language"
 import { projectPrefs } from "@/thesis/store/projectPrefs"
 import { SessionStatusLight } from "@/thesis/shared/SessionStatusLight"
+import { ReviewStatusCard } from "@/components/session/review-status-card"
+import { reviewForTurn, reviewState } from "@/utils/review"
 import { InlineRename } from "@/thesis/shared/InlineRename"
 import { decode64 } from "@/utils/base64"
 import { projectLabel } from "@/utils/projectLabel"
@@ -309,7 +311,7 @@ export default function Page(): JSX.Element {
         if (!id || id === "new") return
         ;(async () => {
           try {
-            await sync.session.sync(id)
+            await Promise.all([sync.session.sync(id), sync.session.review(id)])
             await sync.session.refresh(id)
           } catch {}
         })()
@@ -457,6 +459,16 @@ export default function Page(): JSX.Element {
 
   const [stepsExpanded, setStepsExpanded] = createSignal<Record<string, boolean>>({})
   const toggleSteps = (id: string) => setStepsExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+
+  // While the agent is running, auto-expand steps so tool/reasoning progress stays visible.
+  createEffect(() => {
+    const sessionID = params.id
+    const user = lastUserMessage()
+    if (!sessionID || !user) return
+    const busy = sync.data.session_status[sessionID]?.type !== "idle"
+    if (!busy) return
+    setStepsExpanded((prev) => ({ ...prev, [user.id]: true }))
+  })
 
   const [sidebarOpen, setSidebarOpen] = createSignal(true)
 
@@ -671,6 +683,8 @@ export default function Page(): JSX.Element {
                         const toolCount = (sync.data.part[message.id] ?? []).filter(
                           (part) => part.type === "tool",
                         ).length
+                        const review = () => reviewForTurn(messages(), sync.data.review[params.id!] ?? [], message.id)
+                        const reviewStatus = () => reviewState(review())
                         return (
                           <div
                             data-message-id={message.id}
@@ -734,12 +748,21 @@ export default function Page(): JSX.Element {
                               onRevealFile={(path) => void openLocalFile(path, "reveal")}
                               onOpenInApp={(path, app) => void openLocalFile(path, "app", app)}
                               hideTools={["task"]}
+                              hideResponse={reviewStatus().blocked}
                               classes={{
                                 root: "min-w-0 w-full relative overflow-x-hidden",
                                 content: "flex flex-col justify-between min-w-0 overflow-x-hidden",
                                 container: "w-full min-w-0",
                               }}
                             />
+                            <Show when={review()}>
+                              {(record) => (
+                                <ReviewStatusCard
+                                  record={record()}
+                                  onInspect={() => uiStore.inspectReview(params.id!, record().messageID)}
+                                />
+                              )}
+                            </Show>
                             {/* Space, not a rule — the bubbles already separate turns. */}
                             <Show when={index() < turnMessages().length - 1}>
                               <div style={{ height: "22px" }} />

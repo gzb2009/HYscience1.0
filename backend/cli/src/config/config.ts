@@ -1200,11 +1200,23 @@ export namespace Config {
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
           reviewGate: z
-            .enum(["off", "annotate"])
+            .enum(["off", "annotate", "enforce"])
             .optional()
             .describe(
-              "Run a blind reviewer on a primary agent's final answer and append its verdict as a footer note ('annotate' = on, non-blocking). Defaults to annotate for research/biology/ml when unset; set 'off' to disable.",
+              "Run a blind reviewer and persist a structured ReviewRecord. 'annotate' is fail-open; 'enforce' rejects successful completion on FLAGGED or ERROR. Defaults to annotate for research/biology/ml when unset.",
             ),
+          reviewTimeoutMs: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Maximum reviewer gate runtime in milliseconds. Defaults to 120000."),
+          reviewMaxSteps: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Maximum model steps for gate reviewer agents. Defaults to 12."),
         })
         .optional(),
     })
