@@ -547,6 +547,50 @@ export type EventMessagePartRemoved = {
   }
 }
 
+export type ReviewRecord = {
+  id: string
+  sessionID: string
+  messageID: string
+  reviewerSessionID?: string
+  agent: string
+  reviewer: string
+  verdict: "CLEAN" | "FLAGGED" | "ERROR"
+  mode: "annotate" | "enforce"
+  findings: Array<{
+    severity: "blocking" | "warning"
+    message: string
+    evidence?: Array<string>
+  }>
+  summary?: string
+  model: {
+    providerID: string
+    modelID: string
+  }
+  tokens?: {
+    input: number
+    output: number
+    reasoning: number
+    cache: {
+      read: number
+      write: number
+    }
+  }
+  cost?: number
+  error?: string
+  time: {
+    started: number
+    completed: number
+  }
+}
+
+export type EventReviewUpdated = {
+  type: "review.updated"
+  properties: {
+    sessionID: string
+    record: ReviewRecord
+  }
+}
+
 export type SessionStatus =
   | {
       type: "idle"
@@ -888,6 +932,7 @@ export type Event =
   | EventMessageRemoved
   | EventMessagePartUpdated
   | EventMessagePartRemoved
+  | EventReviewUpdated
   | EventSessionStatus
   | EventSessionIdle
   | EventQuestionAsked
@@ -1872,9 +1917,17 @@ export type Config = {
      */
     mcp_timeout?: number
     /**
-     * Run a blind reviewer on a primary agent's final answer and append its verdict as a footer note ('annotate' = on, non-blocking). Defaults to annotate for research/biology/ml when unset; set 'off' to disable.
+     * Run a blind reviewer and persist a structured ReviewRecord. 'annotate' is fail-open; 'enforce' rejects successful completion on FLAGGED or ERROR. Defaults to annotate for research/biology/ml when unset.
      */
-    reviewGate?: "off" | "annotate"
+    reviewGate?: "off" | "annotate" | "enforce"
+    /**
+     * Maximum reviewer gate runtime in milliseconds. Defaults to 120000.
+     */
+    reviewTimeoutMs?: number
+    /**
+     * Maximum model steps for gate reviewer agents. Defaults to 12.
+     */
+    reviewMaxSteps?: number
   }
 }
 
@@ -4263,6 +4316,73 @@ export type SessionTodoResponses = {
 }
 
 export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
+
+export type SessionReviewListData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/session/{sessionID}/review"
+}
+
+export type SessionReviewListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionReviewListError = SessionReviewListErrors[keyof SessionReviewListErrors]
+
+export type SessionReviewListResponses = {
+  /**
+   * Review records
+   */
+  200: Array<ReviewRecord>
+}
+
+export type SessionReviewListResponse = SessionReviewListResponses[keyof SessionReviewListResponses]
+
+export type SessionReviewGetData = {
+  body?: never
+  path: {
+    sessionID: string
+    messageID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/session/{sessionID}/review/{messageID}"
+}
+
+export type SessionReviewGetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionReviewGetError = SessionReviewGetErrors[keyof SessionReviewGetErrors]
+
+export type SessionReviewGetResponses = {
+  /**
+   * Review record
+   */
+  200: ReviewRecord
+}
+
+export type SessionReviewGetResponse = SessionReviewGetResponses[keyof SessionReviewGetResponses]
 
 export type SessionInitData = {
   body?: {

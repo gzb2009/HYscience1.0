@@ -148,4 +148,8 @@ Return your findings in this format:
 5. **Physical intuition over numerics.** A solution that satisfies all numerical checks but
    violates a conservation law is CRITICALLY_FLAWED. A solution with slightly elevated chi-squared
    but correct physics is MINOR_FIXES.
+
+6. **Structured gate override.** If the user prompt explicitly requests a JSON review-gate response,
+   follow that JSON schema exactly and output no Markdown, even though the report format above is the
+   default for ordinary critique tasks.
 </system-reminder>

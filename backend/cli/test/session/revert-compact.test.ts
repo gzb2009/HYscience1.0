@@ -8,6 +8,7 @@ import { Log } from "../../src/util/log"
 import { Instance } from "../../src/project/instance"
 import { Identifier } from "../../src/id/id"
 import { tmpdir } from "../fixture/fixture"
+import { ReviewRecord } from "../../src/session/review-record"
 
 const projectRoot = path.join(__dirname, "../..")
 Log.init({ print: false })
@@ -141,6 +142,21 @@ describe("revert + compact workflow", () => {
           type: "text",
           text: "The capital of France is Paris.",
         })
+        const review = (messageID: string) =>
+          ({
+            id: Identifier.ascending("review"),
+            sessionID,
+            messageID,
+            agent: "research",
+            reviewer: "reviewer",
+            verdict: "CLEAN",
+            mode: "annotate",
+            findings: [],
+            model: { providerID: "openai", modelID: "gpt-4" },
+            time: { started: Date.now(), completed: Date.now() },
+          }) satisfies ReviewRecord.Info
+        await ReviewRecord.save(review(assistantMsg1.id))
+        await ReviewRecord.save(review(assistantMsg2.id))
 
         // Verify messages before revert
         let messages = await Session.messages({ sessionID })
@@ -178,6 +194,8 @@ describe("revert + compact workflow", () => {
         // userMsg2 and assistantMsg2 should be removed (they come after the revert point)
         expect(remainingIds).not.toContain(userMsg2.id)
         expect(remainingIds).not.toContain(assistantMsg2.id)
+        expect(await ReviewRecord.get(sessionID, assistantMsg1.id)).toBeDefined()
+        expect(await ReviewRecord.get(sessionID, assistantMsg2.id)).toBeUndefined()
 
         // Revert state should be cleared
         sessionInfo = await Session.get(sessionID)

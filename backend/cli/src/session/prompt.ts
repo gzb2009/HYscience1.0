@@ -42,6 +42,7 @@ import { spawn } from "child_process"
 import { Command } from "../command"
 import { $, fileURLToPath } from "bun"
 import { ConfigMarkdown } from "../config/markdown"
+import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
 import { TaskProfile } from "./task-profile"
 import { NamedError } from "@hysci/util/error"
@@ -63,6 +64,7 @@ import { Memory } from "@/settings/memory"
 import { TaskScope } from "./task-scope"
 import { Question } from "../question"
 import { ResearchContext } from "./research-context"
+import { SessionReview } from "./review"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -328,6 +330,7 @@ export namespace SessionPrompt {
     let compactionAttempts = 0
     const breaker = CircuitBreaker.init()
     const session = await Session.get(sessionID)
+    const config = await Config.get()
     while (true) {
       SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
@@ -359,7 +362,21 @@ export namespace SessionPrompt {
         lastUser.id < lastAssistant.id
       ) {
         log.info("exiting loop", { sessionID, bareMode })
-        // RSI: capture trajectory from ultra agent sessions (async, non-blocking)
+        await OutputClean.cleanFinalAnswer(sessionID, msgs)
+        msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
+        if (lastUser.agent) {
+          try {
+            await SessionReview.gate({ sessionID, agent: lastUser.agent, model: lastUser.model })
+          } catch (error) {
+            if (!(error instanceof SessionReview.BlockedError)) throw error
+            Bus.publish(Session.Event.Error, {
+              sessionID,
+              error: new NamedError.Unknown({ message: error.message }).toObject(),
+            })
+            throw error
+          }
+        }
+
         if (lastUser.agent && RSITrajectory.ARTIFACT_AGENTS.includes(lastUser.agent as any)) {
           RSITrajectory.pipeline(sessionID).catch(() => {})
         }
@@ -368,16 +385,7 @@ export namespace SessionPrompt {
         ELN.scanSession(sessionID, msgs).catch(() => {})
         KnowledgeGraph.scan(sessionID, msgs).catch(() => {})
         ExportReport.generateAndSave(sessionID).catch(() => {})
-        // OutputClean: strip reviewer leakage + noise from final answer
-        OutputClean.cleanFinalAnswer(sessionID, msgs).catch(() => {})
         ProjectMemory.rememberSession(sessionID, msgs).catch(() => {})
-        // WS11 reviewer gate: blind review of the final answer, appended as a
-        // footer note. Off by default (config.experimental.reviewGate); the gate
-        // self-skips non-reviewable/trivial turns. Fire-and-forget, never blocks.
-        // Review gate disabled — kept for future re-enable via config.experimental.reviewGate
-        // if (lastUser.agent) {
-        //   SessionReview.gate({ sessionID, agent: lastUser.agent, model: lastUser.model }).catch(() => {})
-        // }
         break
       }
 
@@ -636,7 +644,13 @@ export namespace SessionPrompt {
 
       // normal processing
       const agent = await Agent.get(lastUser.agent)
-      const maxSteps = agent.steps ?? 100
+      const reviewLimit =
+        session.parentID &&
+        session.title.startsWith("Review (@") &&
+        (agent.name === "reviewer" || agent.name === "physics-critique")
+          ? (config.experimental?.reviewMaxSteps ?? 12)
+          : undefined
+      const maxSteps = Math.min(agent.steps ?? 100, reviewLimit ?? Number.POSITIVE_INFINITY)
       const isLastStep = atStepLimit(step, maxSteps)
 
       // Circuit breaker check

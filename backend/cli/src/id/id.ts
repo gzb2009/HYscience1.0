@@ -11,6 +11,7 @@ export namespace Identifier {
     part: "prt",
     pty: "pty",
     tool: "tool",
+    review: "rev",
   } as const
 
   export function schema(prefix: keyof typeof prefixes) {

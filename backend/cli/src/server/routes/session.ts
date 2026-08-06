@@ -11,12 +11,15 @@ import { SessionRevert } from "../../session/revert"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
 import { Todo } from "../../session/todo"
+import { ReviewRecord } from "../../session/review-record"
 import { Agent } from "../../agent/agent"
 import { Snapshot } from "@/snapshot"
 import { Log } from "../../util/log"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Identifier } from "../../id/id"
+import { Storage } from "../../storage/storage"
 
 const log = Log.create({ service: "server" })
 
@@ -185,6 +188,64 @@ export const SessionRoutes = lazy(() =>
         const sessionID = c.req.valid("param").sessionID
         const todos = await Todo.get(sessionID)
         return c.json(todos)
+      },
+    )
+    .get(
+      "/:sessionID/review",
+      describeRoute({
+        summary: "List session reviews",
+        description: "Retrieve structured reviewer gate records for a session.",
+        operationId: "session.review.list",
+        responses: {
+          200: {
+            description: "Review records",
+            content: {
+              "application/json": {
+                schema: resolver(ReviewRecord.Info.array()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: Identifier.schema("session") })),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        await Session.get(sessionID)
+        return c.json(await ReviewRecord.list(sessionID))
+      },
+    )
+    .get(
+      "/:sessionID/review/:messageID",
+      describeRoute({
+        summary: "Get session review",
+        description: "Retrieve the structured reviewer gate record for one assistant message.",
+        operationId: "session.review.get",
+        responses: {
+          200: {
+            description: "Review record",
+            content: {
+              "application/json": {
+                schema: resolver(ReviewRecord.Info),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: Identifier.schema("session"),
+          messageID: Identifier.schema("message"),
+        }),
+      ),
+      async (c) => {
+        const input = c.req.valid("param")
+        await Session.get(input.sessionID)
+        const record = await ReviewRecord.get(input.sessionID, input.messageID)
+        if (!record) throw new Storage.NotFoundError({ message: "Review record not found" })
+        return c.json(record)
       },
     )
     .post(

@@ -5077,6 +5077,144 @@
         ]
       }
     },
+    "/session/{sessionID}/review": {
+      "get": {
+        "operationId": "session.review.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses.*"
+            },
+            "required": true
+          }
+        ],
+        "summary": "List session reviews",
+        "description": "Retrieve structured reviewer gate records for a session.",
+        "responses": {
+          "200": {
+            "description": "Review records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewRecord"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createHYscienceClient } from \"@hysci/sdk\n\nconst client = createHYscienceClient()\nawait client.session.review.list({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/review/{messageID}": {
+      "get": {
+        "operationId": "session.review.get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses.*"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "schema": {
+              "type": "string",
+              "pattern": "^msg.*"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Get session review",
+        "description": "Retrieve the structured reviewer gate record for one assistant message.",
+        "responses": {
+          "200": {
+            "description": "Review record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createHYscienceClient } from \"@hysci/sdk\n\nconst client = createHYscienceClient()\nawait client.session.review.get({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/session/{sessionID}/init": {
       "post": {
         "operationId": "session.init",
@@ -11998,6 +12136,192 @@
           "properties"
         ]
       },
+      "ReviewRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^rev.*"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses.*"
+          },
+          "messageID": {
+            "type": "string",
+            "pattern": "^msg.*"
+          },
+          "reviewerSessionID": {
+            "type": "string",
+            "pattern": "^ses.*"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "CLEAN",
+              "FLAGGED",
+              "ERROR"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "annotate",
+              "enforce"
+            ]
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "blocking",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "default": [],
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "severity",
+                "message"
+              ]
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
+              },
+              "modelID": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "providerID",
+              "modelID"
+            ]
+          },
+          "tokens": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "number"
+              },
+              "output": {
+                "type": "number"
+              },
+              "reasoning": {
+                "type": "number"
+              },
+              "cache": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "type": "number"
+                  },
+                  "write": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "read",
+                  "write"
+                ]
+              }
+            },
+            "required": [
+              "input",
+              "output",
+              "reasoning",
+              "cache"
+            ]
+          },
+          "cost": {
+            "type": "number"
+          },
+          "error": {
+            "type": "string"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "started": {
+                "type": "number"
+              },
+              "completed": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "started",
+              "completed"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sessionID",
+          "messageID",
+          "agent",
+          "reviewer",
+          "verdict",
+          "mode",
+          "findings",
+          "model",
+          "time"
+        ]
+      },
+      "Event.review.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "review.updated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "type": "string",
+                "pattern": "^ses.*"
+              },
+              "record": {
+                "$ref": "#/components/schemas/ReviewRecord"
+              }
+            },
+            "required": [
+              "sessionID",
+              "record"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "properties"
+        ]
+      },
       "SessionStatus": {
         "anyOf": [
           {
@@ -13106,6 +13430,9 @@
           },
           {
             "$ref": "#/components/schemas/Event.message.part.removed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.review.updated"
           },
           {
             "$ref": "#/components/schemas/Event.session.status"
@@ -14923,12 +15250,25 @@
                 "maximum": 9007199254740991
               },
               "reviewGate": {
-                "description": "Run a blind reviewer on a primary agent's final answer and append its verdict as a footer note ('annotate' = on, non-blocking). Defaults to annotate for research/biology/ml when unset; set 'off' to disable.",
+                "description": "Run a blind reviewer and persist a structured ReviewRecord. 'annotate' is fail-open; 'enforce' rejects successful completion on FLAGGED or ERROR. Defaults to annotate for research/biology/ml when unset.",
                 "type": "string",
                 "enum": [
                   "off",
-                  "annotate"
+                  "annotate",
+                  "enforce"
                 ]
+              },
+              "reviewTimeoutMs": {
+                "description": "Maximum reviewer gate runtime in milliseconds. Defaults to 120000.",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reviewMaxSteps": {
+                "description": "Maximum model steps for gate reviewer agents. Defaults to 12.",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
               }
             }
           }

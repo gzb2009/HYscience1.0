@@ -147,6 +147,10 @@ import type {
   SessionPromptResponses,
   SessionRevertErrors,
   SessionRevertResponses,
+  SessionReviewGetErrors,
+  SessionReviewGetResponses,
+  SessionReviewListErrors,
+  SessionReviewListResponses,
   SessionShellErrors,
   SessionShellResponses,
   SessionStatusErrors,
@@ -2031,6 +2035,70 @@ export class Provenance extends HeyApiClient {
   }
 }
 
+export class Review extends HeyApiClient {
+  /**
+   * List session reviews
+   *
+   * Retrieve structured reviewer gate records for a session.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionReviewListResponses, SessionReviewListErrors, ThrowOnError>({
+      url: "/session/{sessionID}/review",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session review
+   *
+   * Retrieve the structured reviewer gate record for one assistant message.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      messageID: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "messageID" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionReviewGetResponses, SessionReviewGetErrors, ThrowOnError>({
+      url: "/session/{sessionID}/review/{messageID}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Session extends HeyApiClient {
   /**
    * List sessions
@@ -2827,6 +2895,11 @@ export class Session extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _review?: Review
+  get review(): Review {
+    return (this._review ??= new Review({ client: this.client }))
   }
 }
 
