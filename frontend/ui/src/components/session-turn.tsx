@@ -658,8 +658,9 @@ export function SessionTurn(
     const newStatus = rawStatus()
     if (newStatus === store.status || !newStatus) return
 
+    const minStatusMs = working() ? 600 : 2500
     const timeSinceLastChange = Date.now() - lastStatusChange
-    if (timeSinceLastChange >= 2500) {
+    if (timeSinceLastChange >= minStatusMs) {
       setStore("status", newStatus)
       lastStatusChange = Date.now()
       if (statusTimeout) {
@@ -672,7 +673,7 @@ export function SessionTurn(
         setStore("status", rawStatus())
         lastStatusChange = Date.now()
         statusTimeout = undefined
-      }, 2500 - timeSinceLastChange) as unknown as number
+      }, minStatusMs - timeSinceLastChange) as unknown as number
     }
   })
 
@@ -718,8 +719,8 @@ export function SessionTurn(
                         />
                       </div>
 
-                      {/* Trigger (sticky) */}
-                      <Show when={!working() && hasSteps()}>
+                      {/* Trigger (sticky) — also visible while working so status + spinner stay on screen */}
+                      <Show when={working() || hasSteps()}>
                         <div data-slot="session-turn-response-trigger">
                           <Button
                             data-expandable={assistantMessages().length > 0}
@@ -798,7 +799,7 @@ export function SessionTurn(
                       </div>
                     </Show>
                     {/* Response */}
-                    <Show when={props.stepsExpanded && assistantMessages().length > 0}>
+                    <Show when={(props.stepsExpanded || working()) && assistantMessages().length > 0}>
                       <div data-slot="session-turn-collapsible-content-inner" aria-live="off">
                         <For each={assistantMessages()}>
                           {(assistantMessage) => (
@@ -834,6 +835,15 @@ export function SessionTurn(
                         data-structured={structuredResult() ? "true" : undefined}
                       >
                         <div data-slot="session-turn-summary-header">
+                          <Show when={working() && response()}>
+                            <div data-slot="session-turn-streaming-status" role="status" aria-live="polite">
+                              <AgentStreamIcon />
+                              <span data-slot="session-turn-streaming-status-text">
+                                {store.status ?? i18n.t("ui.sessionTurn.status.writingOutput")}
+                              </span>
+                              <span data-slot="session-turn-streaming-duration">{store.duration}</span>
+                            </div>
+                          </Show>
                           <h2 data-slot="session-turn-summary-title">{i18n.t("ui.sessionTurn.summary.response")}</h2>
                           <Show when={resultFiles().length > 0}>
                             <ResultFileCards

@@ -458,6 +458,16 @@ export default function Page(): JSX.Element {
   const [stepsExpanded, setStepsExpanded] = createSignal<Record<string, boolean>>({})
   const toggleSteps = (id: string) => setStepsExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
 
+  // While the agent is running, auto-expand steps so tool/reasoning progress stays visible.
+  createEffect(() => {
+    const sessionID = params.id
+    const user = lastUserMessage()
+    if (!sessionID || !user) return
+    const busy = sync.data.session_status[sessionID]?.type !== "idle"
+    if (!busy) return
+    setStepsExpanded((prev) => ({ ...prev, [user.id]: true }))
+  })
+
   const [sidebarOpen, setSidebarOpen] = createSignal(true)
 
   useGlobalKeys({ onNew: () => void newSession() })

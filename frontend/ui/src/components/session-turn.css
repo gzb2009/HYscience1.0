@@ -66,6 +66,42 @@
     line-height: var(--line-height-normal);
   }
 
+  [data-slot="session-turn-streaming-status"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 4px;
+    padding: 6px 12px;
+    border: 1px solid color-mix(in srgb, var(--border-base) 50%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-raised-base) 68%, transparent);
+    color: var(--text-strong);
+  }
+
+  [data-slot="session-turn-streaming-status"] [data-component="agent-icon"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  [data-slot="session-turn-streaming-status-text"] {
+    overflow: hidden;
+    font-size: var(--font-size-x-small);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--line-height-normal);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-slot="session-turn-streaming-duration"] {
+    color: var(--session-turn-muted);
+    font-family: var(--font-family-mono);
+    font-size: 11px;
+    line-height: var(--line-height-normal);
+    flex-shrink: 0;
+  }
+
   [data-slot="session-turn-content"] {
     flex-grow: 1;
     width: 100%;
