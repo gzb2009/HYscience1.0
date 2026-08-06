@@ -37,6 +37,30 @@ describe("tool.bash", () => {
       },
     })
   })
+
+  test("does not inherit arbitrary host secrets", async () => {
+    const key = "HYSCIENCE_TEST_SUBPROCESS_SECRET"
+    const previous = process.env[key]
+    process.env[key] = "should-not-leak"
+    const output = await Instance.provide({
+      directory: projectRoot,
+      fn: async () => {
+        const bash = await BashTool.init()
+        const result = await bash.execute(
+          {
+            command: `printf '%s' "\${${key}:-missing}"`,
+            description: "Check filtered environment",
+          },
+          ctx,
+        )
+        return result.output
+      },
+    })
+    if (previous === undefined) delete process.env[key]
+    if (previous !== undefined) process.env[key] = previous
+    expect(output).toContain("missing")
+    expect(output).not.toContain("should-not-leak")
+  })
 })
 
 describe("tool.bash permissions", () => {

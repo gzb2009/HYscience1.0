@@ -7,16 +7,10 @@
  */
 import { Auth } from "../auth"
 import { DEFAULT_MANAGED_API_BASE, MANAGED_API_BASE } from "../endpoints"
+import { ProcessPolicy } from "@/process/policy"
 
 export const API_BASE = MANAGED_API_BASE
 export { DEFAULT_MANAGED_API_BASE }
-
-const SHARED_PROVIDER_KEYS = new Set([
-  "ANTHROPIC_API_KEY",
-  "OPENAI_API_KEY",
-  "GOOGLE_GENERATIVE_AI_API_KEY",
-  "GEMINI_API_KEY",
-])
 
 const BYOK_ENV_KEYS = [
   "ANTHROPIC_API_KEY",
@@ -273,19 +267,18 @@ export namespace HYscience {
   }
 
   export function filterEnvForSubprocess(env: NodeJS.ProcessEnv): Record<string, string> {
-    const result: Record<string, string> = {}
-    for (const [key, value] of Object.entries(env)) {
-      if (!value) continue
-      if (isManagedKey(value)) continue
-      if (SHARED_PROVIDER_KEYS.has(key)) continue
-      result[key] = value
-    }
-    return result
+    return ProcessPolicy.environment({ source: env, mode: "safe" })
   }
 
-  export function mergeByokEnv(base: Record<string, string>, auth: Record<string, Auth.Info>): Record<string, string> {
+  export function mergeByokEnv(
+    base: Record<string, string>,
+    auth: Record<string, Auth.Info>,
+    providers: Iterable<string> = [],
+  ): Record<string, string> {
     const result = { ...base }
-    for (const [providerID, info] of Object.entries(auth)) {
+    for (const providerID of providers) {
+      const info = auth[providerID]
+      if (!info) continue
       if (info.type !== "api") continue
       if (isManagedKey(info.key)) continue
       const spec = BYOK_SUBPROCESS_PROVIDERS[providerID]
@@ -297,11 +290,22 @@ export namespace HYscience {
     return result
   }
 
-  export async function subprocessEnv(env: NodeJS.ProcessEnv = process.env): Promise<Record<string, string>> {
-    const base = filterEnvForSubprocess(env)
+  export async function subprocessEnv(
+    env: NodeJS.ProcessEnv = process.env,
+    options: {
+      profile?: ProcessPolicy.Profile
+      mode?: ProcessPolicy.Mode
+      overrides?: Record<string, string>
+      byokProviders?: string[]
+    } = {},
+  ): Promise<Record<string, string>> {
+    const base = ProcessPolicy.environment({
+      source: env,
+      profile: options.profile,
+      mode: options.mode ?? "safe",
+      overrides: options.overrides,
+    })
     const auth = await Auth.all().catch(() => ({}) as Record<string, Auth.Info>)
-    const merged = mergeByokEnv(base, auth)
-    merged.MPLBACKEND = "Agg"
-    return merged
+    return mergeByokEnv(base, auth, options.byokProviders)
   }
 }

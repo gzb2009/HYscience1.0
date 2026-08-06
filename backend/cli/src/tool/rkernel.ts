@@ -5,7 +5,7 @@ import path from "path"
 import os from "os"
 import { unlinkSync } from "fs"
 import { Instance } from "@/project/instance"
-import { HYscience } from "@/hyscience"
+import { ProcessEnvironment } from "@/process/environment"
 import type {
   Kernel,
   KernelManager,
@@ -131,9 +131,10 @@ const IDLE_MS = 30 * 60 * 1000
 
 async function findRscript(override?: string): Promise<string | null> {
   const candidates = override ? [override] : ["Rscript"]
+  const env = await ProcessEnvironment.resolve("notebook")
   for (const bin of candidates) {
     try {
-      const proc = Bun.spawn([bin, "--version"], { stdout: "pipe", stderr: "pipe" })
+      const proc = Bun.spawn([bin, "--version"], { stdout: "pipe", stderr: "pipe", env })
       await proc.exited
       if (proc.exitCode === 0) return bin
     } catch {}
@@ -221,7 +222,7 @@ class RKernel implements Kernel {
 
     const proc = spawn(bin, ["--vanilla", scriptPath], {
       cwd: opts?.cwd ?? Instance.directory,
-      env: { ...(await HYscience.subprocessEnv(process.env)), ...(opts?.env ?? {}) },
+      env: await ProcessEnvironment.resolve("notebook", opts?.env),
       stdio: ["pipe", "pipe", "pipe"],
     })
     this.proc = proc

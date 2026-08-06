@@ -2523,6 +2523,8 @@ export class Session extends HeyApiClient {
       variant?: string
       tier?: "fast" | "pro" | "ultra"
       fast?: boolean
+      newTask?: boolean
+      mergeTaskContext?: boolean
       parts?: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
     },
     options?: Options<never, ThrowOnError>,
@@ -2543,6 +2545,8 @@ export class Session extends HeyApiClient {
             { in: "body", key: "variant" },
             { in: "body", key: "tier" },
             { in: "body", key: "fast" },
+            { in: "body", key: "newTask" },
+            { in: "body", key: "mergeTaskContext" },
             { in: "body", key: "parts" },
           ],
         },
@@ -2615,6 +2619,8 @@ export class Session extends HeyApiClient {
       variant?: string
       tier?: "fast" | "pro" | "ultra"
       fast?: boolean
+      newTask?: boolean
+      mergeTaskContext?: boolean
       parts?: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
     },
     options?: Options<never, ThrowOnError>,
@@ -2635,6 +2641,8 @@ export class Session extends HeyApiClient {
             { in: "body", key: "variant" },
             { in: "body", key: "tier" },
             { in: "body", key: "fast" },
+            { in: "body", key: "newTask" },
+            { in: "body", key: "mergeTaskContext" },
             { in: "body", key: "parts" },
           ],
         },

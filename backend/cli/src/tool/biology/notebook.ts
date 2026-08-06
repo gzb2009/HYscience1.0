@@ -4,7 +4,7 @@ import { spawn, type ChildProcess } from "child_process"
 import path from "path"
 import os from "os"
 import { Instance } from "@/project/instance"
-import { HYscience } from "@/hyscience"
+import { ProcessEnvironment } from "@/process/environment"
 
 const KERNEL_SCRIPT = `
 import sys, json, io, traceback, os
@@ -136,7 +136,10 @@ async function getKernel(sessionID: string): Promise<Kernel> {
   const pythonBin = await findPython()
   const proc = spawn(pythonBin, ["-u", scriptPath], {
     cwd: Instance.directory,
-    env: { ...(await HYscience.subprocessEnv(process.env)), PYTHONUNBUFFERED: "1" },
+    env: await ProcessEnvironment.resolve("notebook", {
+      MPLBACKEND: "Agg",
+      PYTHONUNBUFFERED: "1",
+    }),
     stdio: ["pipe", "pipe", "pipe"],
   })
 
@@ -227,9 +230,10 @@ function executeInKernel(
 }
 
 async function findPython(): Promise<string> {
+  const env = await ProcessEnvironment.resolve("notebook")
   for (const bin of ["python3", "python"]) {
     try {
-      const proc = Bun.spawn([bin, "--version"], { stdout: "pipe", stderr: "pipe" })
+      const proc = Bun.spawn([bin, "--version"], { stdout: "pipe", stderr: "pipe", env })
       await proc.exited
       if (proc.exitCode === 0) return bin
     } catch {}
