@@ -1,0 +1,395 @@
+import { For, Show, createResource, createSignal, onCleanup, onMount, type JSX, type ResourceReturn } from "solid-js"
+import { Portal } from "solid-js/web"
+import { useGlobalSDK } from "@/context/global-sdk"
+import { usePlatform } from "@/context/platform"
+import { useLanguage } from "@/context/language"
+import { showToast } from "@hysci/ui/toast"
+import { IconSettings, IconX } from "@/thesis/shared/Icon"
+import { settingsApi } from "@/components/settings/api"
+import { computeGraphs, type ComputeKind } from "./icons"
+
+interface SshHost {
+  id: string
+  label: string
+  host: string
+  user?: string
+  port?: number
+}
+
+interface Provider {
+  id: string
+  name: string
+  connected: boolean
+}
+
+export interface ComputeInfo {
+  execution?: "local" | "ssh" | "cloud"
+  providers: Provider[]
+  ssh_hosts: SshHost[]
+}
+
+export type HomeComputeStore = {
+  info: ResourceReturn<ComputeInfo | undefined>[0]
+  busy: () => boolean
+  run: (fn: () => Promise<ComputeInfo>, failure: string) => Promise<void>
+  call: <T>(path: string, init?: RequestInit) => Promise<T>
+  setExecution: (execution: ComputeKind) => Promise<void>
+  refetch: () => void
+}
+
+const tiers: ComputeKind[] = ["local", "ssh", "cloud"]
+
+export function useHomeCompute(): HomeComputeStore {
+  const sdk = useGlobalSDK()
+  const platform = usePlatform()
+  const fetchFn = () => platform.fetch ?? fetch
+  const call = <T,>(path: string, init?: RequestInit) =>
+    settingsApi<T>(sdk.url, fetchFn(), `/settings/compute${path}`, init)
+
+  const [info, { mutate, refetch }] = createResource(() => call<ComputeInfo>(""))
+  const [busy, setBusy] = createSignal(false)
+
+  const run = async (fn: () => Promise<ComputeInfo>, failure: string) => {
+    setBusy(true)
+    try {
+      mutate(await fn())
+    } catch (err) {
+      showToast({ title: failure, description: err instanceof Error ? err.message : String(err) })
+      refetch()
+    }
+    setBusy(false)
+  }
+
+  const setExecution = (execution: ComputeKind) =>
+    run(
+      () => call<ComputeInfo>("/execution", { method: "PUT", body: JSON.stringify({ execution }) }),
+      "Failed to set execution tier",
+    )
+
+  return { info, busy, run, call, setExecution, refetch }
+}
+
+type LanguageT = ReturnType<typeof useLanguage>["t"]
+
+export function computeSubtitle(kind: ComputeKind, info: ComputeInfo | undefined, t: LanguageT): string {
+  if (kind === "local") return t("home.capabilities.compute.localSub")
+  if (kind === "ssh") {
+    const host = info?.ssh_hosts[0]
+    if (!host) return t("home.capabilities.compute.sshEmpty")
+    const addr = `${host.user ? `${host.user}@` : ""}${host.host}${host.port ? `:${host.port}` : ""}`
+    return `${host.label} · ${addr}`
+  }
+  const connected = info?.providers.filter((p) => p.connected) ?? []
+  if (connected.length === 0) return t("home.capabilities.compute.cloudEmpty")
+  return connected.map((p) => p.name).join(" · ")
+}
+
+export function HomeComputeItem(props: {
+  kind: ComputeKind
+  title: string
+  scene: string
+  subtitle: string
+  active: boolean
+  onSelect: () => void
+  onSettings: () => void
+}): JSX.Element {
+  const Graph = computeGraphs[props.kind]
+  return (
+    <article
+      class="cs-cap-compute-item"
+      classList={{ "cs-cap-compute-item-active": props.active }}
+      onClick={props.onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          props.onSelect()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <div class="cs-cap-compute-graph">
+        <Graph />
+      </div>
+      <div class="cs-cap-compute-info">
+        <strong>{props.title}</strong>
+        <span class="cs-cap-compute-scene">{props.scene}</span>
+        <span class="cs-cap-compute-sub">{props.subtitle}</span>
+      </div>
+      <div class="cs-cap-compute-side">
+        <span class="cs-cap-compute-dot" classList={{ "cs-cap-compute-dot-off": !props.active }} />
+        <button
+          type="button"
+          class="cs-cap-compute-settings-btn"
+          title={props.title}
+          onClick={(e) => {
+            e.stopPropagation()
+            props.onSettings()
+          }}
+        >
+          <IconSettings size={13} strokeWidth={1.5} />
+        </button>
+      </div>
+    </article>
+  )
+}
+
+export function HomeComputeDrawer(props: {
+  open: boolean
+  kind: ComputeKind | undefined
+  compute: HomeComputeStore
+  onClose: () => void
+}): JSX.Element {
+  const language = useLanguage()
+  const [hLabel, setHLabel] = createSignal("")
+  const [hHost, setHHost] = createSignal("")
+  const [hUser, setHUser] = createSignal("")
+  const [hPort, setHPort] = createSignal("")
+  const [keyValue, setKeyValue] = createSignal("")
+  const [connecting, setConnecting] = createSignal<string>()
+
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && props.open) props.onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    onCleanup(() => window.removeEventListener("keydown", onKey))
+  })
+
+  const title = () => {
+    const kind = props.kind
+    if (kind === "local") return language.t("home.capabilities.compute.localTitle")
+    if (kind === "ssh") return language.t("home.capabilities.compute.sshTitle")
+    if (kind === "cloud") return language.t("home.capabilities.compute.cloudTitle")
+    return ""
+  }
+
+  const saveHost = async () => {
+    if (!hLabel().trim() || !hHost().trim()) return
+    await props.compute.run(
+      () =>
+        props.compute.call<ComputeInfo>("/ssh", {
+          method: "POST",
+          body: JSON.stringify({
+            label: hLabel().trim(),
+            host: hHost().trim(),
+            user: hUser().trim() || undefined,
+            port: hPort().trim() ? Number(hPort().trim()) : undefined,
+          }),
+        }),
+      "Failed to add SSH host",
+    )
+    setHLabel("")
+    setHHost("")
+    setHUser("")
+    setHPort("")
+  }
+
+  const connectProvider = async (id: string) => {
+    if (!keyValue().trim()) return
+    await props.compute.run(
+      () =>
+        props.compute.call<ComputeInfo>(`/provider/${id}`, {
+          method: "POST",
+          body: JSON.stringify({ key: keyValue().trim() }),
+        }),
+      "Failed to connect provider",
+    )
+    setKeyValue("")
+    setConnecting(undefined)
+  }
+
+  return (
+    <Show when={props.open && props.kind}>
+      {(kind) => (
+        <Portal>
+          <div class="thesis-overlay" onClick={props.onClose} />
+          <aside class="thesis-drawer-right cs-cap-drawer" onClick={(e) => e.stopPropagation()}>
+            <header class="cs-cap-drawer-head">
+              <h3>{title()}</h3>
+              <button type="button" class="cs-cap-icon-btn" onClick={props.onClose} aria-label={language.t("common.close")}>
+                <IconX size={16} strokeWidth={1.5} />
+              </button>
+            </header>
+            <div class="cs-cap-drawer-body">
+              <Show when={kind() === "local"}>
+                <p class="cs-cap-drawer-hint">{language.t("home.capabilities.compute.localHint")}</p>
+              </Show>
+
+              <Show when={kind() === "ssh"}>
+                <Show when={(props.compute.info()?.ssh_hosts.length ?? 0) > 0}>
+                  <div class="cs-cap-drawer-section">
+                    <span class="cs-cap-drawer-label">{language.t("home.capabilities.compute.hosts")}</span>
+                    <For each={props.compute.info()?.ssh_hosts}>
+                      {(h) => (
+                        <div class="cs-cap-drawer-row">
+                          <div>
+                            <strong>{h.label}</strong>
+                            <span>
+                              {h.user ? `${h.user}@` : ""}
+                              {h.host}
+                              {h.port ? `:${h.port}` : ""}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            class="cs-cap-drawer-link"
+                            disabled={props.compute.busy()}
+                            onClick={() =>
+                              props.compute.run(
+                                () => props.compute.call<ComputeInfo>(`/ssh/${h.id}`, { method: "DELETE" }),
+                                "Failed to remove host",
+                              )
+                            }
+                          >
+                            {language.t("home.capabilities.remove")}
+                          </button>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+                <div class="cs-cap-drawer-section">
+                  <span class="cs-cap-drawer-label">{language.t("home.capabilities.compute.addHost")}</span>
+                  <label>{language.t("home.capabilities.compute.hostLabel")}</label>
+                  <input value={hLabel()} onInput={(e) => setHLabel(e.currentTarget.value)} placeholder="lab-gpu-01" />
+                  <label>{language.t("home.capabilities.compute.hostAddress")}</label>
+                  <input value={hHost()} onInput={(e) => setHHost(e.currentTarget.value)} placeholder="10.0.0.4" />
+                  <label>{language.t("home.capabilities.compute.hostUser")}</label>
+                  <input value={hUser()} onInput={(e) => setHUser(e.currentTarget.value)} placeholder="research" />
+                  <label>{language.t("home.capabilities.compute.hostPort")}</label>
+                  <input value={hPort()} onInput={(e) => setHPort(e.currentTarget.value)} placeholder="22" />
+                  <button type="button" class="cs-cap-drawer-action" disabled={props.compute.busy()} onClick={() => void saveHost()}>
+                    {language.t("home.capabilities.compute.saveHost")}
+                  </button>
+                </div>
+              </Show>
+
+              <Show when={kind() === "cloud"}>
+                <div class="cs-cap-drawer-section">
+                  <span class="cs-cap-drawer-label">{language.t("home.capabilities.compute.providers")}</span>
+                  <For each={props.compute.info()?.providers}>
+                    {(p) => (
+                      <div class="cs-cap-drawer-provider">
+                        <div class="cs-cap-drawer-row">
+                          <div>
+                            <strong>{p.name}</strong>
+                            <span>
+                              {p.connected
+                                ? language.t("home.capabilities.compute.connected")
+                                : language.t("home.capabilities.compute.notConnected")}
+                            </span>
+                          </div>
+                          <Show when={p.connected}>
+                            <button
+                              type="button"
+                              class="cs-cap-drawer-link"
+                              disabled={props.compute.busy()}
+                              onClick={() =>
+                                props.compute.run(
+                                  () => props.compute.call<ComputeInfo>(`/provider/${p.id}`, { method: "DELETE" }),
+                                  "Failed to remove provider",
+                                )
+                              }
+                            >
+                              {language.t("home.capabilities.remove")}
+                            </button>
+                          </Show>
+                        </div>
+                        <Show when={!p.connected && connecting() === p.id}>
+                          <input
+                            type="password"
+                            value={keyValue()}
+                            onInput={(e) => setKeyValue(e.currentTarget.value)}
+                            placeholder="API key"
+                          />
+                          <button
+                            type="button"
+                            class="cs-cap-drawer-action"
+                            disabled={props.compute.busy() || !keyValue().trim()}
+                            onClick={() => void connectProvider(p.id)}
+                          >
+                            {language.t("home.capabilities.compute.connect")}
+                          </button>
+                        </Show>
+                        <Show when={!p.connected && connecting() !== p.id}>
+                          <button type="button" class="cs-cap-drawer-link" onClick={() => setConnecting(p.id)}>
+                            {language.t("home.capabilities.compute.connect")}
+                          </button>
+                        </Show>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </div>
+          </aside>
+        </Portal>
+      )}
+    </Show>
+  )
+}
+
+export function HomeComputeOverlay(props: {
+  open: boolean
+  compute: HomeComputeStore
+  onClose: () => void
+  onSettings: (kind: ComputeKind) => void
+}): JSX.Element {
+  const language = useLanguage()
+
+  const tierTitle = (kind: ComputeKind) => {
+    if (kind === "local") return language.t("home.capabilities.compute.localTitle")
+    if (kind === "ssh") return language.t("home.capabilities.compute.sshTitle")
+    return language.t("home.capabilities.compute.cloudTitle")
+  }
+
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && props.open) props.onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    onCleanup(() => window.removeEventListener("keydown", onKey))
+  })
+
+  return (
+    <Show when={props.open}>
+      <Portal>
+        <div class="thesis-overlay" onClick={props.onClose} />
+        <div class="cs-cap-fullscreen cs-cap-fullscreen-narrow" onClick={(e) => e.stopPropagation()}>
+          <header class="cs-cap-fullscreen-head">
+            <h1>{language.t("home.capabilities.compute.titleAll")}</h1>
+            <button type="button" class="cs-cap-icon-btn" onClick={props.onClose} aria-label={language.t("common.close")}>
+              <IconX size={16} strokeWidth={1.5} />
+            </button>
+          </header>
+          <div class="cs-cap-fullscreen-body">
+            <div class="cs-cap-compute-stack">
+              <For each={tiers}>
+                {(kind) => (
+                  <HomeComputeItem
+                    kind={kind}
+                    title={tierTitle(kind)}
+                    scene={
+                      kind === "local"
+                        ? language.t("home.capabilities.compute.localScene")
+                        : kind === "ssh"
+                          ? language.t("home.capabilities.compute.sshScene")
+                          : language.t("home.capabilities.compute.cloudScene")
+                    }
+                    subtitle={computeSubtitle(kind, props.compute.info(), language.t)}
+                    active={(props.compute.info()?.execution ?? "local") === kind}
+                    onSelect={() => void props.compute.setExecution(kind)}
+                    onSettings={() => props.onSettings(kind)}
+                  />
+                )}
+              </For>
+            </div>
+          </div>
+        </div>
+      </Portal>
+    </Show>
+  )
+}
+
+export { tiers as computeTiers }

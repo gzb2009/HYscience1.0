@@ -4,7 +4,6 @@ import { base64Encode } from "@hysci/util/encode"
 import type { Project, Session } from "@hysci/sdk/v2/client"
 import { DropdownMenu } from "@hysci/ui/dropdown-menu"
 import { useDialog } from "@hysci/ui/context/dialog"
-import { FolderPicker } from "@/thesis/FolderPicker"
 import { DialogProjectForm, type ProjectFormValues } from "@/components/dialog-project-form"
 import { useServer } from "@/context/server"
 import { useGlobalSync } from "@/context/global-sync"
@@ -17,6 +16,7 @@ import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { ToastContainer } from "@/thesis/Toast"
 import { toast } from "@/thesis/Toast"
 import { DialogSettings } from "@/components/dialog-settings"
+import { HomeCapabilities } from "@/components/home-capabilities/HomeCapabilities"
 import { DisconnectedPanel } from "@/thesis/DisconnectedPanel"
 import { uiStore } from "@/thesis/store/ui"
 import { useGlobalKeys } from "@/thesis/useGlobalKeys"
@@ -108,17 +108,16 @@ export default function Home(): JSX.Element {
       const af = fav.has(a.worktree) ? 1 : 0
       const bf = fav.has(b.worktree) ? 1 : 0
       if (af !== bf) return bf - af
-      return (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created)
+      const at = (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created)
+      if (at !== 0) return at
+      return a.worktree.localeCompare(b.worktree)
     })
   })
 
   const projectRows = createMemo(() => {
     projectMetaLocal.all()
-    const validWorktrees = new Set(sync.data.project.map((p) => p.worktree))
-    return projects()
-      .filter((p) => validWorktrees.has(p.worktree))
-      .map((project) => {
-        const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
+    return projects().map((project) => {
+      const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
         const sessions = child.session.filter((s) => !s.parentID && !s.time?.archived)
         const latestSession = sessions.reduce<Session | undefined>((best, s) => {
           if (!best) return s
@@ -129,9 +128,9 @@ export default function Home(): JSX.Element {
           latestSession ? sessionUpdatedAt(latestSession) : 0,
         )
         const total = Math.max(child.sessionTotal, sessions.length)
-        const running = runningSessionCount(sessions, child.session_status)
-        return { project, total, running, updatedAt }
-      })
+      const running = runningSessionCount(sessions, child.session_status)
+      return { project, total, running, updatedAt }
+    })
   })
 
   const recentSessions = createMemo(() => {
@@ -155,12 +154,16 @@ export default function Home(): JSX.Element {
     }
     const seen = new Set<string>()
     const deduped: typeof items = []
-    for (const item of items.sort((a, b) => sessionUpdatedAt(b.session) - sessionUpdatedAt(a.session))) {
+    for (const item of items.sort((a, b) => {
+      const at = sessionUpdatedAt(b.session) - sessionUpdatedAt(a.session)
+      if (at !== 0) return at
+      return a.session.id.localeCompare(b.session.id)
+    })) {
       if (seen.has(item.session.id)) continue
       seen.add(item.session.id)
       deduped.push(item)
     }
-    return deduped.slice(0, 12)
+    return deduped
   })
 
   createEffect(() => {
@@ -190,24 +193,6 @@ export default function Home(): JSX.Element {
     navigate(`/${base64Encode(directory)}/session/${sessionId}`)
   }
 
-  function pickProjectDirectory(): Promise<string | string[] | null> {
-    return new Promise((resolve) => {
-      function resolveResult(result: string | string[] | null) {
-        resolve(result)
-      }
-      if (platform.openDirectoryPickerDialog && server.isLocal()) {
-        void platform
-          .openDirectoryPickerDialog?.({
-            title: language.t("command.project.open"),
-            multiple: true,
-          })
-          .then(resolveResult)
-        return
-      }
-      dialog.show(() => <FolderPicker onSelect={resolveResult} />, { onClose: () => resolveResult(null), lite: true })
-    })
-  }
-
   async function applyProjectMeta(directory: string, values: ProjectFormValues) {
     const resultName = normalizeResultFolderName(values.resultFolderName ?? values.name, directory)
     projectMetaLocal.patch(directory, {
@@ -218,6 +203,7 @@ export default function Home(): JSX.Element {
     const workspace = resolveProjectWorkingDir(directory)
     layout.projects.open(directory)
     server.projects.touch(directory)
+    sync.child(workspace, { bootstrap: true })
     await sync.project.loadSessions(workspace)
 
     const listed = await sdk.client.project.list().catch(() => undefined)
@@ -243,11 +229,20 @@ export default function Home(): JSX.Element {
     if (values.agentContext) {
       await saveProjectAgentContext(sdk.url, directory, values.agentContext, fetchFn()).catch(() => undefined)
     }
+
+    const next = await sdk.client.project.list().catch(() => undefined)
+    if (next?.data) {
+      sync.set(
+        "project",
+        next.data
+          .filter((p) => !!p?.id)
+          .filter((p) => !!p.worktree && !p.worktree.includes("hyscience-test")),
+      )
+    }
   }
 
   async function finalizeCreate(values: ProjectFormValues) {
-    const picked = await pickProjectDirectory()
-    const directory = Array.isArray(picked) ? picked[0] : (picked ?? undefined)
+    const directory = values.directory
     if (!directory) return
     try {
       await applyProjectMeta(directory, {
@@ -257,7 +252,7 @@ export default function Home(): JSX.Element {
           directory,
         ),
       })
-      openProject(directory)
+      projectPrefs.unhide(directory)
     } catch (err) {
       toast.error(language.t("common.requestFailed"), err instanceof Error ? err.message : String(err))
     }
@@ -358,8 +353,8 @@ export default function Home(): JSX.Element {
                     <IconPlus size={22} strokeWidth={1.75} />
                   </button>
                 </div>
-                <div class="cs-panel">
-                  <For each={projectRows()}>
+                <div class="cs-panel cs-home-scroll-panel thesis-scroll">
+                  <For each={projectRows()} by={(row) => row.project.worktree}>
                     {(row, i) => (
                       <ProjectRow
                         index={i() + 1}
@@ -387,12 +382,12 @@ export default function Home(): JSX.Element {
                   <IconClock size={16} strokeWidth={1.5} />
                   {language.t("sidebar.project.recentSessions")}
                 </h2>
-                <div class="cs-panel">
+                <div class="cs-panel cs-home-scroll-panel thesis-scroll">
                   <Show
                     when={recentSessions().length > 0}
                     fallback={<div class="cs-empty-panel">{language.t("home.noRecentSessions")}</div>}
                   >
-                    <For each={recentSessions()}>
+                    <For each={recentSessions()} by={(item) => item.session.id}>
                       {(item) => (
                         <button
                           type="button"
@@ -413,6 +408,8 @@ export default function Home(): JSX.Element {
                 </div>
               </section>
             </div>
+
+            <HomeCapabilities />
           </div>
         </Show>
       </main>

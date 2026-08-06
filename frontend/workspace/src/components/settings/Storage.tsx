@@ -3,8 +3,10 @@
 // Backed by /settings/storage (routes/settings/storage.ts).
 import { type Component, type JSX, For, Show, createMemo, createSignal, onMount } from "solid-js"
 import { Button } from "@hysci/ui/button"
+import { useDialog } from "@hysci/ui/context/dialog"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { usePlatform } from "@/context/platform"
+import { FolderPicker } from "@/thesis/FolderPicker"
 import { FONT_CODE, FONT_SANS } from "@/styles/tokens"
 import { settingsApi } from "./api"
 import { useSettingsNav } from "./nav"
@@ -35,6 +37,7 @@ function fmt(bytes: number): string {
 export const Storage: Component = () => {
   const sdk = useGlobalSDK()
   const platform = usePlatform()
+  const dialog = useDialog()
   const navigate = useSettingsNav()
 
   const base = () => sdk.url
@@ -55,6 +58,22 @@ export const Storage: Component = () => {
   }
   onMount(() => void load())
 
+  const pickStorageDirectory = (): Promise<string | null> =>
+    new Promise((resolve) => {
+      dialog.show(
+        () => (
+          <FolderPicker
+            purpose="workspace"
+            onSelect={(result) => {
+              const path = Array.isArray(result) ? result[0] : result
+              resolve(path)
+            }}
+          />
+        ),
+        { onClose: () => resolve(null), lite: true },
+      )
+    })
+
   const relocate = async () => {
     if (busy()) return
     setError(undefined)
@@ -63,9 +82,8 @@ export const Storage: Component = () => {
     if (platform.openDirectoryPickerDialog) {
       const picked = await platform.openDirectoryPickerDialog({ title: "Choose a new data location" }).catch(() => null)
       target = Array.isArray(picked) ? picked[0] : (picked ?? undefined)
-    } else {
-      target = window.prompt("New absolute path for the data directory:") ?? undefined
     }
+    if (!target) target = (await pickStorageDirectory()) ?? undefined
     if (!target?.trim()) return
     setBusy(true)
     try {

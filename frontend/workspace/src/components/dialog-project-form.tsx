@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, onMount, Show, type JSX } from "solid-js"
 import { Dialog } from "@hysci/ui/dialog"
 import { useDialog } from "@hysci/ui/context/dialog"
+import { showToast } from "@hysci/ui/toast"
 import { useLanguage } from "@/context/language"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { usePlatform } from "@/context/platform"
@@ -15,12 +16,14 @@ import {
   normalizeResultFolderName,
   resultFolderName,
 } from "@/utils/projectResult"
+import { FolderPicker } from "@/thesis/FolderPicker"
 import { IconX } from "@/thesis/shared/Icon"
 
 export type ProjectFormValues = {
   name: string
   description: string
   agentContext: string
+  directory?: string
   resultFolderName?: string
   researchDomain: "general" | "biology" | "physics" | "ml"
   researchSubdomain?: string
@@ -50,6 +53,7 @@ export function DialogProjectForm(props: {
   const fetchFn = platform.fetch ?? fetch
 
   const [name, setName] = createSignal(props.initial?.name ?? "")
+  const [directory, setDirectory] = createSignal(props.initial?.directory ?? "")
   const [description, setDescription] = createSignal(props.initial?.description ?? "")
   const [resultName, setResultName] = createSignal(props.initial?.resultFolderName ?? "")
   const [resultTouched, setResultTouched] = createSignal(!!props.initial?.resultFolderName)
@@ -94,6 +98,20 @@ export function DialogProjectForm(props: {
     setResultName(normalizeResultFolderName(name(), props.project?.worktree ?? "Project"))
   })
 
+  function pickDirectory() {
+    dialog.show(
+      () => (
+        <FolderPicker
+          onSelect={(result) => {
+            const dir = Array.isArray(result) ? result[0] : result
+            if (dir) setDirectory(dir)
+          }}
+        />
+      ),
+      { lite: true },
+    )
+  }
+
   async function persistEdit() {
     const project = props.project
     if (!project?.worktree) return
@@ -135,20 +153,26 @@ export function DialogProjectForm(props: {
   }
 
   function submit() {
+    if (props.mode === "create" && !directory().trim()) {
+      showToast({
+        variant: "error",
+        title: language.t("dialog.project.new.directoryRequired"),
+      })
+      return
+    }
     const values: ProjectFormValues = {
       name: name().trim(),
       description: description().trim(),
       agentContext: agentContext().trim(),
+      directory: directory().trim() || undefined,
       resultFolderName: normalizeResultFolderName(resultName(), name().trim() || props.project?.worktree || "Project"),
       researchDomain: domain(),
       researchSubdomain: subdomain().trim() || undefined,
       researchNotes: researchNotes().trim(),
     }
     if (props.mode === "create") {
+      props.onCreate?.(values)
       dialog.close()
-      // Let the form finish closing before opening the folder picker — otherwise
-      // dialog.close() in submit races with pickProjectDirectory()'s dialog.show().
-      window.setTimeout(() => props.onCreate?.(values), 120)
       return
     }
     void persistEdit()
@@ -183,6 +207,27 @@ export function DialogProjectForm(props: {
                 placeholder={language.t("dialog.project.new.namePlaceholder")}
               />
             </label>
+
+            <Show when={props.mode === "create"}>
+              <div class="cs-field">
+                <span class="cs-field-label">{language.t("dialog.project.new.directory")}</span>
+                <span class="cs-field-hint">{language.t("dialog.project.new.directoryHint")}</span>
+                <div class="cs-field-row">
+                  <input
+                    class="cs-field-input"
+                    value={directory()}
+                    readOnly
+                    placeholder={language.t("dialog.project.new.directoryPlaceholder")}
+                  />
+                  <button type="button" class="cs-btn-text cs-field-browse" onClick={pickDirectory}>
+                    {language.t("dialog.project.new.browse")}
+                  </button>
+                </div>
+                <Show when={directory()}>
+                  <span class="cs-field-hint">{formatWorkingDirLabel(directory())}</span>
+                </Show>
+              </div>
+            </Show>
 
             <section class="cs-field">
               <span class="cs-field-label">Research direction</span>
