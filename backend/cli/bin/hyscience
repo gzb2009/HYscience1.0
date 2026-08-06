@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+
+const childProcess = require("child_process")
+const fs = require("fs")
+const path = require("path")
+const os = require("os")
+
+function run(target) {
+  const hyscienceDir = path.join(os.homedir(), ".hyscience")
+  for (const poison of ["package.json", ".gitignore", "bun.lockb", "bunfig.toml"]) {
+    try {
+      fs.unlinkSync(path.join(hyscienceDir, poison))
+    } catch {}
+  }
+  try {
+    fs.rmSync(path.join(hyscienceDir, "node_modules"), { recursive: true })
+  } catch {}
+  if (os.platform() === "darwin") {
+    try {
+      childProcess.spawnSync("xattr", ["-rc", hyscienceDir], { stdio: "ignore" })
+    } catch {}
+  }
+
+  const result = childProcess.spawnSync(target, process.argv.slice(2), {
+    stdio: "inherit",
+  })
+  if (result.error) {
+    console.error(result.error.message)
+    process.exit(1)
+  }
+  const code = typeof result.status === "number" ? result.status : 0
+  process.exit(code)
+}
+
+function isBinary(p) {
+  try {
+    if (!fs.existsSync(p)) return false
+    const real = fs.realpathSync(p)
+    if (real === fs.realpathSync(__filename)) return false
+    if (real.endsWith(".js")) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+const envPath = process.env.HYSCIENCE_BIN_PATH
+if (envPath && isBinary(envPath)) {
+  run(envPath)
+}
+
+const binary = os.platform() === "win32" ? "hyscience.exe" : "hyscience"
+const scriptPath = fs.realpathSync(__filename)
+const scriptDir = path.dirname(scriptPath)
+
+const platformMap = { darwin: "darwin", linux: "linux", win32: "windows" }
+const archMap = { x64: "x64", arm64: "arm64", arm: "arm" }
+const platform = platformMap[os.platform()] || os.platform()
+const arch = archMap[os.arch()] || os.arch()
+const base = "hyscience-" + platform + "-" + arch
+const scopedBase = "hyscience-" + platform + "-" + arch
+
+const musl = (() => {
+  if (platform !== "linux") return false
+  try {
+    return fs.readdirSync("/lib").some((f) => f.startsWith("ld-musl-"))
+  } catch {
+    return false
+  }
+})()
+function variantRank(prefix, entry) {
+  const entryMusl = entry.includes("-musl")
+  if (entryMusl !== musl) return 0
+  return entry === prefix || entry === prefix + "-musl" ? 2 : 1
+}
+function matchingVariants(prefix, entries) {
+  return entries.filter((e) => e.startsWith(prefix)).sort((a, b) => variantRank(prefix, b) - variantRank(prefix, a))
+}
+
+let current = scriptDir
+while (true) {
+  const modules = path.join(current, "node_modules")
+  if (fs.existsSync(modules)) {
+    try {
+      const entries = fs.readdirSync(modules)
+      for (const entry of matchingVariants(base, entries)) {
+        const candidate = path.join(modules, entry, "bin", binary)
+        if (isBinary(candidate)) run(candidate)
+      }
+      const scoped = path.join(modules, "@hysci")
+      if (fs.existsSync(scoped)) {
+        const scopedEntries = fs.readdirSync(scoped)
+        for (const entry of matchingVariants(scopedBase, scopedEntries)) {
+          const candidate = path.join(scoped, entry, "bin", binary)
+          if (isBinary(candidate)) run(candidate)
+        }
+      }
+    } catch {}
+  }
+  const parent = path.dirname(current)
+  if (parent === current) break
+  current = parent
+}
+
+const homeBin = path.join(os.homedir(), ".hyscience", "bin", binary)
+if (isBinary(homeBin)) {
+  run(homeBin)
+}
+
+if (os.platform() === "darwin" && isBinary("/opt/homebrew/bin/hyscience")) {
+  run("/opt/homebrew/bin/hyscience")
+}
+
+if (isBinary("/usr/local/bin/hyscience")) {
+  run("/usr/local/bin/hyscience")
+}
+
+console.error("hyscience binary not found.")
+console.error("Install with: curl -fsSL https://hyscience.sh/install | bash")
+console.error("Or set HYSCIENCE_BIN_PATH environment variable.")
+process.exit(1)

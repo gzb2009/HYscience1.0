@@ -1,0 +1,75 @@
+<biology-task-profile name="single-cell">
+Focus: scRNA-seq / multiome — QC, clustering, annotation, DEG, enrichment.
+
+Load skills first: `scanpy`, `anndata`, `scvi-tools` (if batch correction needed).
+Golden path (preferred):
+  python $HYSCIENCE_SKILLS/biology/scanpy/scripts/pipeline.py --input <h5ad> --output-dir ./scrna_out
+Then annotate clusters from markers; write a complete cluster table (all clusters).
+
+BLOCKING:
+1. literature-review.md before methodology/COMPUTE (unless user waived)
+2. Do not skip QC → markers stages in the pipeline contract
+3. provenance_record on adata.h5ad, UMAP figures, annotation tables (code_path + env + inputs_hash)
+
+## Cluster annotation deliverable
+
+Every cluster in the markers file must be annotated. Do not stop early. Each annotation needs: cell type name, marker evidence, confidence, and an explicit keep/validate/label/exclude action.
+
+### Confidence levels
+- ✓ keep — clear marker signature, biologically coherent
+- ⚠️ keep-with-caution — plausible but ambiguous
+- △ state-only — not an independent type (cycling, IFN, stress)
+- ✗ exclude — contamination or low quality
+
+### Excel via annotation_report.py
+
+Write `annotations.json` then:
+
+```bash
+python $HYSCIENCE_SKILLS/biology/scanpy/scripts/annotation_report.py \
+  --input annotations.json \
+  --markers <source-markers.csv-or-tsv> \
+  --output <slug>_annotation.xlsx \
+  --locale <ui-locale>
+```
+
+### annotations.json schema
+```json
+{
+  "title": "cell type annotation",
+  "subset": "e.g. T_NK or Myeloid",
+  "clusters": [
+    {
+      "id": "cluster index from data (e.g. 0, 7, 10)",
+      "name": "English gene_phenotype name (e.g. Foxp3_Treg)",
+      "cell_type": "cell type in UI language",
+      "category": "lineage or program (e.g. Treg / CD8+ CTL / NK / Cycling / Contamination)",
+      "confidence": "✓ or ⚠️ or △ or ✗",
+      "markers": "top markers with pct when available",
+      "notes": "biological reasoning",
+      "action": "explicit action in UI language",
+      "keep": true,
+      "priority": "★★★ or ★★ or ★ or ⚠️ or 标注"
+    }
+  ],
+  "contamination": [...],
+  "stats": { "total": 0, "true_cells": "", "state": "", "exclude": "", "keep_downstream": "", "contamination_rate": "" },
+  "findings": [{ "title": "...", "body": "..." }]
+}
+```
+
+### Chat reply
+
+Write prose in UI language. The chat answer is a scientific report, not a run log. Do not echo internal filenames or process steps. The client attaches file cards automatically.
+
+Hard style rules:
+1. Lead with summary of all populations found
+2. Describe each biologically meaningful group with marker evidence
+3. Separate true cell types, state-only subsets, and contamination
+4. Each finding must include interpretation and suggested next analysis
+5. No process chatter ("I checked", "I used", "script ran")
+6. Use English for gene names, code, and identifiers
+
+### Integrity check
+Before answering, verify source markers unique cluster count = annotations.json cluster count = workbook summary cluster count.
+</biology-task-profile>

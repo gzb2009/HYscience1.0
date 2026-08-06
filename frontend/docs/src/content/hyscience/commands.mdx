@@ -1,0 +1,135 @@
+---
+title: "Command reference"
+description: "Every hyscience subcommand: workspace, run, sessions, models, agents, skills, and lifecycle."
+icon: "terminal"
+---
+
+The HYscience command surface. For live help, run `hyscience --help` and `hyscience <command> --help`.
+
+The bare `hyscience` (no arguments) starts the local server and opens the **browser workspace** in your working directory. Everything else is grouped below.
+
+## Global flags
+
+| Flag | Use |
+| --- | --- |
+| `-v, --version` | Print the installed version. |
+| `-h, --help` | Print help for a command. |
+| `--print-logs` | Stream agent diagnostics to stderr. |
+| `--log-level <DEBUG\|INFO\|WARN\|ERROR>` | Override the log threshold. |
+
+## Workspace and runs
+
+| Command | Use |
+| --- | --- |
+| `hyscience` | Start the server and open the browser workspace. |
+| `hyscience run [message..]` | One-shot prompt in the terminal; streams, then exits. |
+| `hyscience session list` | List recent sessions (`-n`, `--format`). |
+
+`run` flags: `-c/--continue`, `-s/--session <id>`, `-m/--model <provider/model>`, `--variant <high|max|minimal>` (provider-specific reasoning effort), `--agent <name>`, `--format <default|json>`, `-f/--file <path>`, `--attach <url>` (attach to a running server, e.g. `http://localhost:4096`), `--port`, `--title <text>`.
+
+```bash
+hyscience run "Plot the attention entropy across layers for this checkpoint"
+hyscience run -c "Now sweep the temperature and re-plot"
+hyscience run --format json "Summarize the experiment in results/" > summary.json
+```
+
+## Account
+
+Connecting an HYscience Cloud account is optional — see [Atlas](/hyscience/cloud). HYscience runs fully standalone with your own provider keys.
+
+| Command | Use |
+| --- | --- |
+| `hyscience init` | First-run setup wizard — choose managed models, your own keys, or skip. Rerun anytime (alias `onboard`). |
+| `hyscience login` | Connect your HYscience Cloud account (browser flow, or `--key thk_…`). |
+| `hyscience status` | One view of your HYscience Cloud state — account, synced services, subscription, wallet balance + lifetime spend, recent usage, managed-compute availability, and the bundled `hysci-graph` companion version (alias `whoami`). |
+| `hyscience sync` | Re-pull synced credentials. |
+| `hyscience devices` | List authorized devices. |
+| `hyscience logout` | Disconnect this device from HYscience Cloud. |
+| `hyscience doctor` | Report what's configured: account, provider keys, wallet, default model. |
+
+`hyscience connect …` still works as an alias for `login` / `logout` / `status` / `sync` / `devices`.
+
+## Providers and routing
+
+| Command | Use |
+| --- | --- |
+| `hyscience keys add` | Add a provider API key (BYOK; OAuth sign-in where supported). Alias: `auth`. |
+| `hyscience keys signin` | Sign in with ChatGPT / Codex (subscription). |
+| `hyscience keys list` | List saved provider keys and active env vars. |
+| `hyscience keys rm` | Remove a saved provider key. |
+| `hyscience models` | List configured providers and their models. |
+| `hyscience wallet` | Wallet balance and key routing (alias `billing`). |
+| `hyscience wallet topup` | Open the app to add credit. |
+
+## Agent profiles
+
+| Command | Use |
+| --- | --- |
+| `hyscience agent list` | Print the agent roster on this install. |
+| `hyscience agent create` | Scaffold a custom agent (system prompt + tool set + routing policy). |
+
+Flags: `--path`, `--description`, `--mode <all\|primary\|subagent>`, `--tools`, `--model`. See [Agents](/hyscience/agents).
+
+## Skills
+
+| Command | Use |
+| --- | --- |
+| `hyscience skill list` | Show installed skills (`--all` for the bundled set). |
+| `hyscience skill show <name>` | Print a skill's metadata and entrypoints. |
+| `hyscience skill add <url-or-name>` | Install a skill (URL or `gh:owner/repo`). |
+| `hyscience skill new` / `edit` / `validate` | Author, edit, and check user skills. |
+| `hyscience skill remove <name>` | Uninstall a skill. |
+| `hyscience skill set-entries <name>` | Update which skills surface in the `/` picker. |
+
+## Local server and protocols
+
+| Command | Use |
+| --- | --- |
+| `hyscience web` | Start the server and open the browser workspace (prints the URL, e.g. `http://localhost:4096`). |
+| `hyscience serve` | Headless local server — loopback-only (`127.0.0.1`), no browser. |
+| `hyscience acp` | Start an Agent Client Protocol server for editors like Zed. |
+| `hyscience mcp` | Manage MCP servers (`list`, `add`, `remove`, `auth`). |
+
+`web` and `serve` take `--port` and `--cors`. See [Workspace](/hyscience/workspace).
+
+## GitHub and PRs
+
+| Command | Use |
+| --- | --- |
+| `hyscience github` | GitHub agent for CI/Actions (`install`, `run`). |
+| `hyscience pr <number>` | Check out a PR branch, then launch the agent on it. |
+
+## Project and lifecycle
+
+| Command | Use |
+| --- | --- |
+| `hyscience project` | Pin the HYscience Cloud project root for this folder (`merge`). |
+| `hyscience export` / `hyscience import` | Export or import a session as JSON. |
+| `hyscience generate` | Emit the OpenAPI spec for the local server to stdout. |
+| `hyscience stats` | Local token-usage and cost stats. |
+| `hyscience debug` | Structured diagnostics for support (`debug paths` shows data/config dirs). |
+| `hyscience upgrade` | Update to the latest version. |
+| `hyscience uninstall` | Remove the binary and local config. |
+| `hyscience completion` | Shell completion for bash, zsh, or fish. |
+
+```bash
+hyscience upgrade
+hyscience completion zsh > ~/.zsh/completions/_hyscience
+```
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Workspace" icon="layers" href="/hyscience/workspace">
+    The browser workspace: files, editor, terminal, inline scientific rendering.
+  </Card>
+  <Card title="Security" icon="shield-check" href="/hyscience/security">
+    Credential boundary, env hygiene, the trust boundary.
+  </Card>
+  <Card title="Skills" icon="book-open" href="/hyscience/skills">
+    250+ research skills and the scientific databases.
+  </Card>
+  <Card title="Agents" icon="bot" href="/hyscience/agents">
+    The research agent, the specialists, and custom profiles.
+  </Card>
+</CardGroup>

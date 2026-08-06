@@ -1,0 +1,28 @@
+{
+  "name": "hysci",
+  "version": "1.2.10",
+  "description": "Install wizard for HYscience, the open-source AI research workspace (optionally with Atlas)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "hysci": "bin/hysci.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "keywords": [
+    "hyscience",
+    "hysci",
+    "HYscience",
+    "atlas",
+    "ai",
+    "ml",
+    "research",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HYscience/hyscience.git"
+  },
+  "homepage": "https://hyscience.ai"
+}

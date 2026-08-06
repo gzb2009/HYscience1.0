@@ -1,0 +1,11 @@
+[mcp_servers.brave-search]
+command = "mcp-server-brave-search"
+
+[mcp_servers.brave-search.env]
+BRAVE_API_KEY = "YOUR_BRAVE_API_KEY"
+
+[mcp_servers.playwright]
+command = "playwright-mcp"
+
+[mcp_servers.sequential-thinking]
+command = "mcp-server-sequential-thinking"

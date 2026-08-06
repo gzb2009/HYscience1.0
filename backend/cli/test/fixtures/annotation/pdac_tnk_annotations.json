@@ -1,0 +1,89 @@
+{
+  "title": "PDAC T/NK annotation regression fixture",
+  "subset": "TNK",
+  "clusters": [
+    {
+      "id": "C0",
+      "name": "Foxp3_Treg_Activated",
+      "cell_type": "活化效应Treg",
+      "category": "Treg",
+      "confidence": "✓",
+      "markers": [
+        { "gene": "Foxp3", "pct": "66%" },
+        { "gene": "Il2ra", "pct": "67%" }
+      ],
+      "notes": "Foxp3和Il2ra共同支持调节性T细胞身份。",
+      "action": "✓ 保留——用于Treg功能分析",
+      "keep": true,
+      "priority": "★★★"
+    },
+    {
+      "id": "C1",
+      "name": "Nkg7_NK_Cytotoxic",
+      "cell_type": "细胞毒性NK",
+      "category": "NK",
+      "confidence": "⚠",
+      "markers": { "Nkg7": "98%", "Prf1": "83%" },
+      "notes": "Nkg7和Prf1支持细胞毒性NK，但需排除双细胞。",
+      "action": "⚠️ 保留并验证——检查T细胞受体表达",
+      "keep": true,
+      "priority": "⚠️"
+    },
+    {
+      "id": "C2",
+      "name": "Mki67_CyclingCTL",
+      "cell_type": "增殖CD8 CTL",
+      "category": "增殖状态",
+      "confidence": "△",
+      "markers": "Mki67(88%), Stmn1(94%)",
+      "notes": "细胞周期基因主导，作为状态而非独立类型。",
+      "action": "△ 标注为Cycling_CTL",
+      "keep": true,
+      "priority": "标注"
+    },
+    {
+      "id": "C3",
+      "name": "Ifit1_IFN_T",
+      "cell_type": "IFN应答T细胞",
+      "category": "IFN状态",
+      "confidence": "△",
+      "markers": "Ifit1(91%), Isg15(86%)",
+      "notes": "干扰素应答基因升高，保留原谱系并添加状态标签。",
+      "action": "△ 标注为IFN_state",
+      "keep": true,
+      "priority": "标注"
+    },
+    {
+      "id": "C4",
+      "name": "C1qa_Macrophage",
+      "cell_type": "组织驻留巨噬细胞",
+      "category": "污染",
+      "confidence": "✗",
+      "markers": "C1qa(100%), Adgre1(89%)",
+      "notes": "巨噬细胞标志明确且缺少T/NK谱系证据。",
+      "action": "✗ 明确去除——非目标谱系",
+      "keep": false
+    }
+  ],
+  "contamination": [
+    {
+      "id": "C4",
+      "name": "C1qa_Macrophage",
+      "kind": "巨噬细胞污染",
+      "foreign_markers": "C1qa(100%), Adgre1(89%)",
+      "pct_range": "89-100%",
+      "native_markers": "无T/NK marker",
+      "action": "✗ 直接去除"
+    }
+  ],
+  "stats": {
+    "total": 99,
+    "exclude": 99
+  },
+  "findings": [
+    {
+      "title": "1. 状态程序跨谱系出现",
+      "body": "Mki67和IFN程序分别定义状态组。建议保留原谱系并添加状态标签。"
+    }
+  ]
+}

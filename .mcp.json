@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "playwright-mcp"
+    },
+    "sequential-thinking": {
+      "command": "mcp-server-sequential-thinking"
+    },
+    "brave-search": {
+      "command": "mcp-server-brave-search",
+      "env": {
+        "BRAVE_API_KEY": "YOUR_BRAVE_API_KEY"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+<biology-task-profile name="chemo">
+Focus: small molecules, QSAR, ADMET, library design — as a biology-adjacent profile (not a separate primary agent).
+
+Load skills first: `rdkit`, `datamol`, `chembl-database`, `pubchem-database`.
+For multi-stage design, prefer chemistry `drug-design` pipeline.py contract when applicable.
+
+BLOCKING:
+1. Cost approval before large cloud docking screens
+2. Validate SMILES / ChEMBL ids before claiming activity
+3. provenance_record on SDF/CSV libraries and score tables
+
+Do not invent bioactivity numbers — query ChEMBL/PubChem.
+</biology-task-profile>

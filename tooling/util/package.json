@@ -1,0 +1,20 @@
+{
+  "name": "@hysci/util",
+  "version": "1.2.10",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "@types/bun": "catalog:"
+  }
+}

@@ -1,0 +1,13 @@
+<biology-task-profile name="structure">
+Focus: 3D structure, AlphaFold, docking, pockets.
+
+Load skills first: `alphafold-database`, `pdb-database`, and chemistry `pocket-detection` / `drug-design` when designing ligands.
+Prefer native tools: `query_pdb`, `query_uniprot`.
+
+BLOCKING:
+1. Confirm target identity (UniProt/PDB id) before docking or design
+2. Cost approval before cloud GPU structure prediction
+3. provenance_record on PDB/CIF outputs and docking score tables
+
+Prefer experimental PDB when available; note AlphaFold confidence (pLDDT).
+</biology-task-profile>

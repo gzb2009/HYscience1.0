@@ -1,0 +1,21 @@
+Generate publication-quality scientific visualizations from data files (.csv, .tsv, .json).
+
+Supported plot types:
+- scatter: scatter plot with optional color/group, x/y columns required
+- bar: bar chart with grouping, x/y columns required
+- histogram: distribution of a single column
+- box: box-and-whisker plot for comparison across groups
+- violin: violin plot for distribution comparison
+- heatmap: correlation or matrix heatmap from tabular data
+- line: line plot with optional group, x/y columns required
+
+Specify the data file path, plot type, x/y column names, and optional grouping column. The tool writes a Python script using matplotlib/seaborn, executes it, and saves the output to the result directory.
+
+Parameters:
+- data: path to data file (.csv, .tsv, or .json)
+- type: plot type (scatter, bar, histogram, box, violin, heatmap, line)
+- x: column name for x-axis
+- y: column name for y-axis (optional for histogram)
+- group: column name for color/grouping (optional)
+- title: plot title (optional)
+- output: output filename (optional, auto-generated if not specified)

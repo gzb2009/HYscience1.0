@@ -1,0 +1,62 @@
+@import "@hysci/ui/styles/tailwind";
+@import "./styles/thesis.css";
+
+/*
+  HYscience-app typography: Inter (UI), Source Serif 4 (brand), JetBrains Mono (code).
+*/
+@layer base {
+  html {
+    font-size: var(--app-font-size, 14px);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-family-sans);
+    font-feature-settings: var(--font-family-sans--font-feature-settings, normal);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: var(--text-strong, var(--color-text));
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+/*
+  Opt-in editorial prose block for long-form rendered content (papers, run
+  notes, markdown). Airy measure and calm rhythm, paper-like.
+*/
+.prose-editorial {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-large, 15px);
+  line-height: 1.7;
+  color: var(--text-base, var(--color-text));
+  max-width: 68ch;
+}
+
+.prose-editorial h1,
+.prose-editorial h2,
+.prose-editorial h3 {
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+}
+
+.prose-editorial p,
+.prose-editorial ul,
+.prose-editorial ol {
+  margin-bottom: 1em;
+}
+
+.prose-editorial code,
+.prose-editorial pre {
+  font-family: var(--font-family-mono);
+  font-feature-settings: var(--font-family-mono--font-feature-settings, normal);
+}

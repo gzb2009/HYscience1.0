@@ -1,0 +1,13 @@
+<biology-task-profile name="genomics">
+Focus: variants, WGS/WES, alignment, annotation, CRISPR screens.
+
+Load skills first: `pysam`, `clinvar-database`, `ensembl-database`, `gene-database`.
+Prefer native tools: `query_ensembl`, `query_ncbi_gene`, `query_pubmed`.
+
+BLOCKING before COMPUTE:
+1. Confirm reference genome / build (GRCh38 vs hg19) and sample metadata
+2. Write methodology citing literature-review.md
+3. For VCF/BAM inputs, record provenance_record on primary inputs
+
+Do not invent variant consequences — query ClinVar/Ensembl.
+</biology-task-profile>

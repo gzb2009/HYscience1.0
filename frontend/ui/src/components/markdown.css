@@ -1,0 +1,295 @@
+[data-component="markdown"] {
+  /* Reset & Base Typography */
+  --markdown-muted: color-mix(in srgb, var(--text-strong) 68%, var(--text-weak));
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  color: var(--text-base);
+  font-family: var(--font-family-reading, var(--font-family-serif));
+  font-size: max(var(--font-size-base), 14px);
+  line-height: 1.75;
+
+  /* Spacing for flow */
+  > *:first-child {
+    margin-top: 0;
+  }
+  > *:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Headings: a distinct size and weight ladder keeps structured answers scannable. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--text-strong);
+    font-family: var(--font-family-sans);
+    font-weight: var(--font-weight-semibold, 600);
+    margin-top: 1.75rem;
+    margin-bottom: 0.6rem;
+    line-height: var(--line-height-large);
+    text-wrap: pretty;
+  }
+  /* Keep every level visibly above body copy without exaggerating dense replies. */
+  h1 {
+    font-size: 1.7em;
+    font-weight: var(--font-weight-bold, 700);
+    margin-top: 2rem;
+  }
+  h2 {
+    font-size: 1.4em;
+    font-weight: var(--font-weight-semibold, 600);
+  }
+  h3 {
+    font-size: 1.16em;
+    font-weight: var(--font-weight-semibold, 600);
+  }
+  h4 {
+    font-size: 1em;
+  }
+  h5,
+  h6 {
+    font-size: 1em;
+  }
+
+  /* Emphasis & Strong: Neutral strong color */
+  strong,
+  b {
+    color: var(--text-strong);
+    font-weight: var(--font-weight-semibold, 600);
+  }
+
+  /* Bold-only paragraphs = Claude-style group headers in annotation summaries. */
+  p:has(> strong:only-child) {
+    margin-top: 1.05rem;
+    margin-bottom: 0.3rem;
+  }
+
+  /* Paragraphs */
+  p {
+    margin-bottom: 1rem;
+  }
+
+  /* Links */
+  a {
+    color: var(--text-interactive-base);
+    text-decoration: none;
+    font-weight: inherit;
+  }
+
+  a:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* Lists */
+  ul,
+  ol {
+    margin-top: 0.25rem;
+    margin-bottom: 0.85rem;
+    padding-left: 1.35rem;
+    list-style-position: outside;
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+
+  ol {
+    list-style-type: decimal;
+  }
+
+  li {
+    margin-bottom: 0.28rem;
+  }
+
+  li > p:first-child {
+    display: inline;
+    margin: 0;
+  }
+
+  li > p + p {
+    display: block;
+    margin-top: 0.5rem;
+  }
+
+  li::marker {
+    color: var(--markdown-muted);
+  }
+
+  /* Nested lists spacing */
+  li > ul,
+  li > ol {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    padding-left: 1rem; /* Minimal indent for nesting only */
+  }
+
+  /* Blockquotes */
+  blockquote {
+    border-left: 2px solid var(--border-weak-base);
+    margin: 1.5rem 0;
+    padding-left: 0.5rem;
+    color: var(--markdown-muted);
+    font-style: normal;
+  }
+
+  /* Horizontal rule — light divider (Claude-style section break). */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border-weak-base);
+    height: 0;
+    margin: 1.35rem 0;
+  }
+
+  /* Reviewer block — collapsible details/summary */
+  details {
+    border: 1px solid var(--border-weak-base);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 1rem 0;
+    background: var(--surface-inset);
+  }
+
+  details summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--markdown-muted);
+    user-select: none;
+  }
+
+  details summary:hover {
+    color: var(--text-strong);
+  }
+
+  details[open] summary {
+    margin-bottom: 12px;
+    color: var(--text-strong);
+  }
+
+  .shiki {
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 0.5px solid var(--border-weak-base);
+  }
+
+  [data-component="markdown-code"] {
+    position: relative;
+  }
+
+  [data-slot="markdown-copy-button"] {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 1;
+  }
+
+  [data-component="markdown-code"]:hover [data-slot="markdown-copy-button"] {
+    opacity: 1;
+  }
+
+  [data-slot="markdown-copy-button"] [data-slot="check-icon"] {
+    display: none;
+  }
+
+  [data-slot="markdown-copy-button"][data-copied="true"] [data-slot="copy-icon"] {
+    display: none;
+  }
+
+  [data-slot="markdown-copy-button"][data-copied="true"] [data-slot="check-icon"] {
+    display: inline-flex;
+  }
+
+  pre {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    overflow: auto;
+
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  /* Inline code — quiet pill (cluster names / gene labels read clearly). */
+  :not(pre) > code {
+    font-family: var(--font-family-mono);
+    font-feature-settings: var(--font-family-mono--font-feature-settings);
+    color: #9a3412;
+    font-weight: var(--font-weight-medium);
+    font-size: 0.88em;
+    padding: 0.14em 0.42em;
+    border-radius: 6px;
+    background: color-mix(in srgb, #9a3412 8%, var(--surface-weak));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #9a3412 14%, transparent);
+  }
+
+  /* GFM task lists: drop the bullet, align the box, brand the tick. */
+  li:has(> input[type="checkbox"]) {
+    list-style: none;
+    margin-left: -1.25rem;
+  }
+  li > input[type="checkbox"] {
+    margin-right: 0.5em;
+    accent-color: var(--text-interactive-base);
+    vertical-align: -1px;
+  }
+
+  /* Decision tables — compact hierarchy, clear headers, readable evidence. */
+  table {
+    display: table;
+    width: 100%;
+    max-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 1.25rem 0;
+    font-size: calc(var(--font-size-base) - 1px);
+    overflow: hidden;
+    border: 1px solid var(--border-weak-base);
+    border-radius: 10px;
+    background: var(--surface-base);
+  }
+
+  th,
+  td {
+    border: 0 solid var(--border-weak-base);
+    border-bottom-width: 1px;
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+    vertical-align: top;
+    line-height: var(--line-height-large);
+  }
+
+  th {
+    color: var(--text-strong);
+    font-weight: var(--font-weight-semibold, 600);
+    background: var(--surface-weak);
+    white-space: nowrap;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--surface-weak) 42%, transparent);
+  }
+
+  tbody tr:hover td {
+    background: color-mix(in srgb, var(--text-interactive-base) 6%, var(--surface-base));
+  }
+
+  tbody tr:last-child td {
+    border-bottom-width: 0;
+  }
+
+  /* Images */
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    display: block;
+  }
+}

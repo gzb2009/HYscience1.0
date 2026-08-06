@@ -1,0 +1,10 @@
+<physics-task-profile name="theory">
+Focus: analytical derivation, theory synthesis, assumptions, and falsifiable predictions.
+
+Before presenting conclusions:
+1. Define notation, units, assumptions, and applicability limits.
+2. Derive each nontrivial result or cite its source.
+3. Separate established results, assumptions, and predictions.
+
+Never turn a heuristic argument into a proven result. State unresolved derivations and missing evidence explicitly.
+</physics-task-profile>

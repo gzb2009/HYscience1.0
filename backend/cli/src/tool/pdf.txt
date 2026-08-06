@@ -1,0 +1,11 @@
+Read and extract text content from PDF files. Use this to analyze scientific papers, protocols, or any document in PDF format.
+
+The tool extracts text from each page and returns it as structured content. Use it when you need to:
+- Read a scientific paper to extract methods or results
+- Parse a protocol document for experimental steps
+- Extract tables or figures captions from a PDF
+- Search for specific information in a PDF document
+
+Parameters:
+- path: path to the PDF file (relative to project root or absolute)
+- pages: optional page range to extract (e.g., "1-3" or "5")

@@ -1,0 +1,13 @@
+<biology-task-profile name="proteomics">
+Focus: protein ID, PTMs, interactions, MS workflows.
+
+Load skills first: `uniprot-database`, `string-database`, `pyopenms` (when MS files present).
+Prefer native tools: `query_uniprot`, `query_string`, `query_pdb`.
+
+BLOCKING before COMPUTE:
+1. Confirm organism + accession vs gene symbol mapping
+2. literature-review.md for method choice (DDA/DIA, FDR)
+3. provenance_record on result tables and figures
+
+Never invent UniProt accessions — look them up.
+</biology-task-profile>

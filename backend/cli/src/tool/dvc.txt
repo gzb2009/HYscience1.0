@@ -1,0 +1,14 @@
+Data Version Control for large files (datasets, models, experiment outputs). Tracks large binary files while keeping the repository lightweight.
+
+Operations:
+- init: Initialize DVC in the project
+- add: Track a file or directory with DVC (e.g., .h5ad, .csv, .pkl, .pt files)
+- push: Upload tracked data to remote storage
+- status: Check which data files have changed
+
+Data files tracked by DVC are stored externally (local remote by default), with lightweight .dvc metafiles committed to git.
+
+Parameters:
+- operation: init, add, push, or status
+- target: file or directory path (required for add)
+- remote: remote storage URL (optional for push, defaults to local)

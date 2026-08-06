@@ -1,0 +1,45 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "HYscience",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Start",
+            "pages": ["index", "quickstart", "workspace"]
+          },
+          {
+            "group": "Use the agent",
+            "pages": ["agents", "models", "skills", "sessions", "cloud"]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI",
+            "pages": ["commands", "security"]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        { "anchor": "hyscience.sh", "href": "https://hyscience.sh" },
+        { "anchor": "GitHub", "href": "https://github.com/HYscience/hyscience" },
+        { "anchor": "npm", "href": "https://www.npmjs.com/package/@hysci/hyscience" },
+        { "anchor": "Releases", "href": "https://github.com/HYscience/hyscience/releases" }
+      ]
+    }
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Star on GitHub",
+      "href": "https://github.com/HYscience/hyscience"
+    }
+  }
+}

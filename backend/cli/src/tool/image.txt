@@ -1,0 +1,9 @@
+Read and analyze local image files. Use this to inspect generated charts, experimental photos, microscope images, or screenshots.
+
+The tool reads the image file and returns base64-encoded data that can be analyzed by vision-capable models. Use it to:
+- Verify generated plots and charts look correct
+- Describe experimental images or micrographs
+- Extract visual information from screenshots
+
+Parameters:
+- path: path to the image file (.png, .jpg, .jpeg, .webp, .gif, .bmp)

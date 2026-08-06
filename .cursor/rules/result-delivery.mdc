@@ -1,0 +1,16 @@
+---
+description: Enforce concise, decision-ready result delivery across all agents
+alwaysApply: true
+---
+
+# Result delivery protocol
+
+For any completed analysis, research, implementation, or multi-step task:
+
+1. Start with `## 总结` / `## Summary`: one or two sentences with scope, result, and decision.
+2. When there are multiple results, tasks, files, groups, or recommendations, use a short list.
+3. Use a Markdown table only when there are at least three comparable objects and at least three decision-relevant fields. Keep columns compact: object, conclusion/status, evidence, action.
+4. Include `## 建议` / `## Recommendations` only when there is a concrete next action, validation need, risk, or decision.
+5. Hide or omit tool calls, run logs, raw paths, intermediate files, repeated evidence, and internal implementation detail. Surface only final deliverables.
+6. For scientific annotation: every retained, cautionary, state-only, or excluded group needs evidence and a corresponding keep/validate/label/exclude action.
+7. Do not fabricate evidence, metrics, or recommendations. If evidence is incomplete, state the uncertainty briefly.

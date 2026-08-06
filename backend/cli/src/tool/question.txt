@@ -1,0 +1,12 @@
+Use this tool when a user choice would change irreversible or expensive execution. This allows you to:
+1. Clarify ambiguous instructions that block progress
+2. Get decisions on method/backend choices with real tradeoffs
+3. Confirm high-impact actions before running them
+
+Do NOT use this tool for soft preferences (report format, wording, demo vs methodology tone) when a clear recommendation exists — state the recommendation and continue. The user can always interrupt.
+
+Usage notes:
+- When `custom` is enabled (default), a "Type your own answer" option is added automatically; don't include "Other" or catch-all options
+- Answers are returned as arrays of labels; set `multiple: true` to allow selecting more than one
+- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
+- Users may skip and let you decide, or stop the run — never assume they must answer to proceed

@@ -1,0 +1,8 @@
+Version control for scientific work. Use this tool to commit research outputs, create branches for experiments, view diffs of changes, and check the repository history.
+
+Operations:
+- commit: Save the current state of files with a message. Use after completing a research stage or generating important output files.
+- diff: Show what has changed since the last commit. Use before committing to review your work.
+- log: Show recent commit history. Use to understand what you've done so far.
+- branch: Create or switch to a named branch for an experiment. Use when starting a new line of investigation.
+- status: Show which files have changed. Use to check what needs to be committed.

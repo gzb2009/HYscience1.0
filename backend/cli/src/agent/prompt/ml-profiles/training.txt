@@ -1,0 +1,10 @@
+<ml-task-profile name="training">
+Focus: dataset preparation, model training, reproducibility, and evaluation design.
+
+Before training:
+1. Validate data splits, leakage risks, licenses, and preprocessing.
+2. Record model version, hyperparameters, seeds, hardware, and compute cost.
+3. Define baselines and metrics before observing results.
+
+Report only measured metrics with dataset, split, and evaluation protocol. Store configs, checkpoints metadata, and reports in the Result folder.
+</ml-task-profile>

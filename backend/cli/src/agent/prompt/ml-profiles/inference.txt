@@ -1,0 +1,10 @@
+<ml-task-profile name="inference">
+Focus: inference, deployment, latency, reliability, privacy, and operational evaluation.
+
+Before recommending a deployment:
+1. Define the input contract, failure modes, hardware target, and privacy constraints.
+2. Measure latency, throughput, cost, and quality using a documented workload.
+3. Keep configuration and evaluation outputs in the Result folder.
+
+Clearly distinguish estimates from measured production behavior.
+</ml-task-profile>

@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - run: bun run typecheck
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - run: bun run format:check
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - name: Configure git for tests
+        run: |
+          git config --global user.email "ci@hyscience.dev"
+          git config --global user.name "HYscience CI"
+          git config --global init.defaultBranch main
+      - run: bun run --cwd backend/cli test:ci
+
+  cli-build:
+    name: Build (CLI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - run: bun run --cwd backend/cli build:single
+
+  frontend-unit:
+    name: Test (frontend unit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - run: bun run --cwd frontend/workspace test:unit
+
+  atlas:
+    name: Test (atlas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - run: bun run --cwd tooling/atlas test
+
+  build:
+    name: Build (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - name: Build workspace UI
+        run: bun run --cwd frontend/workspace build
+      - name: Build docs site
+        run: bun run --cwd frontend/docs build
+
+  # frontend/landing is standalone (own lockfile, not a workspace member),
+  # so the root typecheck/build jobs never touch it.
+  landing:
+    name: Build (landing)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - name: Install
+        working-directory: frontend/landing
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        working-directory: frontend/landing
+        run: bunx tsc -b
+      - name: Build
+        working-directory: frontend/landing
+        run: bun run build
+
+  # Packages with no typecheck task and scripts that otherwise only ever
+  # execute during a release — catch syntax errors before release day.
+  smoke:
+    name: Smoke (launcher + scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-bun
+      - name: Launcher parses
+        run: node --check tooling/launcher/bin/hysci.mjs
+      - name: npm bin wrapper parses
+        run: node --check backend/cli/bin/hyscience
+      - name: Install script parses
+        run: bash -n install && bash -n frontend/landing/public/install
+      - name: Install script copies are in sync
+        run: diff -q install frontend/landing/public/install
+      - name: Release scripts parse
+        # transpile-only: bundling would follow imports into third-party
+        # packages with exports quirks (giget via node-fetch-native)
+        run: |
+          for f in tooling/repo/*.ts; do
+            bun -e "new Bun.Transpiler({ loader: 'ts' }).transformSync(await Bun.file('$f').text())"
+            echo "OK $f"
+          done
+
+  actionlint:
+    name: Lint workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2

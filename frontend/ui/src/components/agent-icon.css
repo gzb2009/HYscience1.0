@@ -1,0 +1,33 @@
+[data-component="agent-icon"] {
+  --agent-icon-ink: var(--text-strong, var(--color-text, currentColor));
+  --agent-icon-paper: var(--surface-base, var(--color-surface-solid, var(--color-bg, #fff)));
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+[data-component="agent-icon"] [data-slot="agent-icon-ring"] {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+
+[data-component="agent-icon"][data-animated] [data-slot="agent-icon-ring"] {
+  animation: agent-icon-spin 0.68s linear infinite;
+  will-change: transform;
+}
+
+@keyframes agent-icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="agent-icon"][data-animated] [data-slot="agent-icon-ring"] {
+    animation: none;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://hyscience.ai/config.json",
+  // "plugin": ["hyscience-openai-codex-auth"],
+  "provider": {
+    "hysci": {
+      "options": {},
+    },
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+    },
+  },
+  "tools": {
+    "github-triage": false,
+    "github-pr-search": false,
+  },
+}

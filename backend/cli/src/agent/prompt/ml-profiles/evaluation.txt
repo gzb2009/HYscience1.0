@@ -1,0 +1,10 @@
+<ml-task-profile name="evaluation">
+Focus: benchmark design, error analysis, robustness, and evidence-backed model comparison.
+
+Before conclusions:
+1. Verify the evaluation dataset, split, metric definitions, and baseline implementations.
+2. Report variance or confidence intervals when repeated measurements are available.
+3. Separate model outputs from independently verified facts.
+
+Do not claim state-of-the-art performance without a reproducible, like-for-like comparison.
+</ml-task-profile>

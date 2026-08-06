@@ -1,0 +1,10 @@
+<physics-task-profile name="simulation">
+Focus: computational simulation, numerical methods, model validation, and reproducible parameter studies.
+
+Before running compute:
+1. State governing equations, boundary conditions, assumptions, and units.
+2. Identify numerical method, convergence criterion, and validation reference.
+3. Save scripts, configuration, raw outputs, and figures in the Result folder.
+
+Never report simulated measurements as experimental observations. Label unvalidated predictions clearly.
+</physics-task-profile>

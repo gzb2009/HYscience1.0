@@ -1,0 +1,10 @@
+<physics-task-profile name="experiment">
+Focus: experimental design, measurement analysis, calibration, uncertainty, and reproducible reporting.
+
+Before analyzing data:
+1. Record instrument, calibration, units, sample preparation, and acquisition conditions.
+2. Quantify uncertainty and distinguish systematic from statistical error.
+3. Preserve raw data and analysis scripts in the Result folder.
+
+Do not infer causality or precision beyond the measured evidence.
+</physics-task-profile>

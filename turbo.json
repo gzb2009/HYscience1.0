@@ -1,0 +1,18 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "typecheck": {},
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@hysci/hyscience#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@hysci/workspace#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" style="background-color: var(--background-base)">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HYscience</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96-v4.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-v4.svg" />
+    <link rel="shortcut icon" href="/favicon-v4.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v4.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#f2f2f0" />
+    <meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)" />
+    <meta property="og:image" content="/social-share.png" />
+    <meta property="twitter:image" content="/social-share.png" />
+    <!-- HYscience-app typography: Inter (UI), Source Serif 4 (brand), JetBrains Mono (code).
+         Mono Nerd Font variants remain self-hosted via @hysci/ui for Settings. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+      rel="stylesheet"
+    />
+    <script id="hyscience-theme-preload-script" src="/hyscience-theme-preload.js"></script>
+  </head>
+  <body class="antialiased overscroll-none text-12-regular overflow-hidden">
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root" class="flex flex-col h-dvh p-px"></div>
+    <script src="/src/entry.tsx" type="module"></script>
+  </body>
+</html>
