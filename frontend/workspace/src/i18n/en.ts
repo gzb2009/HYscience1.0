@@ -450,6 +450,7 @@ export const dict = {
   "home.tagline": "Life sciences research assistant",
   "home.openFolder": "Open folder…",
   "home.noRecentSessions": "No recent sessions",
+  "home.session.zero": "0 tasks",
   "home.session.one": "1 session",
   "home.session.other": "{{count}} sessions",
   "home.session.running": "{{count}} running task(s)",

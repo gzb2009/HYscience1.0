@@ -128,7 +128,7 @@ export default function Home(): JSX.Element {
           project.time.updated ?? project.time.created ?? 0,
           latestSession ? sessionUpdatedAt(latestSession) : 0,
         )
-        const total = sessions.length
+        const total = Math.max(child.sessionTotal, sessions.length)
         const running = runningSessionCount(sessions, child.session_status)
         return { project, total, running, updatedAt }
       })
@@ -171,6 +171,7 @@ export default function Home(): JSX.Element {
   })
 
   function sessionCountLabel(count: number): string {
+    if (count === 0) return language.t("home.session.zero")
     if (count === 1) return language.t("home.session.one")
     return language.t("home.session.other", { count: String(count) })
   }
@@ -321,38 +322,42 @@ export default function Home(): JSX.Element {
         <Show when={projects().length > 0} fallback={<EmptyHero onChoose={openNewProjectDialog} />}>
           <div class="cs-workbench-inner">
             <div class="cs-workbench-header">
-              <AgentIcon
-                class="cs-workbench-mark"
-                size={96}
-                style={{
-                  "--agent-icon-ink": "var(--color-text)",
-                  "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
-                }}
-              />
-              <div class="cs-workbench-copy">
-                <h1 class="cs-workbench-brand">HYscience</h1>
-                <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
+              <div class="cs-workbench-brand-block">
+                <AgentIcon
+                  class="cs-workbench-mark"
+                  size={96}
+                  style={{
+                    "--agent-icon-ink": "var(--color-text)",
+                    "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
+                  }}
+                />
+                <div class="cs-workbench-copy">
+                  <h1 class="cs-workbench-brand">HYscience</h1>
+                  <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
+                </div>
               </div>
               <div class="cs-workbench-actions">
                 <HomeUserMenu onSettings={openSettings} />
-                <button
-                  type="button"
-                  class="cs-btn-primary"
-                  onClick={openNewProjectDialog}
-                  title={language.t("command.project.open")}
-                >
-                  <IconPlus size={15} strokeWidth={1.75} />
-                  {language.t("home.newProject")}
-                </button>
               </div>
             </div>
 
             <div class="cs-dashboard">
               <section>
-                <h2 class="cs-section-head">
-                  <IconFolder size={14} strokeWidth={1.5} />
-                  {language.t("home.projects")}
-                </h2>
+                <div class="cs-section-head-row">
+                  <h2 class="cs-section-head">
+                    <IconFolder size={24} strokeWidth={1.5} />
+                    {language.t("home.projects")}
+                  </h2>
+                  <button
+                    type="button"
+                    class="cs-btn-primary cs-section-head-action"
+                    onClick={openNewProjectDialog}
+                    title={language.t("command.project.open")}
+                    aria-label={language.t("home.newProject")}
+                  >
+                    <IconPlus size={22} strokeWidth={1.75} />
+                  </button>
+                </div>
                 <div class="cs-panel">
                   <For each={projectRows()}>
                     {(row, i) => (
@@ -377,9 +382,9 @@ export default function Home(): JSX.Element {
                 </div>
               </section>
 
-              <section>
+              <section class="cs-dashboard-recent">
                 <h2 class="cs-section-head">
-                  <IconClock size={14} strokeWidth={1.5} />
+                  <IconClock size={16} strokeWidth={1.5} />
                   {language.t("sidebar.project.recentSessions")}
                 </h2>
                 <div class="cs-panel">
@@ -451,9 +456,9 @@ function HomeUserMenu(props: { onSettings: () => void }): JSX.Element {
   }
 
   return (
-    <DropdownMenu open={open()} onOpenChange={setOpen}>
+    <DropdownMenu open={open()} onOpenChange={setOpen} modal={false}>
       <DropdownMenu.Trigger class="cs-workbench-icon-btn" data-expanded={open() ? "true" : "false"}>
-        <IconUser size={16} strokeWidth={1.5} />
+        <IconUser size={64} strokeWidth={1.5} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content class="cs-user-menu mt-2">
@@ -507,6 +512,7 @@ function ProjectRow(props: {
           <div class="cs-row-title-line">
             <ProjectSessionStatus
               index={props.index}
+              total={props.total}
               running={props.running}
               sessionCountLabel={props.sessionCountLabel}
               runningSessionLabel={props.runningSessionLabel}
@@ -523,6 +529,7 @@ function ProjectRow(props: {
           </div>
         </div>
         <span class="cs-row-meta">
+          <span class="cs-row-count">{props.sessionCountLabel}</span>
           <span class="cs-row-time">{compactTime(props.updatedAt)}</span>
         </span>
       </button>
@@ -578,6 +585,7 @@ function ProjectRow(props: {
 
 function ProjectSessionStatus(props: {
   index: number
+  total: number
   running: number
   sessionCountLabel: string
   runningSessionLabel: string
@@ -586,7 +594,12 @@ function ProjectSessionStatus(props: {
     <Show
       when={props.running > 0}
       fallback={
-        <span class="cs-project-index" aria-label={props.sessionCountLabel}>
+        <span
+          class="cs-project-index"
+          data-wide={props.index >= 10 ? "true" : undefined}
+          aria-label={props.sessionCountLabel}
+          title={props.sessionCountLabel}
+        >
           {props.index}
         </span>
       }

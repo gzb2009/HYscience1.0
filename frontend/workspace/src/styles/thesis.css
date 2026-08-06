@@ -541,7 +541,8 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
-  padding: 56px 40px 80px;
+  padding: 56px 12.5vw 80px;
+  scrollbar-gutter: stable;
 }
 
 /* ==========================================================
@@ -598,16 +599,23 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
 
 .cs-workbench-inner {
   width: 100%;
-  max-width: 64rem;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .cs-workbench-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  margin-bottom: 48px;
+}
+
+.cs-workbench-brand-block {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 24px;
-  margin-bottom: 48px;
+  min-width: 0;
 }
 
 .cs-workbench-mark {
@@ -639,10 +647,9 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
 .cs-workbench-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
   flex-shrink: 0;
-  padding-top: 4px;
-  margin-left: auto;
 }
 
 .cs-header {
@@ -680,7 +687,20 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   gap: 28px 72px;
   width: 100%;
   max-width: 60rem;
-  margin: 0 auto;
+  margin: 0;
+}
+
+.cs-dashboard-recent {
+  margin-left: 40px;
+}
+
+.cs-dashboard-recent .cs-section-head {
+  font-size: 16px;
+}
+
+.cs-dashboard-recent .cs-section-head svg {
+  width: 16px;
+  height: 16px;
 }
 
 @media (max-width: 820px) {
@@ -688,6 +708,40 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
     grid-template-columns: 1fr;
     gap: 24px;
   }
+
+  .cs-dashboard-recent {
+    margin-left: 0;
+  }
+}
+
+.cs-section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 12px;
+}
+
+.cs-section-head-row .cs-section-head {
+  margin: 0;
+  font-size: 24px;
+}
+
+.cs-section-head-row .cs-section-head svg {
+  width: 24px;
+  height: 24px;
+}
+
+.cs-section-head-row .cs-section-head-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  padding: 4px;
+  font-size: 22px;
+  line-height: 0;
 }
 
 .cs-section-head {
@@ -741,6 +795,7 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
 }
 
 .cs-row-wrap {
+  position: relative;
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--color-border);
@@ -763,9 +818,9 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding: 10px 8px 10px 4px;
+  padding: 10px 4px;
   transition: background-color 75ms ease;
 }
 
@@ -815,7 +870,6 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   width: 100%;
   padding: 7px 0;
   min-height: 48px;
-  max-width: 380px;
   border-bottom: none;
   transition: background-color 75ms ease;
 }
@@ -847,7 +901,12 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
 }
 
 .cs-row-wrap .cs-row-menu-btn {
-  margin-right: 6px;
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  margin-right: 0;
+  transform: translateY(-50%);
+  z-index: 1;
 }
 
 .cs-row-title {
@@ -862,11 +921,12 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   white-space: nowrap;
 }
 
-/* Project card title — bigger */
+/* Project card title — two sizes below section head (28px) */
 .cs-row-main .cs-row-title,
 .cs-row-wrap .cs-row-title {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1.25;
 }
 
 /* Session list title — smaller */
@@ -874,18 +934,21 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   font-size: 12px;
   font-weight: 500;
   line-height: 18px;
-  max-width: 380px;
 }
 
 .cs-row-meta {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   font-family: var(--font-sans);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
+}
+
+.cs-row-count {
+  white-space: nowrap;
 }
 
 .cs-project-session-status {
@@ -893,14 +956,14 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   color: var(--color-accent);
 }
 
 .cs-project-index.cs-project-session-status {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 
 .cs-project-session-status-ring {
@@ -918,15 +981,15 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
+  min-width: 26px;
+  height: 26px;
   padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
   box-sizing: border-box;
   border-radius: 50%;
   background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg));
   color: var(--color-accent);
-  font-size: 10px;
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1037,25 +1100,52 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   all: unset;
   box-sizing: border-box;
   cursor: pointer;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 45px;
-  height: 45px;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  padding: 0;
   border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  transition:
-    background-color 75ms ease,
-    color 75ms ease,
-    border-color 75ms ease;
+  line-height: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 75ms ease;
+}
+
+.cs-workbench-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: transparent;
+  transition: background-color 75ms ease;
+}
+
+.cs-workbench-icon-btn svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.cs-workbench-icon-btn:hover::before,
+.cs-workbench-icon-btn[data-expanded="true"]::before {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
 }
 
 .cs-workbench-icon-btn:hover,
 .cs-workbench-icon-btn[data-expanded="true"] {
-  background: color-mix(in srgb, var(--color-text) 4%, transparent);
   color: var(--color-text);
+}
+
+.cs-workbench-icon-btn:focus,
+.cs-workbench-icon-btn:focus-visible {
+  outline: none;
 }
 
 .cs-chip-btn {
@@ -3055,15 +3145,20 @@ button.cs-composer-label:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.cs-project-index[data-wide="true"] {
+  font-size: 11px;
 }
 
 /* ==========================================================

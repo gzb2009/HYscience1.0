@@ -447,6 +447,7 @@ export const dict = {
   "home.tagline": "生命科学科研助理",
   "home.openFolder": "打开文件夹…",
   "home.noRecentSessions": "暂无最近会话",
+  "home.session.zero": "0 任务",
   "home.session.one": "1 个会话",
   "home.session.other": "{{count}} 个会话",
   "home.session.running": "{{count}} 个任务运行中",
