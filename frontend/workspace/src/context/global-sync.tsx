@@ -17,6 +17,7 @@ import {
   type VcsInfo,
   type PermissionRequest,
   type QuestionRequest,
+  type ReviewRecord,
   createHYscienceClient,
 } from "@hysci/sdk/v2/client"
 import { createStore, produce, reconcile, type SetStoreFunction, type Store } from "solid-js/store"
@@ -46,6 +47,7 @@ import { getFilename } from "@hysci/util/path"
 import { usePlatform } from "./platform"
 import { useLanguage } from "@/context/language"
 import { Persist, persisted } from "@/utils/persist"
+import { mergeReviews } from "@/utils/review"
 
 type ProjectMeta = {
   name?: string
@@ -88,6 +90,9 @@ type State = {
   }
   todo: {
     [sessionID: string]: Todo[]
+  }
+  review: {
+    [sessionID: string]: ReviewRecord[]
   }
   permission: {
     [sessionID: string]: PermissionRequest[]
@@ -407,6 +412,7 @@ function createGlobalSync() {
           session_status: {},
           session_diff: {},
           todo: {},
+          review: {},
           permission: {},
           question: {},
           mcp: {},
@@ -737,6 +743,7 @@ function createGlobalSync() {
           delete draft.message[sessionID]
           delete draft.session_diff[sessionID]
           delete draft.todo[sessionID]
+          delete draft.review[sessionID]
           delete draft.permission[sessionID]
           delete draft.question[sessionID]
           delete draft.session_status[sessionID]
@@ -814,6 +821,11 @@ function createGlobalSync() {
       case "todo.updated":
         setStore("todo", event.properties.sessionID, reconcile(event.properties.todos, { key: "id" }))
         break
+      case "review.updated": {
+        const sessionID = event.properties.sessionID
+        setStore("review", sessionID, (records = []) => mergeReviews(records, [event.properties.record]))
+        break
+      }
       case "session.status": {
         setStore("session_status", event.properties.sessionID, reconcile(event.properties.status))
         break
@@ -853,6 +865,11 @@ function createGlobalSync() {
             }
 
             delete draft.part[messageID]
+            const reviews = draft.review[sessionID]
+            if (reviews) {
+              const index = reviews.findIndex((record) => record.messageID === messageID)
+              if (index >= 0) reviews.splice(index, 1)
+            }
           }),
         )
         break

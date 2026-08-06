@@ -1,7 +1,8 @@
 import { createSignal } from "solid-js"
 
-export type RightPaneTab = "terminal"
+export type RightPaneTab = "terminal" | "review"
 export type ImagePreview = { directory: string; path: string; name: string; mime?: string }
+export type ReviewSelection = { sessionID: string; messageID: string }
 
 const PANE_OPEN_KEY = "thesis-rightpane-open-v3"
 const HIDDEN_TABS_KEY = "thesis-rightpane-hidden-tabs-v2"
@@ -44,6 +45,7 @@ const [hiddenTabs, setHiddenTabs] = createSignal<RightPaneTab[]>(readHiddenTabs(
 const [imagePreview, setImagePreviewRaw] = createSignal<ImagePreview>()
 const [prefill, setPrefill] = createSignal<string | undefined>(undefined)
 const [prefillSend, setPrefillSend] = createSignal(false)
+const [reviewSelection, setReviewSelection] = createSignal<ReviewSelection>()
 
 function setRightPaneOpen(v: boolean) {
   try {
@@ -77,6 +79,12 @@ function isTabHidden(tab: RightPaneTab) {
   return hiddenTabs().includes(tab)
 }
 
+function inspectReview(sessionID: string, messageID: string) {
+  setReviewSelection({ sessionID, messageID })
+  setRightPaneTab("review")
+  setRightPaneOpen(true)
+}
+
 export const uiStore = {
   helpOpen,
   setHelpOpen,
@@ -97,4 +105,7 @@ export const uiStore = {
   setPrefill,
   prefillSend,
   setPrefillSend,
+  reviewSelection,
+  setReviewSelection,
+  inspectReview,
 }
