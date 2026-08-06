@@ -19,6 +19,7 @@ import { withTimeout } from "@/util/timeout"
 import { McpOAuthProvider } from "./oauth-provider"
 import { McpOAuthCallback } from "./oauth-callback"
 import { McpAuth } from "./auth"
+import { localEnvironment } from "./environment"
 import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import open from "open"
@@ -395,16 +396,18 @@ export namespace MCP {
     if (mcp.type === "local") {
       const [cmd, ...args] = mcp.command
       const cwd = Instance.directory
+      if (mcp.environmentMode === "inherit") {
+        log.warn("local MCP inherits the full host environment", {
+          key,
+          migration: "Remove environmentMode: inherit and declare required variables under environment.",
+        })
+      }
       const transport = new StdioClientTransport({
         stderr: "pipe",
         command: cmd,
         args,
         cwd,
-        env: {
-          ...process.env,
-          ...(cmd === "hyscience" ? { BUN_BE_BUN: "1" } : {}),
-          ...mcp.environment,
-        },
+        env: localEnvironment({ command: cmd, config: mcp }),
       })
       transport.stderr?.on("data", (chunk: Buffer) => {
         log.info(`mcp stderr: ${chunk.toString()}`, { key })
