@@ -51,7 +51,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   xai: "xAI",
   cohere: "Cohere",
   gitlab: "GitLab Duo",
-  hysci: "HYscience Cloud",
+  hysci: "HYcloud",
 }
 
 // Credential source shown as a single low-weight dot — the one bit that matters

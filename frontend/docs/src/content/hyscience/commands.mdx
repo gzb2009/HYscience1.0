@@ -35,16 +35,16 @@ hyscience run --format json "Summarize the experiment in results/" > summary.jso
 
 ## Account
 
-Connecting an HYscience Cloud account is optional — see [Atlas](/hyscience/cloud). HYscience runs fully standalone with your own provider keys.
+Connecting a HYcloud account is optional — see [HYcloud](/hyscience/cloud). HYscience runs fully standalone with your own provider keys.
 
 | Command | Use |
 | --- | --- |
 | `hyscience init` | First-run setup wizard — choose managed models, your own keys, or skip. Rerun anytime (alias `onboard`). |
-| `hyscience login` | Connect your HYscience Cloud account (browser flow, or `--key thk_…`). |
-| `hyscience status` | One view of your HYscience Cloud state — account, synced services, subscription, wallet balance + lifetime spend, recent usage, managed-compute availability, and the bundled `hysci-graph` companion version (alias `whoami`). |
+| `hyscience login` | Connect your HYcloud account (browser flow, or `--key thk_…`). |
+| `hyscience status` | HYcloud connection state — account, synced services, wallet balance, recent usage (alias `whoami`). |
 | `hyscience sync` | Re-pull synced credentials. |
 | `hyscience devices` | List authorized devices. |
-| `hyscience logout` | Disconnect this device from HYscience Cloud. |
+| `hyscience logout` | Disconnect this device from HYcloud. |
 | `hyscience doctor` | Report what's configured: account, provider keys, wallet, default model. |
 
 `hyscience connect …` still works as an alias for `login` / `logout` / `status` / `sync` / `devices`.
@@ -103,7 +103,7 @@ Flags: `--path`, `--description`, `--mode <all\|primary\|subagent>`, `--tools`, 
 
 | Command | Use |
 | --- | --- |
-| `hyscience project` | Pin the HYscience Cloud project root for this folder (`merge`). |
+| `hyscience project` | Pin the HYcloud project root for this folder (`merge`). |
 | `hyscience export` / `hyscience import` | Export or import a session as JSON. |
 | `hyscience generate` | Emit the OpenAPI spec for the local server to stdout. |
 | `hyscience stats` | Local token-usage and cost stats. |

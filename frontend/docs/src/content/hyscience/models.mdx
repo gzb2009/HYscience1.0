@@ -1,6 +1,6 @@
 ---
 title: "Models & providers"
-description: "Bring your own keys for any provider, switch models per run, and optionally route through HYscience Cloud managed."
+description: "Bring your own keys for any provider, switch models per run, and optionally route through HYcloud managed."
 icon: "package-check"
 ---
 
@@ -35,20 +35,19 @@ hyscience run --model anthropic/claude-sonnet-5 "Clean up the plotting code"
 
 `--model <provider>/<model>` overrides the default for one run; in the workspace, use the model selector per session. `--variant` picks a reasoning-effort tier — `minimal`, `high`, `max`, and so on. Available tiers depend on the model: Claude Opus 4.8 exposes the full range up to `xhigh` and `max`; other adaptive Claude models cap at `max`.
 
-## HYscience Cloud managed (optional)
-
-[Atlas](/hyscience/cloud) is the managed platform. Connecting adds a curated set of frontier models billed from a prepaid wallet, so you can skip per-provider keys entirely:
+## HYcloud managed (optional)
 
 ```bash
 hyscience login   # defaults to app.hyscience.ai
+hyscience wallet  # balance and key routing
+hyscience status  # connection state
+hyscience logout  # disconnect
 ```
-
-Once connected, launching the workspace syncs your provider config and credentials, and Settings → Billing has independent managed/BYOK spend toggles for LLM calls and compute — mix routes freely, per concern. BYOK usage is always free and never gated; HYscience Cloud only meters the models it serves.
 
 | Path | What runs where | Billing |
 | --- | --- | --- |
 | BYOK (default) | Your machine calls the provider directly. | Your provider account. |
-| HYscience Cloud managed | Your machine calls HYscience Cloud, which calls the provider. | Prepaid wallet. See [Connect to HYscience Cloud](/hyscience/cloud). |
+| HYcloud managed | Your machine calls HYcloud, which calls the provider. | Prepaid wallet. See [Connect to HYcloud](/hyscience/cloud). |
 
 ## Key hygiene
 
@@ -63,8 +62,8 @@ Provider keys and synced credentials are filtered out of the environment of ever
   <Card title="Sessions" icon="layers" href="/hyscience/sessions">
     Per-run model and variant flags in context.
   </Card>
-  <Card title="Atlas" icon="globe" href="/hyscience/cloud">
-    What connecting to HYscience Cloud adds.
+  <Card title="HYcloud" icon="globe" href="/hyscience/cloud">
+    Login, wallet, and account commands.
   </Card>
   <Card title="Security" icon="shield-check" href="/hyscience/security">
     The env allow-list and trust boundary.

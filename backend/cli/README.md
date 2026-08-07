@@ -1,6 +1,6 @@
 # @hysci/hyscience
 
-HYscience is a model-agnostic, open-source AI research agent for scientific and ML engineering work. It runs a workspace in your browser where the agent plans tasks, writes and runs code, drives experiments, queries scientific databases, and writes up results. Bring your own API key or sign in with Atlas, use any frontier or open-weight model, and work with the bundled science skills.
+HYscience is a model-agnostic, open-source AI research agent for scientific and ML engineering work. It runs a workspace in your browser where the agent plans tasks, writes and runs code, drives experiments, queries scientific databases, and writes up results. Bring your own API key or sign in with HYcloud, use any frontier or open-weight model, and work with the bundled science skills.
 
 Part of the [HYscience](https://github.com/HYscience/HYscience) repository.
 
@@ -17,11 +17,11 @@ The command is `hyscience`.
 ```bash
 hyscience                     # open the workspace in your browser
 hyscience ~/code/project      # open it in a specific directory
-hyscience connect login       # sign in to Atlas (optional; BYOK works without an account)
+hyscience connect login       # sign in to HYcloud (optional; BYOK works without an account)
 hyscience run "..."           # run a one-shot task
 ```
 
-Configuration lives in `~/.config/hyscience/hyscience.json`. Provider keys can be set in the workspace (bring your own key) or synced from Atlas.
+Configuration lives in `~/.config/hyscience/hyscience.json`. Provider keys can be set in the workspace (bring your own key) or synced from HYcloud.
 
 ## Docs
 
