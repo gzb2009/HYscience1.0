@@ -1050,7 +1050,7 @@ function createGlobalSync() {
             .filter((p) => !!p.worktree && !p.worktree.includes("hyscience-test"))
             .slice()
             .sort((a, b) => a.id.localeCompare(b.id))
-          setGlobalStore("project", projects)
+          setGlobalStore("project", reconcile(projects, { key: "id" }))
         }),
       ),
       retry(() =>

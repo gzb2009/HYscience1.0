@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import crypto from "crypto"
+import os from "os"
 import path from "path"
 import fs from "fs/promises"
 import { Global } from "../../../global"
@@ -125,13 +126,41 @@ export namespace ComputeSettings {
   })
   export type Provider = z.infer<typeof Provider>
 
+  export const LocalMachine = z.object({
+    hostname: z.string(),
+    platform: z.string(),
+    release: z.string(),
+    arch: z.string(),
+    cpus: z.number().int().nonnegative(),
+    cpu: z.string(),
+    memoryTotal: z.number().nonnegative(),
+    memoryFree: z.number().nonnegative(),
+  })
+  export type LocalMachine = z.infer<typeof LocalMachine>
+
   export const Info = z.object({
     execution: z.enum(["local", "ssh", "cloud"]).default("local"),
     providers: Provider.array().default([]),
     ssh_hosts: SshHost.array().default([]),
     endpoints: Endpoint.array().default([]),
+    local: LocalMachine.optional(),
   })
   export type Info = z.infer<typeof Info>
+
+  function localMachine(): LocalMachine {
+    const list = os.cpus()
+    const model = list[0]?.model?.replace(/\s+/g, " ").trim() || "CPU"
+    return {
+      hostname: os.hostname(),
+      platform: os.platform(),
+      release: os.release(),
+      arch: os.arch(),
+      cpus: list.length,
+      cpu: model,
+      memoryTotal: os.totalmem(),
+      memoryFree: os.freemem(),
+    }
+  }
 
   export type Execution = "local" | "ssh" | "cloud"
 
@@ -266,6 +295,7 @@ export namespace ComputeSettings {
       providers,
       ssh_hosts: stored.ssh_hosts,
       endpoints: stored.endpoints,
+      local: localMachine(),
     }
   }
 

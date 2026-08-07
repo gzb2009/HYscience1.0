@@ -6,10 +6,12 @@ Golden path (preferred):
   python $HYSCIENCE_SKILLS/biology/scanpy/scripts/pipeline.py --input <h5ad> --output-dir ./scrna_out
 Then annotate clusters from markers; write a complete cluster table (all clusters).
 
-BLOCKING:
+BLOCKING (only when executing COMPUTE on real data — not for general methodology Q&A):
 1. literature-review.md before methodology/COMPUTE (unless user waived)
 2. Do not skip QC → markers stages in the pipeline contract
 3. provenance_record on adata.h5ad, UMAP figures, annotation tables (code_path + env + inputs_hash)
+
+For general methodology questions without data execution: answer directly and concisely; do not spawn literature-review or require literature-review.md.
 
 ## Cluster annotation deliverable
 
