@@ -71,7 +71,7 @@ export default function Skills() {
     sync.set("config", "permission", { ...base, skill: map })
     try {
       // Avoid sync.updateConfig — it forces a full global reload and reshuffles Home lists.
-      const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } } as Config)
+      const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } })
       if (res.error) throw new Error(String(res.error))
     } catch (err) {
       sync.set("config", "permission", { ...base, skill: prev })

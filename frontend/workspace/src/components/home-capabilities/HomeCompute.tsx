@@ -263,7 +263,12 @@ export function HomeComputeDrawer(props: {
           <aside class="thesis-drawer-right cs-cap-drawer" onClick={(e) => e.stopPropagation()}>
             <header class="cs-cap-drawer-head">
               <h3>{title()}</h3>
-              <button type="button" class="cs-cap-icon-btn" onClick={props.onClose} aria-label={language.t("common.close")}>
+              <button
+                type="button"
+                class="cs-cap-icon-btn"
+                onClick={props.onClose}
+                aria-label={language.t("common.close")}
+              >
                 <IconX size={16} strokeWidth={1.5} />
               </button>
             </header>
@@ -340,7 +345,12 @@ export function HomeComputeDrawer(props: {
                   <input value={hUser()} onInput={(e) => setHUser(e.currentTarget.value)} placeholder="research" />
                   <label>{language.t("home.capabilities.compute.hostPort")}</label>
                   <input value={hPort()} onInput={(e) => setHPort(e.currentTarget.value)} placeholder="22" />
-                  <button type="button" class="cs-cap-drawer-action" disabled={props.compute.busy()} onClick={() => void saveHost()}>
+                  <button
+                    type="button"
+                    class="cs-cap-drawer-action"
+                    disabled={props.compute.busy()}
+                    onClick={() => void saveHost()}
+                  >
                     {language.t("home.capabilities.compute.saveHost")}
                   </button>
                 </div>
@@ -440,7 +450,12 @@ export function HomeComputeOverlay(props: {
         <div class="cs-cap-fullscreen cs-cap-fullscreen-narrow" onClick={(e) => e.stopPropagation()}>
           <header class="cs-cap-fullscreen-head">
             <h1>{language.t("home.capabilities.compute.titleAll")}</h1>
-            <button type="button" class="cs-cap-icon-btn" onClick={props.onClose} aria-label={language.t("common.close")}>
+            <button
+              type="button"
+              class="cs-cap-icon-btn"
+              onClick={props.onClose}
+              aria-label={language.t("common.close")}
+            >
               <IconX size={16} strokeWidth={1.5} />
             </button>
           </header>

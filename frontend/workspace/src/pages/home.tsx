@@ -255,8 +255,7 @@ export default function Home(): JSX.Element {
       .filter((p) => !!p.worktree && !p.worktree.includes("hyscience-test"))
     const refreshed = await sdk.client.project.current({ directory: root }).catch(() => undefined)
     const created = refreshed?.data
-    const merged =
-      created?.id && !listed.some((p) => p.id === created.id) ? [...listed, created] : listed
+    const merged = created?.id && !listed.some((p) => p.id === created.id) ? [...listed, created] : listed
     if (merged.length > 0 || created) {
       sync.set("project", merged)
     }
@@ -379,7 +378,7 @@ export default function Home(): JSX.Element {
                   </button>
                 </div>
                 <div class="cs-panel cs-home-scroll-panel thesis-scroll">
-                  <For each={projectRows()} by={(row) => row.project.worktree}>
+                  <For each={projectRows()}>
                     {(row, i) => (
                       <ProjectRow
                         index={i() + 1}
@@ -412,7 +411,7 @@ export default function Home(): JSX.Element {
                     when={recentSessions().length > 0}
                     fallback={<div class="cs-empty-panel">{language.t("home.noRecentSessions")}</div>}
                   >
-                    <For each={recentSessions()} by={(item) => item.session.id}>
+                    <For each={recentSessions()}>
                       {(item) => (
                         <button
                           type="button"

@@ -1032,7 +1032,9 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .cs-cap-skill-card-clickable {
@@ -1376,7 +1378,6 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   place-items: center;
   border-radius: var(--radius);
 }
-
 
 .cs-cap-compute-dot-off {
   background: transparent;

@@ -1,9 +1,18 @@
-import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, type JSX } from "solid-js"
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  onMount,
+  type JSX,
+} from "solid-js"
 import { Portal } from "solid-js/web"
 import { Switch } from "@hysci/ui/switch"
 import { DropdownMenu } from "@hysci/ui/dropdown-menu"
 import { useDialog } from "@hysci/ui/context/dialog"
-import type { Config } from "@hysci/sdk/v2/client"
 import { showToast } from "@hysci/ui/toast"
 import { Markdown } from "@hysci/ui/markdown"
 import { useGlobalSDK } from "@/context/global-sdk"
@@ -129,7 +138,7 @@ export function useHomeSkills() {
     const map: Record<string, "allow" | "deny"> = { ...prev, ...overrides(), [name]: next ? "allow" : "deny" }
     setOverrides((cur) => ({ ...cur, [name]: next ? "allow" : "deny" }))
     try {
-      const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } } as Config)
+      const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } })
       if (res.error) throw new Error(String(res.error))
       const perm = sync.data.config.permission
       const base = perm && typeof perm === "object" ? perm : {}
@@ -446,9 +455,7 @@ export function HomeSkillDetail(props: {
                 <div class="cs-cap-empty">{language.t("home.capabilities.skills.readFailed")}</div>
               </Show>
               <Show when={!doc.loading && !doc.error && doc()}>
-                {(detail) => (
-                  <Markdown class="thesis-md cs-cap-skill-reader-md" text={skillBody(detail().content)} />
-                )}
+                {(detail) => <Markdown class="thesis-md cs-cap-skill-reader-md" text={skillBody(detail().content)} />}
               </Show>
             </div>
           </div>
@@ -559,20 +566,14 @@ function ScratchForm(props: {
           disabled={props.busy || !valid()}
           onClick={() => props.onCreate(name().trim(), description().trim(), body())}
         >
-          {props.busy
-            ? language.t("home.capabilities.skills.creating")
-            : language.t("home.capabilities.skills.create")}
+          {props.busy ? language.t("home.capabilities.skills.creating") : language.t("home.capabilities.skills.create")}
         </button>
       </div>
     </div>
   )
 }
 
-function GithubForm(props: {
-  busy: boolean
-  onCancel: () => void
-  onInstall: (url: string) => void
-}): JSX.Element {
+function GithubForm(props: { busy: boolean; onCancel: () => void; onInstall: (url: string) => void }): JSX.Element {
   const language = useLanguage()
   const [url, setUrl] = createSignal("")
 
@@ -638,9 +639,7 @@ export function HomeSkillsOverlay(props: {
   const filtered = createMemo(() => {
     const q = props.search.trim().toLowerCase()
     const base = skillsInCategory(props.store.skills() ?? [], props.category)
-    return base.filter(
-      (s) => !q || s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q),
-    )
+    return base.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q))
   })
 
   createEffect(() => {
@@ -680,7 +679,12 @@ export function HomeSkillsOverlay(props: {
         <div class="cs-cap-fullscreen cs-cap-fullscreen-skills" onClick={(e) => e.stopPropagation()}>
           <header class="cs-cap-fullscreen-head">
             <h1>{language.t("home.capabilities.skills.title")}</h1>
-            <button type="button" class="cs-cap-icon-btn" onClick={props.onClose} aria-label={language.t("common.close")}>
+            <button
+              type="button"
+              class="cs-cap-icon-btn"
+              onClick={props.onClose}
+              aria-label={language.t("common.close")}
+            >
               <IconX size={16} strokeWidth={1.5} />
             </button>
           </header>
@@ -784,7 +788,7 @@ export function HomeSkillsOverlay(props: {
                     Skills <span>{filtered().length}</span>
                   </div>
                   <div class="cs-cap-skill-grid cs-cap-skill-grid-full">
-                    <For each={filtered()} by={(skill) => skill.name}>
+                    <For each={filtered()}>
                       {(skill) => (
                         <HomeSkillCard
                           skill={skill}
@@ -792,9 +796,7 @@ export function HomeSkillsOverlay(props: {
                           on={props.store.enabled(skill.name)}
                           onToggle={(v) => void props.store.toggle(skill.name, v)}
                           onOpen={() => setSelected(skill)}
-                          onDelete={
-                            skillDeletable(skill) ? () => void props.store.remove(skill.name) : undefined
-                          }
+                          onDelete={skillDeletable(skill) ? () => void props.store.remove(skill.name) : undefined}
                         />
                       )}
                     </For>

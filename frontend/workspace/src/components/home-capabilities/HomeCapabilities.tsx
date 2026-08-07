@@ -168,16 +168,14 @@ export function HomeCapabilities(): JSX.Element {
                   class="cs-cap-skill-grid cs-cap-skill-grid-preview"
                   style={{ "--cap-skill-cols": String(shown().cols) }}
                 >
-                  <For each={shown().preview} by={(skill) => skill.name}>
+                  <For each={shown().preview}>
                     {(skill) => (
                       <HomeSkillCard
                         skill={skill}
                         on={skillsStore.enabled(skill.name)}
                         onToggle={(v) => void skillsStore.toggle(skill.name, v)}
                         onOpen={() => setSelected(skill)}
-                        onDelete={
-                          skillDeletable(skill) ? () => void skillsStore.remove(skill.name) : undefined
-                        }
+                        onDelete={skillDeletable(skill) ? () => void skillsStore.remove(skill.name) : undefined}
                       />
                     )}
                   </For>

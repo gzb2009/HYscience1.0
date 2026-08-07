@@ -561,9 +561,9 @@
   </head>
   <body>
     <p class="impl-note">
-      <strong>实现边界</strong>：本设计稿只描述 <code>home.tsx</code> 里 <code>cs-dashboard</code> <strong>下方新增</strong>的一块。
-      现有 Header、项目列表、最近会话的 JSX / CSS / 图标<strong>一律不改</strong>；实现时在
-      <code>&lt;/div&gt; /* cs-dashboard */</code> 后插入新组件即可。
+      <strong>实现边界</strong>：本设计稿只描述 <code>home.tsx</code> 里 <code>cs-dashboard</code>
+      <strong>下方新增</strong>的一块。 现有 Header、项目列表、最近会话的 JSX / CSS /
+      图标<strong>一律不改</strong>；实现时在 <code>&lt;/div&gt; /* cs-dashboard */</code> 后插入新组件即可。
     </p>
 
     <div class="existing-placeholder" aria-hidden="true">
@@ -581,7 +581,16 @@
             <h2>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <rect x="5" y="4" width="11" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-                <rect x="8" y="7" width="11" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="#fff" />
+                <rect
+                  x="8"
+                  y="7"
+                  width="11"
+                  height="14"
+                  rx="1.5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  fill="#fff"
+                />
               </svg>
               Skills
               <span class="cap-meta" id="skills-meta"></span>
@@ -590,7 +599,12 @@
               <button class="icon-btn" type="button" id="skills-settings" title="管理">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5" />
-                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <path
+                    d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </button>
               <button class="text-btn" type="button" id="open-skills">查看全部</button>
@@ -604,7 +618,12 @@
             <h2>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <rect x="7" y="7" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-                <path d="M10 4v2M14 4v2M10 18v2M14 18v2M4 10h2M4 14h2M18 10h2M18 14h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M10 4v2M14 4v2M10 18v2M14 18v2M4 10h2M4 14h2M18 10h2M18 14h2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
               </svg>
               Compute
             </h2>
@@ -658,7 +677,8 @@
 
       const settingsIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
 
-      const skillArt = () => `<svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect x="6" y="5" width="14" height="18" rx="2" stroke="#a3a3a3" stroke-width="1.3"/><rect x="10" y="9" width="14" height="18" rx="2" stroke="#171717" stroke-width="1.3" fill="#fff"/><path d="M13 14h8M13 17h8M13 20h5" stroke="#737373" stroke-width="1.1" stroke-linecap="round"/></svg>`
+      const skillArt = () =>
+        `<svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect x="6" y="5" width="14" height="18" rx="2" stroke="#a3a3a3" stroke-width="1.3"/><rect x="10" y="9" width="14" height="18" rx="2" stroke="#171717" stroke-width="1.3" fill="#fff"/><path d="M13 14h8M13 17h8M13 20h5" stroke="#737373" stroke-width="1.1" stroke-linecap="round"/></svg>`
 
       const skills = [
         { name: "biology-core", desc: "单细胞 · 通路分析", on: true },
@@ -687,9 +707,11 @@
         cloud: `<fieldset><legend>Cloud</legend><label>Modal API</label><input type="password" value="••••••••" /><label>RunPod API</label><input placeholder="未配置" /><label>默认 Provider</label><select><option>Modal</option><option>RunPod</option></select></fieldset>`,
       }
 
-      const skillCard = (s) => `<article class="skill-card${s.on ? "" : " off"}"><div class="skill-card-art">${skillArt()}</div><div class="skill-card-name">${s.name}</div><div class="skill-card-desc">${s.desc}</div><div class="skill-card-foot"><span class="tag${s.on ? " on" : ""}">${s.on ? "开" : "关"}</span><span class="mini-toggle${s.on ? "" : " off"}"></span></div></article>`
+      const skillCard = (s) =>
+        `<article class="skill-card${s.on ? "" : " off"}"><div class="skill-card-art">${skillArt()}</div><div class="skill-card-name">${s.name}</div><div class="skill-card-desc">${s.desc}</div><div class="skill-card-foot"><span class="tag${s.on ? " on" : ""}">${s.on ? "开" : "关"}</span><span class="mini-toggle${s.on ? "" : " off"}"></span></div></article>`
 
-      const computeItem = (c) => `<article class="compute-item${c.active ? " active" : ""}"><div class="compute-graph">${graphs[c.kind]}</div><div class="compute-info"><strong>${c.title}</strong><span>${c.sub}</span></div><div class="compute-side"><span class="compute-dot${c.active ? "" : " off"}"></span><button class="settings-btn" type="button" data-settings="${c.kind}">${settingsIcon}</button></div></article>`
+      const computeItem = (c) =>
+        `<article class="compute-item${c.active ? " active" : ""}"><div class="compute-graph">${graphs[c.kind]}</div><div class="compute-info"><strong>${c.title}</strong><span>${c.sub}</span></div><div class="compute-side"><span class="compute-dot${c.active ? "" : " off"}"></span><button class="settings-btn" type="button" data-settings="${c.kind}">${settingsIcon}</button></div></article>`
 
       const previewN = Math.min(6, Math.max(4, Math.floor(skills.length * 0.5)))
       document.getElementById("skills-meta").textContent = `· ${previewN} / ${skills.length}`
@@ -697,16 +719,29 @@
       const preview = document.getElementById("skills-preview")
       skills.slice(0, previewN).forEach((s) => preview.insertAdjacentHTML("beforeend", skillCard(s)))
       if (skills.length > previewN) {
-        preview.insertAdjacentHTML("beforeend", `<button class="more-card" type="button" id="skills-more"><strong>+${skills.length - previewN}</strong><span>查看全部</span></button>`)
+        preview.insertAdjacentHTML(
+          "beforeend",
+          `<button class="more-card" type="button" id="skills-more"><strong>+${skills.length - previewN}</strong><span>查看全部</span></button>`,
+        )
       }
       document.getElementById("skills-full").innerHTML = skills.map(skillCard).join("")
       document.getElementById("compute-stack").innerHTML = computes.map(computeItem).join("")
       document.getElementById("compute-full").innerHTML = computes.map(computeItem).join("")
 
-      const openOverlay = (id) => { document.getElementById(id).classList.add("open"); document.body.classList.add("modal-open") }
-      const closeOverlay = (id) => { document.getElementById(id).classList.remove("open"); document.body.classList.remove("modal-open") }
+      const openOverlay = (id) => {
+        document.getElementById(id).classList.add("open")
+        document.body.classList.add("modal-open")
+      }
+      const closeOverlay = (id) => {
+        document.getElementById(id).classList.remove("open")
+        document.body.classList.remove("modal-open")
+      }
       const openDrawer = (kind) => {
-        document.getElementById("drawer-title").textContent = { local: "Local 设置", ssh: "SSH 设置", cloud: "Cloud 设置" }[kind]
+        document.getElementById("drawer-title").textContent = {
+          local: "Local 设置",
+          ssh: "SSH 设置",
+          cloud: "Cloud 设置",
+        }[kind]
         document.getElementById("drawer-body").innerHTML = drawerForms[kind]
         document.getElementById("compute-drawer").classList.add("open")
         document.getElementById("drawer-backdrop").classList.add("open")
@@ -720,11 +755,24 @@
       document.getElementById("open-compute").onclick = () => openOverlay("compute-overlay")
       document.getElementById("skills-more")?.addEventListener("click", () => openOverlay("skills-overlay"))
       document.getElementById("skills-settings").onclick = () => openOverlay("skills-overlay")
-      document.querySelectorAll("[data-close]").forEach((btn) => btn.onclick = () => closeOverlay(`${btn.dataset.close}-overlay`))
-      document.addEventListener("click", (e) => { const btn = e.target.closest("[data-settings]"); if (btn) { e.stopPropagation(); openDrawer(btn.dataset.settings) } })
+      document
+        .querySelectorAll("[data-close]")
+        .forEach((btn) => (btn.onclick = () => closeOverlay(`${btn.dataset.close}-overlay`)))
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-settings]")
+        if (btn) {
+          e.stopPropagation()
+          openDrawer(btn.dataset.settings)
+        }
+      })
       document.getElementById("close-drawer").onclick = closeDrawer
       document.getElementById("drawer-backdrop").onclick = closeDrawer
-      document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); document.querySelectorAll(".overlay.open").forEach((el) => closeOverlay(el.id)) } })
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeDrawer()
+          document.querySelectorAll(".overlay.open").forEach((el) => closeOverlay(el.id))
+        }
+      })
     </script>
   </body>
 </html>

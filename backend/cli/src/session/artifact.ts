@@ -51,7 +51,9 @@ export namespace SessionArtifact {
     if (input.tool === "bash") {
       const cmd = args?.command ?? ""
       for (const match of cmd.matchAll(/(?:--output|-o)\s*(?:=\s*)?["']?([^\s"']+)["']?/gi)) values.push(match[1])
-      for (const match of text.matchAll(/\.(?:savefig|to_csv|to_excel|to_json|to_hdf|to_parquet)\s*\(\s*["']([^"']+)["']/gi))
+      for (const match of text.matchAll(
+        /\.(?:savefig|to_csv|to_excel|to_json|to_hdf|to_parquet)\s*\(\s*["']([^"']+)["']/gi,
+      ))
         values.push(match[1])
     }
 

@@ -423,7 +423,9 @@ export namespace Skill {
   export async function read(name: string): Promise<Detail | undefined> {
     const skill = await get(name)
     if (!skill) return undefined
-    const content = await Bun.file(skill.location).text().catch(() => undefined)
+    const content = await Bun.file(skill.location)
+      .text()
+      .catch(() => undefined)
     if (content === undefined) return undefined
     return { ...skill, content }
   }

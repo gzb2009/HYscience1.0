@@ -769,11 +769,22 @@
     </style>
   </head>
   <body>
-    <p style="max-width:60rem;margin:0 auto;padding:16px 12.5vw 0;font-size:12px;color:#737373;line-height:1.6">
-      <strong style="color:#171717">说明</strong>：本文件为全页预览。上层 Header / 项目 / 最近会话对应现有
-      <code style="font-size:11px;background:rgba(0,0,0,.05);padding:1px 4px">home.tsx</code>
-      已实现部分，<strong style="color:#171717">实现时不改</strong>。设计范围仅下方 Skills + Compute 新增区 → 见
-      <code style="font-size:11px;background:rgba(0,0,0,.05);padding:1px 4px">home-capabilities-lower-sketch.html</code>
+    <p
+      style="
+        max-width: 60rem;
+        margin: 0 auto;
+        padding: 16px 12.5vw 0;
+        font-size: 12px;
+        color: #737373;
+        line-height: 1.6;
+      "
+    >
+      <strong style="color: #171717">说明</strong>：本文件为全页预览。上层 Header / 项目 / 最近会话对应现有
+      <code style="font-size: 11px; background: rgba(0, 0, 0, 0.05); padding: 1px 4px">home.tsx</code>
+      已实现部分，<strong style="color: #171717">实现时不改</strong>。设计范围仅下方 Skills + Compute 新增区 → 见
+      <code style="font-size: 11px; background: rgba(0, 0, 0, 0.05); padding: 1px 4px"
+        >home-capabilities-lower-sketch.html</code
+      >
     </p>
     <div class="page">
       <div class="shell">
@@ -793,7 +804,12 @@
           <button class="user-btn" aria-label="用户">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="8" r="4" stroke="#737373" stroke-width="1.5" />
-              <path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="#737373" stroke-width="1.5" stroke-linecap="round" />
+              <path
+                d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5"
+                stroke="#737373"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </button>
         </header>
@@ -803,7 +819,12 @@
             <div class="section-head-row">
               <h2 class="section-head lg">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M4 7h16v12H4zM4 7l2-3h12l2 3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                  <path
+                    d="M4 7h16v12H4zM4 7l2-3h12l2 3"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                  />
                 </svg>
                 项目
               </h2>
@@ -834,7 +855,16 @@
               <h2>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <rect x="5" y="4" width="11" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-                  <rect x="8" y="7" width="11" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="#fff" />
+                  <rect
+                    x="8"
+                    y="7"
+                    width="11"
+                    height="14"
+                    rx="1.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="#fff"
+                  />
                 </svg>
                 Skills
                 <span class="cap-meta" id="skills-meta"></span>
@@ -843,7 +873,12 @@
                 <button class="icon-btn" type="button" title="Skills 设置" id="skills-settings">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5" />
-                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                    <path
+                      d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                    />
                   </svg>
                 </button>
                 <button class="text-btn" type="button" id="open-skills">查看全部</button>
@@ -858,7 +893,12 @@
               <h2>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <rect x="7" y="7" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-                  <path d="M10 4v2M14 4v2M10 18v2M14 18v2M4 10h2M4 14h2M18 10h2M18 14h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <path
+                    d="M10 4v2M14 4v2M10 18v2M14 18v2M4 10h2M4 14h2M18 10h2M18 14h2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 Compute
               </h2>
@@ -1044,7 +1084,16 @@
       document.getElementById("compute-stack").innerHTML = computes.map(computeItem).join("")
       document.getElementById("compute-full").innerHTML = computes.map(computeItem).join("")
 
-      const projects = ["AAAAAA", "scRNA-seq-demo", "spatial-liver-2024", "proteomics-pilot", "ml-drug-repurpose", "physics-monte-carlo", "lab-notebook-sync", "geo-bulk-meta"]
+      const projects = [
+        "AAAAAA",
+        "scRNA-seq-demo",
+        "spatial-liver-2024",
+        "proteomics-pilot",
+        "ml-drug-repurpose",
+        "physics-monte-carlo",
+        "lab-notebook-sync",
+        "geo-bulk-meta",
+      ]
       const sessions = [
         ["空间转录组分析", "AAAAAA"],
         ["质控与聚类", "scRNA-seq-demo"],

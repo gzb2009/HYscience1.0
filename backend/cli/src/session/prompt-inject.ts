@@ -439,10 +439,7 @@ export async function injectLocale(userMessage: MessageV2.WithParts, locale: str
   })
 }
 
-export async function injectLiteratureGate(
-  userMessage: MessageV2.WithParts,
-  contract?: AgentRouter.Contract,
-) {
+export async function injectLiteratureGate(userMessage: MessageV2.WithParts, contract?: AgentRouter.Contract) {
   if (contract && isDirectAnswer(contract)) return
   const candidates = ["literature-review.md", path.join(".context", "literature-review.md")]
   const present = await Promise.all(
