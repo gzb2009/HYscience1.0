@@ -51,6 +51,8 @@ function sessionUpdatedAt(session: Session): number {
 }
 
 function compactTime(ms: number): string {
+  // 0 / missing timestamps used to render as ~1970 → "689mo"
+  if (!Number.isFinite(ms) || ms < 1_000_000_000_000) return "—"
   const diff = Math.max(0, Date.now() - ms)
   const mins = Math.floor(diff / 60_000)
   if (mins < 1) return "now"
@@ -61,7 +63,9 @@ function compactTime(ms: number): string {
   if (days < 7) return `${days}d`
   const weeks = Math.floor(days / 7)
   if (weeks < 5) return `${weeks}w`
-  return `${Math.floor(days / 30)}mo`
+  const months = Math.floor(days / 30)
+  if (months > 120) return "—"
+  return `${months}mo`
 }
 
 export default function Home(): JSX.Element {
@@ -97,19 +101,22 @@ export default function Home(): JSX.Element {
       const worktree = entry.worktree
       if (!worktree || hide.has(worktree) || hide.has(norm(worktree)) || byWorktree.has(worktree)) continue
       if (isResultDirectory(worktree)) continue
+      // Skip if a sync project already covers this path (same folder / git root).
+      if ([...byWorktree.keys()].some((root) => worktree === root || worktree.startsWith(root + "/"))) continue
+      const now = Date.now()
       byWorktree.set(worktree, {
         id: worktree,
         worktree,
         sandboxes: [],
-        time: { created: 0, updated: 0 },
+        time: { created: now, updated: now },
       })
     }
+    // Stable order: favorites first, then worktree path. Avoid sorting by
+    // time.updated — config/session refreshes mutate timestamps and reshuffle the list.
     return Array.from(byWorktree.values()).sort((a, b) => {
       const af = fav.has(a.worktree) ? 1 : 0
       const bf = fav.has(b.worktree) ? 1 : 0
       if (af !== bf) return bf - af
-      const at = (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created)
-      if (at !== 0) return at
       return a.worktree.localeCompare(b.worktree)
     })
   })
@@ -118,16 +125,16 @@ export default function Home(): JSX.Element {
     projectMetaLocal.all()
     return projects().map((project) => {
       const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
-        const sessions = child.session.filter((s) => !s.parentID && !s.time?.archived)
-        const latestSession = sessions.reduce<Session | undefined>((best, s) => {
-          if (!best) return s
-          return sessionUpdatedAt(s) > sessionUpdatedAt(best) ? s : best
-        }, undefined)
-        const updatedAt = Math.max(
-          project.time.updated ?? project.time.created ?? 0,
-          latestSession ? sessionUpdatedAt(latestSession) : 0,
-        )
-        const total = Math.max(child.sessionTotal, sessions.length)
+      const sessions = child.session.filter((s) => !s.parentID && !s.time?.archived)
+      const latestSession = sessions.reduce<Session | undefined>((best, s) => {
+        if (!best) return s
+        return sessionUpdatedAt(s) > sessionUpdatedAt(best) ? s : best
+      }, undefined)
+      const updatedAt = Math.max(
+        project.time.updated ?? project.time.created ?? 0,
+        latestSession ? sessionUpdatedAt(latestSession) : 0,
+      )
+      const total = Math.max(child.sessionTotal, sessions.length)
       const running = runningSessionCount(sessions, child.session_status)
       return { project, total, running, updatedAt }
     })
@@ -138,10 +145,8 @@ export default function Home(): JSX.Element {
     sessionTitleLocal.all()
     const hidden = projectPrefs.hidden()
     const items: Array<{ session: Session; project: Project; title: string }> = []
-    const validWorktrees = new Set(sync.data.project.map((p) => p.worktree))
     for (const project of projects()) {
       if (hidden.has(project.worktree)) continue
-      if (!validWorktrees.has(project.worktree)) continue
       const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
       for (const session of child.session) {
         if (!session?.id || session.parentID || session.time?.archived) continue
@@ -166,11 +171,14 @@ export default function Home(): JSX.Element {
     return deduped
   })
 
-  createEffect(() => {
+  createEffect((prev?: string) => {
     const dirs = projects().map((p) => p.worktree)
-    if (dirs.length === 0) return
+    const key = dirs.slice().sort().join("\0")
+    if (key === prev) return key
+    if (dirs.length === 0) return key
     void Promise.all(dirs.map((dir) => sync.project.loadSessions(resolveProjectWorkingDir(dir))))
     void Promise.all(dirs.map((dir) => sync.project.loadSessionStatus(resolveProjectWorkingDir(dir))))
+    return key
   })
 
   function sessionCountLabel(count: number): string {
@@ -194,27 +202,34 @@ export default function Home(): JSX.Element {
   }
 
   async function applyProjectMeta(directory: string, values: ProjectFormValues) {
-    const resultName = normalizeResultFolderName(values.resultFolderName ?? values.name, directory)
-    projectMetaLocal.patch(directory, {
+    // Resolve canonical project root first — git subfolders share one worktree/id.
+    const current = await sdk.client.project.current({ directory }).catch(() => undefined)
+    const project = current?.data
+    const root = project?.worktree ?? directory
+    const workspace = resolveProjectWorkingDir(root)
+    const resultName = normalizeResultFolderName(values.resultFolderName ?? values.name, root)
+    const existed =
+      !!project?.name ||
+      !!sync.data.project.some((p) => p.id === project?.id || p.worktree === root) ||
+      !!server.projects.list().some((p) => p.worktree === root)
+
+    projectMetaLocal.patch(root, {
       description: values.description,
       resultFolderName: resultName,
       name: values.name?.trim() || undefined,
     })
-    const workspace = resolveProjectWorkingDir(directory)
-    layout.projects.open(directory)
-    server.projects.touch(directory)
-    sync.child(workspace, { bootstrap: true })
-    await sync.project.loadSessions(workspace)
+    if (directory !== root) projectMetaLocal.remove(directory)
 
-    const listed = await sdk.client.project.list().catch(() => undefined)
-    const project =
-      listed?.data?.find((p) => p.worktree === directory) ?? sync.data.project.find((p) => p.worktree === directory)
+    layout.projects.open(root)
+    server.projects.open(root)
+    server.projects.touch(root)
+    if (directory !== root) server.projects.close(directory)
 
     if (project?.id && project.id !== "global") {
       await sdk.client.project
         .update({
           projectID: project.id,
-          directory,
+          directory: root,
           name: values.name || undefined,
           description: values.description || undefined,
           resultFolder: resultName,
@@ -226,33 +241,43 @@ export default function Home(): JSX.Element {
         } as any)
         .catch(() => undefined)
     }
+
     if (values.agentContext) {
-      await saveProjectAgentContext(sdk.url, directory, values.agentContext, fetchFn()).catch(() => undefined)
+      await saveProjectAgentContext(sdk.url, root, values.agentContext, fetchFn()).catch(() => undefined)
     }
 
+    sync.child(workspace, { bootstrap: true })
+    await sync.project.loadSessions(workspace)
+
     const next = await sdk.client.project.list().catch(() => undefined)
-    if (next?.data) {
-      sync.set(
-        "project",
-        next.data
-          .filter((p) => !!p?.id)
-          .filter((p) => !!p.worktree && !p.worktree.includes("hyscience-test")),
-      )
+    const listed = (next?.data ?? [])
+      .filter((p) => !!p?.id)
+      .filter((p) => !!p.worktree && !p.worktree.includes("hyscience-test"))
+    const refreshed = await sdk.client.project.current({ directory: root }).catch(() => undefined)
+    const created = refreshed?.data
+    const merged =
+      created?.id && !listed.some((p) => p.id === created.id) ? [...listed, created] : listed
+    if (merged.length > 0 || created) {
+      sync.set("project", merged)
     }
+    return { root, existed }
   }
 
   async function finalizeCreate(values: ProjectFormValues) {
     const directory = values.directory
     if (!directory) return
     try {
-      await applyProjectMeta(directory, {
+      const result = await applyProjectMeta(directory, {
         ...values,
         resultFolderName: normalizeResultFolderName(
           values.name ? (values.resultFolderName ?? values.name) : "",
           directory,
         ),
       })
-      projectPrefs.unhide(directory)
+      projectPrefs.unhide(result.root)
+      if (result.existed) {
+        toast.info(language.t("dialog.project.new.updatedExisting"))
+      }
     } catch (err) {
       toast.error(language.t("common.requestFailed"), err instanceof Error ? err.message : String(err))
     }

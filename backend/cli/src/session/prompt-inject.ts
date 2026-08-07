@@ -28,9 +28,27 @@ import PROMPT_PLAN from "../session/prompt/plan.txt"
 import PROMPT_PLAN_ENTER from "../session/prompt/plan-enter.txt"
 import BUILD_SWITCH from "../session/prompt/build-switch.txt"
 import RESULT_DELIVERY from "../session/prompt/result-delivery.txt"
+import DIRECT_ANSWER_DELIVERY from "../session/prompt/direct-answer-delivery.txt"
 import BIOLOGY_SERVICE_CONTRACT from "../agent/prompt/biology-service-contract.txt"
 
 const log = Log.create({ service: "prompt-inject" })
+
+function interpretUserTurn(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
+  const text = userMessage.parts
+    .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.hybio)
+    .map((part) => part.text)
+    .join(" ")
+  const history = userText(messages).slice(0, -1)
+  const filenames = userMessage.parts
+    .filter((part): part is MessageV2.FilePart => part.type === "file")
+    .map((part) => part.filename ?? "")
+    .filter(Boolean)
+  return AgentRouter.interpret({ text, history, filenames })
+}
+
+function isDirectAnswer(contract: AgentRouter.Contract) {
+  return contract.intent === "direct_answer" && !contract.mustClarify
+}
 
 const STATS_RE =
   /\b(statistics?|statistical|p-value|p value|fdr|padj|fold change|differential|enrichment|effect size|significance|hypothesis test|anova|regression|correlation|chi-square|t-test|wilcoxon|survival)\b/i
@@ -72,14 +90,16 @@ export function injectBiologyServiceContract(userMessage: MessageV2.WithParts) {
   })
 }
 
-export function injectResultDelivery(userMessage: MessageV2.WithParts) {
-  if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === RESULT_DELIVERY)) return
+export function injectResultDelivery(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
+  const contract = interpretUserTurn(messages, userMessage)
+  const text = isDirectAnswer(contract) ? DIRECT_ANSWER_DELIVERY : RESULT_DELIVERY
+  if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === text)) return
   userMessage.parts.push({
     id: Identifier.ascending("part"),
     messageID: userMessage.info.id,
     sessionID: userMessage.info.sessionID,
     type: "text",
-    text: RESULT_DELIVERY,
+    text,
     hybio: true,
   })
 }
@@ -419,7 +439,11 @@ export async function injectLocale(userMessage: MessageV2.WithParts, locale: str
   })
 }
 
-export async function injectLiteratureGate(userMessage: MessageV2.WithParts) {
+export async function injectLiteratureGate(
+  userMessage: MessageV2.WithParts,
+  contract?: AgentRouter.Contract,
+) {
+  if (contract && isDirectAnswer(contract)) return
   const candidates = ["literature-review.md", path.join(".context", "literature-review.md")]
   const present = await Promise.all(
     candidates.map(async (rel) => {
@@ -605,22 +629,19 @@ export function injectMultiQuestion(userMessage: MessageV2.WithParts) {
 }
 
 export function injectResearchContract(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
-  const text = userMessage.parts
-    .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.hybio)
-    .map((part) => part.text)
-    .join(" ")
-  const history = userText(messages).slice(0, -1)
-  const filenames = userMessage.parts
-    .filter((part): part is MessageV2.FilePart => part.type === "file")
-    .map((part) => part.filename ?? "")
-    .filter(Boolean)
-  const contract = AgentRouter.interpret({ text, history, filenames })
+  const contract = interpretUserTurn(messages, userMessage)
   const lines = [
     `<research-intent intent="${contract.intent}" confidence="${contract.confidence}">`,
     "Answer the user's substantive request before asking questions. Preserve explicit constraints and let the latest correction replace prior assumptions.",
     "Separate facts, inferences, hypotheses, recommendations, and unknowns. Correct unsupported premises with evidence or a plausible alternative; do not simply accept them.",
     "Keep the final answer separate from internal execution: present conclusion-relevant evidence, limitations, and next steps, not prompts, orchestration, sub-agents, tools, retries, timeouts, or internal files. If the user explicitly asks about progress, failure, or reproduction, describe completed scope, observable limits, and reproducible steps in user-understandable terms.",
   ]
+
+  if (isDirectAnswer(contract)) {
+    lines.push(
+      "Direct-answer mode: respond concisely (lead with the answer; default ≤20 lines). No literature-review sub-agents, no literature-review.md, no fixed report sections, no large tables unless the user asked for them. At most one natural follow-up at the end.",
+    )
+  }
 
   if (contract.knownContext.length > 0) {
     lines.push(
@@ -746,10 +767,10 @@ async function applyDynamicInjections(
   if (researchAgents.includes(input.agent.name)) {
     injectInteractionContract(userMessage)
     note("interaction-contract")
-    injectResultDelivery(userMessage)
+    injectResultDelivery(messages, userMessage)
     injectResearchContract(messages, userMessage)
     if (input.agent.name === "biology") {
-      injectDataGate(userMessage)
+      injectDataGate(messages, userMessage)
       note("data-gate")
     }
     if (task) await injectResearchContext(userMessage, input.session.id, task.id)
@@ -816,12 +837,15 @@ export function injectInteractionContract(userMessage: MessageV2.WithParts) {
   )
 }
 
-export function injectDataGate(userMessage: MessageV2.WithParts) {
-  const textParts = userMessage.parts.filter((p): p is MessageV2.TextPart => p.type === "text")
+export function injectDataGate(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
+  const textParts = userMessage.parts.filter((p): p is MessageV2.TextPart => p.type === "text" && !p.hybio)
   const text = textParts.map((p) => p.text).join(" ")
   if (!text || text.length < 10) return
   const fileParts = userMessage.parts.filter((p): p is MessageV2.FilePart => p.type === "file")
   const hasFiles = fileParts.length > 0
+
+  const contract = interpretUserTurn(messages, userMessage)
+  if (isDirectAnswer(contract)) return
 
   // Planning intent — user is asking for advice, not requesting analysis on data
   const planningRe =
@@ -883,8 +907,9 @@ export async function insertReminders(input: {
 
   await applyDynamicInjections(input, userMessage)
 
+  const contract = interpretUserTurn(input.messages, userMessage)
   if (input.agent.gates?.includes("literature")) {
-    await injectLiteratureGate(userMessage)
+    await injectLiteratureGate(userMessage, contract)
   }
 
   if (!Flag.HYSCIENCE_EXPERIMENTAL_PLAN_MODE) {

@@ -25,18 +25,29 @@ function pushUserText(msg: MessageV2.WithParts, text: string) {
 }
 
 describe("prompt-inject", () => {
-  test("injectResultDelivery adds result-delivery prompt", () => {
+  test("injectResultDelivery adds result-delivery prompt for analysis requests", () => {
     const msg = mkMsg("user")
-    Inject.injectResultDelivery(msg)
+    pushUserText(msg, "请分析这个数据集并运行差异表达分析")
+    Inject.injectResultDelivery([msg], msg)
     const hp = msg.parts.filter((p: any) => p.hybio)
     expect(hp.length).toBe(1)
-    expect((hp[0] as any).text).toContain("result")
+    expect((hp[0] as any).text).toContain("result-delivery-protocol")
+  })
+
+  test("injectResultDelivery uses compact direct-answer protocol for method questions", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "对单细胞 RNA-seq 数据做质控、归一化与聚类，并识别主要细胞类型")
+    Inject.injectResultDelivery([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("direct-answer-protocol")
+    expect(text).toContain("≤ 20 lines")
   })
 
   test("injectResultDelivery idempotent", () => {
     const msg = mkMsg("user")
-    Inject.injectResultDelivery(msg)
-    Inject.injectResultDelivery(msg)
+    pushUserText(msg, "对单细胞 RNA-seq 数据做质控、归一化与聚类，并识别主要细胞类型")
+    Inject.injectResultDelivery([msg], msg)
+    Inject.injectResultDelivery([msg], msg)
     expect(msg.parts.filter((p: any) => p.hybio).length).toBe(1)
   })
 
@@ -93,7 +104,44 @@ describe("prompt-inject", () => {
     Inject.injectResearchContract([msg], msg)
     const text = (msg.parts.find((part: any) => part.hybio) as any).text
     expect(text).toContain('intent="direct_answer"')
+    expect(text).toContain("Direct-answer mode")
     expect(text).not.toContain("Execution is blocked")
+  })
+
+  test("injectDataGate skips general scRNA methodology questions", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "对单细胞 RNA-seq 数据做质控、归一化与聚类，并识别主要细胞类型")
+    Inject.injectDataGate([msg], msg)
+    expect(msg.parts.filter((p: any) => p.hybio).length).toBe(0)
+  })
+
+  test("injectDataGate blocks execution without files", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "请分析这个数据集并运行差异表达分析")
+    Inject.injectDataGate([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("DATA GATE")
+  })
+
+  test("injectLiteratureGate skips direct-answer method questions", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const msg = mkMsg("user")
+        pushUserText(msg, "对单细胞 RNA-seq 数据做质控、归一化与聚类，并识别主要细胞类型")
+        await Inject.injectLiteratureGate(msg, {
+          intent: "direct_answer",
+          confidence: 0.75,
+          knownContext: [],
+          missingPremises: [],
+          mustClarify: false,
+          gates: [],
+          coordinate: false,
+          review: false,
+        })
+        expect(msg.parts.filter((p: any) => p.hybio).length).toBe(0)
+      },
+    })
   })
 
   test("injectResearchContract gates only missing execution prerequisites", () => {

@@ -65,6 +65,8 @@ export function DialogProjectForm(props: {
   const [researchNotes, setResearchNotes] = createSignal(props.initial?.researchNotes ?? "")
   const [saving, setSaving] = createSignal(false)
   const [loading, setLoading] = createSignal(props.mode === "edit")
+  // Folder picker must stay inside this dialog — dialog.show replaces the active dialog.
+  const [picking, setPicking] = createSignal(false)
 
   onMount(async () => {
     if (props.mode !== "edit" || !props.project) return
@@ -99,17 +101,7 @@ export function DialogProjectForm(props: {
   })
 
   function pickDirectory() {
-    dialog.show(
-      () => (
-        <FolderPicker
-          onSelect={(result) => {
-            const dir = Array.isArray(result) ? result[0] : result
-            if (dir) setDirectory(dir)
-          }}
-        />
-      ),
-      { lite: true },
-    )
+    setPicking(true)
   }
 
   async function persistEdit() {
@@ -197,6 +189,19 @@ export function DialogProjectForm(props: {
         </div>
 
         <Show when={!loading()} fallback={<div class="cs-project-form-loading">{language.t("common.loading")}</div>}>
+          <Show when={picking()}>
+            <div class="cs-project-form-body">
+              <FolderPicker
+                embedded
+                onSelect={(result) => {
+                  const dir = Array.isArray(result) ? result[0] : result
+                  if (dir) setDirectory(dir)
+                  setPicking(false)
+                }}
+              />
+            </div>
+          </Show>
+          <Show when={!picking()}>
           <div class="cs-project-form-body thesis-scroll">
             <label class="cs-field">
               <span class="cs-field-label">{language.t("dialog.project.edit.name")}</span>
@@ -323,16 +328,19 @@ export function DialogProjectForm(props: {
               />
             </label>
           </div>
+          </Show>
         </Show>
 
-        <div class="cs-project-form-foot">
-          <button type="button" class="cs-btn-text" onClick={() => dialog.close()}>
-            {language.t("common.cancel")}
-          </button>
-          <button type="button" class="cs-btn-primary" disabled={saving() || loading()} onClick={submit}>
-            {props.mode === "create" ? language.t("dialog.project.new.create") : language.t("common.save")}
-          </button>
-        </div>
+        <Show when={!picking()}>
+          <div class="cs-project-form-foot">
+            <button type="button" class="cs-btn-text" onClick={() => dialog.close()}>
+              {language.t("common.cancel")}
+            </button>
+            <button type="button" class="cs-btn-primary" disabled={saving() || loading()} onClick={submit}>
+              {props.mode === "create" ? language.t("dialog.project.new.create") : language.t("common.save")}
+            </button>
+          </div>
+        </Show>
       </div>
     </Dialog>
   )

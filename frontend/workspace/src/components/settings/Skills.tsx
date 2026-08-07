@@ -64,13 +64,17 @@ export default function Skills() {
   const enabled = (name: string) => skillPerm()[name] !== "deny"
 
   async function toggle(name: string, next: boolean) {
-    const map: Record<string, Action> = { ...skillPerm(), [name]: next ? "allow" : "deny" }
+    const prev = skillPerm()
+    const map: Record<string, Action> = { ...prev, [name]: next ? "allow" : "deny" }
     const perm = sync.data.config.permission
     const base = perm && typeof perm === "object" ? perm : {}
     sync.set("config", "permission", { ...base, skill: map })
     try {
-      await sync.updateConfig({ permission: { skill: map } } as Config)
+      // Avoid sync.updateConfig — it forces a full global reload and reshuffles Home lists.
+      const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } } as Config)
+      if (res.error) throw new Error(String(res.error))
     } catch (err) {
+      sync.set("config", "permission", { ...base, skill: prev })
       showToast({ variant: "error", title: "Failed to update skill", description: message(err) })
     }
   }

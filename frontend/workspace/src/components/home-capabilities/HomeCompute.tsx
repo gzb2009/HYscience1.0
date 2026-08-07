@@ -22,10 +22,64 @@ interface Provider {
   connected: boolean
 }
 
+export interface LocalMachine {
+  hostname: string
+  platform: string
+  release: string
+  arch: string
+  cpus: number
+  cpu: string
+  memoryTotal: number
+  memoryFree: number
+}
+
 export interface ComputeInfo {
   execution?: "local" | "ssh" | "cloud"
   providers: Provider[]
   ssh_hosts: SshHost[]
+  local?: LocalMachine
+}
+
+type LanguageT = ReturnType<typeof useLanguage>["t"]
+
+function formatGib(bytes: number) {
+  const n = bytes / 1024 ** 3
+  return n >= 10 ? `${Math.round(n)} GB` : `${n.toFixed(1)} GB`
+}
+
+function platformLabel(platform: string) {
+  if (platform === "darwin") return "macOS"
+  if (platform === "win32") return "Windows"
+  if (platform === "linux") return "Linux"
+  return platform
+}
+
+function shortCpu(model: string) {
+  const cleaned = model
+    .replace(/\(R\)|\(TM\)|CPU|Processor|@.*$/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+  return cleaned.length > 36 ? `${cleaned.slice(0, 34)}…` : cleaned
+}
+
+function localRows(machine: LocalMachine, t: LanguageT) {
+  return [
+    { label: t("home.capabilities.compute.localHost"), value: machine.hostname },
+    {
+      label: t("home.capabilities.compute.localOs"),
+      value: `${platformLabel(machine.platform)} · ${machine.arch}`,
+    },
+    {
+      label: t("home.capabilities.compute.localCpu"),
+      value: `${shortCpu(machine.cpu)} · ${t("home.capabilities.compute.localCores", { count: String(machine.cpus) })}`,
+    },
+    {
+      label: t("home.capabilities.compute.localMemory"),
+      value: `${formatGib(machine.memoryTotal)} · ${t("home.capabilities.compute.localMemoryFree", {
+        free: formatGib(machine.memoryFree),
+      })}`,
+    },
+  ]
 }
 
 export type HomeComputeStore = {
@@ -69,10 +123,12 @@ export function useHomeCompute(): HomeComputeStore {
   return { info, busy, run, call, setExecution, refetch }
 }
 
-type LanguageT = ReturnType<typeof useLanguage>["t"]
-
 export function computeSubtitle(kind: ComputeKind, info: ComputeInfo | undefined, t: LanguageT): string {
-  if (kind === "local") return t("home.capabilities.compute.localSub")
+  if (kind === "local") {
+    const machine = info?.local
+    if (!machine) return t("home.capabilities.compute.localSub")
+    return `${shortCpu(machine.cpu)} · ${formatGib(machine.memoryTotal)}`
+  }
   if (kind === "ssh") {
     const host = info?.ssh_hosts[0]
     if (!host) return t("home.capabilities.compute.sshEmpty")
@@ -214,6 +270,31 @@ export function HomeComputeDrawer(props: {
             <div class="cs-cap-drawer-body">
               <Show when={kind() === "local"}>
                 <p class="cs-cap-drawer-hint">{language.t("home.capabilities.compute.localHint")}</p>
+                <Show
+                  when={props.compute.info()?.local}
+                  fallback={<p class="cs-cap-drawer-hint">{language.t("home.capabilities.compute.localLoading")}</p>}
+                >
+                  {(machine) => (
+                    <div class="cs-cap-drawer-section">
+                      <span class="cs-cap-drawer-label">{language.t("home.capabilities.compute.localMachine")}</span>
+                      <dl class="cs-cap-drawer-stats">
+                        <For each={localRows(machine(), language.t)}>
+                          {(row) => (
+                            <div class="cs-cap-drawer-stat">
+                              <dt>{row.label}</dt>
+                              <dd>{row.value}</dd>
+                            </div>
+                          )}
+                        </For>
+                      </dl>
+                      <p class="cs-cap-drawer-note">
+                        {(props.compute.info()?.execution ?? "local") === "local"
+                          ? language.t("home.capabilities.compute.localActive")
+                          : language.t("home.capabilities.compute.localInactive")}
+                      </p>
+                    </div>
+                  )}
+                </Show>
               </Show>
 
               <Show when={kind() === "ssh"}>

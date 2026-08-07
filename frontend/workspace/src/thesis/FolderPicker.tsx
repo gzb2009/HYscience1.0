@@ -24,6 +24,11 @@ interface PickerProps {
   multiple?: boolean
   /** "project" opens a folder as a new project root; "workspace" selects a working directory only. */
   purpose?: "project" | "workspace"
+  /**
+   * Render inside an existing dialog/panel instead of calling dialog.show/close.
+   * Required when opened from another dialog — dialog.show replaces the active dialog.
+   */
+  embedded?: boolean
   onSelect: (result: string | string[] | null) => void
 }
 
@@ -63,6 +68,7 @@ export function FolderPicker(props: PickerProps): JSX.Element {
   const sync = useGlobalSync()
   const dialog = useDialog()
   const purpose = () => props.purpose ?? "project"
+  const embedded = () => !!props.embedded
   const dialogTitle = () => (purpose() === "workspace" ? "Choose workspace folder" : "Open folder")
   const confirmLabel = () => (purpose() === "workspace" ? "Select this folder" : "open this folder")
   const confirmTitle = () =>
@@ -174,12 +180,12 @@ export function FolderPicker(props: PickerProps): JSX.Element {
   const pick = (path: string) => {
     pushRecent(path)
     props.onSelect(props.multiple ? [path] : path)
-    dialog.close()
+    if (!embedded()) dialog.close()
   }
 
   const cancel = () => {
     props.onSelect(null)
-    dialog.close()
+    if (!embedded()) dialog.close()
   }
 
   const sidebarLinks = createMemo(() => {
@@ -196,14 +202,13 @@ export function FolderPicker(props: PickerProps): JSX.Element {
 
   const recents = createMemo(() => readRecents())
 
-  return (
-    <Dialog title={dialogTitle()} size="large" transition>
+  const body = (
       <div
         style={{
           display: "flex",
           gap: "12px",
-          "min-height": "480px",
-          "max-height": "560px",
+          "min-height": embedded() ? "360px" : "480px",
+          "max-height": embedded() ? "420px" : "560px",
         }}
       >
         {/* Sidebar */}
@@ -597,6 +602,22 @@ export function FolderPicker(props: PickerProps): JSX.Element {
           </div>
         </div>
       </div>
+  )
+
+  if (embedded()) {
+    return (
+      <div class="cs-folder-picker-embedded">
+        <div class="cs-folder-picker-embedded-head">
+          <strong>{dialogTitle()}</strong>
+        </div>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <Dialog title={dialogTitle()} size="large" transition>
+      {body}
     </Dialog>
   )
 }
