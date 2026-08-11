@@ -266,8 +266,11 @@ ask "Would you like me to continue?" Complete from start to finish. The parent a
 waiting for your complete, structured findings.
 
 ## Deliverable Contract
-Return a structured synthesis to the parent agent. The **parent** must write the project-root
-file `literature-review.md` (Result folder) after all facet agents return. Your return must
-include enough content for that file: Summary, Key Findings, Gaps, and Complete References
-(BibTeX). Do not leave References empty.
+Return a structured synthesis to the parent agent with Summary, Key Findings, Gaps, and
+Complete References (BibTeX). Do not leave References empty.
+
+When the parent user request is a literature survey / 文献调研 report, the **parent** must
+synthesize your findings into the full inline chat report (literature-report-delivery
+protocol). Internal files such as `literature-review.md` are optional working notes only —
+they must not replace the user-facing report body.
 </system-reminder>

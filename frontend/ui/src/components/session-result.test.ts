@@ -108,6 +108,8 @@ describe("customerFacingResultFiles", () => {
       },
     ]
     expect(isWorkflowArtifact("literature-review.md")).toBe(true)
+    expect(isWorkflowArtifact("codex-literature-review.md")).toBe(true)
+    expect(isWorkflowArtifact("imc-literature-review.md")).toBe(true)
     expect(isWorkflowArtifact("pdac_annotation.xlsx")).toBe(false)
     expect(customerFacingResultFiles(files).map((file) => file.name)).toEqual(["pdac_annotation.xlsx"])
   })

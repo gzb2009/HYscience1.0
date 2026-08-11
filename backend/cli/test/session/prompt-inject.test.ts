@@ -141,6 +141,29 @@ describe("prompt-inject", () => {
     expect(text).toContain("DATA GATE")
   })
 
+  test("injectLiteratureGate uses inline report reminder for survey requests", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const msg = mkMsg("user")
+        pushUserText(msg, "写一份CODEX的文献调研")
+        await Inject.injectLiteratureGate(msg, {
+          intent: "literature_verification",
+          confidence: 0.75,
+          knownContext: [],
+          missingPremises: [],
+          mustClarify: false,
+          gates: ["literature"],
+          coordinate: false,
+          review: false,
+        })
+        const text = (msg.parts.find((part: any) => part.hybio) as any).text
+        expect(text).toContain("Literature-report mode")
+        expect(text).not.toContain("BLOCKING stage gate")
+      },
+    })
+  })
+
   test("injectLiteratureGate skips direct-answer method questions", async () => {
     await Instance.provide({
       directory: path.join(__dirname, "../.."),

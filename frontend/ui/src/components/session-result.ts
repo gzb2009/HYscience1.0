@@ -368,7 +368,7 @@ export function filterLatestFileNodes<T extends { name: string }>(
 const INTERNAL_SECTION =
   /critique|methodology|literature.?(review|search)|reasoning|research.state|script.manifest|reviewer|compaction/i
 const INTERNAL_NAME =
-  /^(literature-review|reasoning|methodology|research-state|critique|reviewer|compaction)\.(md|markdown)$|^_script_manifest\.jsonl$/i
+  /^(?:[\w-]+-)?(?:literature-review|reasoning|methodology|research-state|critique|reviewer|compaction)\.(md|markdown)$|^_script_manifest\.jsonl$/i
 export function isWorkflowArtifact(name: string): boolean {
   const base = name.split("/").pop() || name
   if (INTERNAL_NAME.test(base)) return true

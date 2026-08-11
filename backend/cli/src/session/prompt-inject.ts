@@ -50,7 +50,7 @@ const DESIGN_RE =
 const LIT_RE =
   /\b(literature|literature review|paper|publication|citation|pubmed|research-lookup|related work|prior art|review)\b/i
 const LITERATURE_REPORT_RE =
-  /(?:文献调研|调研报告|撰写.*(?:文献|报告|调研)|写一份.*(?:文献|调研|报告)|literature\s+survey|literature\s+review\s+report|systematic\s+literature)/i
+  /(?:文献调研|文献综述|调研报告|撰写.*(?:文献|报告|调研)|写一份.*(?:文献|调研|报告)|(?:做|进行|完成).{0,12}(?:文献)?调研|literature\s+survey|literature\s+review\s+report|systematic\s+literature)/i
 const CAUSAL_RE = /\b(cause|causal|effect of|leads to|due to|because|increases|decreases|mediat|confound)\b/i
 const META_RE = /\b(meta.?analysis|pooled effect|heterogeneity|i\^2|tau\^2|forest plot|systematic review)\b/i
 const ACTIVE_RE =
@@ -451,6 +451,25 @@ export async function injectLocale(userMessage: MessageV2.WithParts, locale: str
 
 export async function injectLiteratureGate(userMessage: MessageV2.WithParts, contract?: AgentRouter.Contract) {
   if (contract && isDirectAnswer(contract)) return
+  const reportText = InjectionPipeline.plainUserText(userMessage)
+  if (contract && isLiteratureReportRequest(reportText, contract)) {
+    userMessage.parts.push({
+      id: Identifier.ascending("part"),
+      messageID: userMessage.info.id,
+      sessionID: userMessage.info.sessionID,
+      type: "text",
+      text: [
+        "<system-reminder>",
+        "Literature-report mode (BLOCKING): retrieve and verify sources first.",
+        "The user-facing deliverable is the complete structured survey inline in this chat reply — not a file path, not literature-review.md, not a bullet 要点 summary.",
+        "Write all report sections (overview, methods, analysis pipeline, applications, comparisons, outlook, summary, grouped references) in the assistant text before ending the turn.",
+        "Optional internal markdown on disk must not replace the inline report.",
+        "</system-reminder>",
+      ].join("\n"),
+      hybio: true,
+    })
+    return
+  }
   const candidates = ["literature-review.md", path.join(".context", "literature-review.md")]
   const present = await Promise.all(
     candidates.map(async (rel) => {
@@ -648,7 +667,7 @@ export function injectResearchContract(
   const reportText = InjectionPipeline.plainUserText(userMessage)
   if (isLiteratureReportRequest(reportText, contract)) {
     lines.push(
-      "Literature-report mode: after any required term disambiguation via the question tool, deliver the full structured survey inline in the chat (see literature-report-delivery protocol). Target comprehensive depth (typically 4000–8000 characters, 25–40 verified references). Include org cover block only if the user named a company/lab/project; otherwise omit it.",
+      "Literature-report mode (BLOCKING): after any required term disambiguation via the question tool, deliver the full structured survey inline in the chat (see literature-report-delivery protocol). Target comprehensive depth (typically 4000–8000 characters, 25–40 verified references). Ending with only 已写入/已保存 + filename or a short 要点 list is forbidden. Include org cover block only if the user named a company/lab/project; otherwise omit it.",
     )
   }
 

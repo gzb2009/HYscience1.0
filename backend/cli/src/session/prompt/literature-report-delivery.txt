@@ -40,11 +40,18 @@ Use Chinese numbered headings for long Chinese reports; English reports may use 
 1. If acronym/topic is ambiguous across fields → question tool first (do not guess).
 2. Retrieve and verify sources (literature-review sub-agents or research-lookup as needed).
 3. Synthesize into the structured report above — deliver entirely in the chat response.
-4. Do NOT tell the user to "open literature-review.md" or attach internal workflow files.
+4. Internal notes on disk (literature-review.md, *-literature-review.md) are optional working files only.
+
+## BLOCKING delivery rules
+- The chat message body IS the deliverable. Finishing with only a file path, "已写入/已保存 xxx.md", or a short "要点" list is a failed turn.
+- Write the full report (sections 1–7 + references) in the assistant reply before ending the turn.
+- Minimum substantive depth: ~3000 Chinese characters (or equivalent) unless the user explicitly asked for a brief note.
+- Do NOT use `## 结果` + bullets as a substitute for the structured report sections.
+- Do NOT tell the user to open, read, or download a markdown file for the main content.
 
 ## What NOT to do
 - Do NOT deliver a 3-sentence summary when a full survey was requested.
-- Do NOT expose sub-agents, tools, stage gates, or internal filenames.
+- Do NOT expose sub-agents, tools, stage gates, or internal filenames in the user-facing reply.
 - Do NOT invent citations; verify or mark [CITATION NEEDED].
 - Do NOT add a company cover block unless the user provided that context.
 </literature-report-delivery-protocol>
