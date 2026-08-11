@@ -43,6 +43,24 @@ describe("prompt-inject", () => {
     expect(text).toContain("≤ 20 lines")
   })
 
+  test("injectResultDelivery uses literature-report protocol for survey requests", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "写一份IMC的文献调研")
+    Inject.injectResultDelivery([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("literature-report-delivery-protocol")
+    expect(text).toContain("question tool")
+  })
+
+  test("injectResearchContract enables literature-report mode for surveys", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "写一份IMC的文献调研")
+    Inject.injectResearchContract([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("Literature-report mode")
+    expect(text).toContain("question tool")
+  })
+
   test("injectResultDelivery idempotent", () => {
     const msg = mkMsg("user")
     pushUserText(msg, "对单细胞 RNA-seq 数据做质控、归一化与聚类，并识别主要细胞类型")

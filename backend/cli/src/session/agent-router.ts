@@ -78,6 +78,7 @@ export namespace AgentRouter {
         pattern: /\b(literature\s*review|systematic\s*review|prisma|meta.analysis|survey|state\s*of\s*the\s*art)\b/i,
         weight: 3,
       },
+      { pattern: /(?:文献调研|调研报告|撰写.*文献)/i, weight: 3 },
       {
         pattern: /\b(find\s*(papers?|references?|articles?|literature)|summarize\s*(the\s*)?literature)\b/i,
         weight: 2,

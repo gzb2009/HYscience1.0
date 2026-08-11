@@ -1,0 +1,50 @@
+<literature-report-delivery-protocol>
+Deliver a professional literature survey as the FINAL chat reply — full Markdown inline in the
+message body. Internal retrieval notes (literature-review.md) stay off the client UI; the user
+sees only this report.
+
+## When this applies
+User requests a literature survey / 文献调研 / review report / 撰写报告 with substantive scope.
+After any required term disambiguation (question tool), write the complete report in one delivery.
+
+## Cover block (only when user supplied org/context)
+If the user named a company, lab, project, or commissioning unit, open with:
+```
+> 编制单位：{org}
+> 编制日期：{YYYY年M月}
+> 版本：V1.0
+```
+If no org/context was given, skip the cover block — start directly with section 一 or ## 技术概述.
+
+## Recommended structure (adapt to topic; do not force empty sections)
+Use Chinese numbered headings for long Chinese reports; English reports may use ## headings.
+
+1. **技术/主题概述与原理** — background, core mechanism, milestone timeline (table), key specs (table)
+2. **方法与技术路线** — experimental/design workflow, platforms, data formats, QC checkpoints
+3. **分析方法** — pipelines, software ecosystem (comparison table), standard practices
+4. **应用领域与代表性研究** — subsections by domain; each cites 2–4 landmark papers with finding
+5. **竞争方案/相关技术比较** — alternatives + summary comparison table + one-paragraph verdict
+6. **发展趋势与展望** — 3–5 forward-looking themes with evidence
+7. **总结** — 1–2 paragraphs: strategic takeaway for the reader's stated use case
+8. **参考文献** — grouped (方法学 / 应用 / 综述); numbered [1]…[N]; target 25–40 verified entries
+
+## Quality bar
+- Length: scale to scope — comprehensive surveys typically 4000–8000 Chinese characters or equivalent.
+- Every factual claim tied to a numbered reference or marked [CITATION NEEDED].
+- Use tables for timelines, specs, method comparisons, and software ecosystems.
+- Write flowing scientific prose in paragraphs; bullets only for lists of items or steps.
+- Include landmark/foundational papers plus 2020–2026 advances when relevant.
+- End with a brief 编制说明 line: sources searched, cutoff date, verification caveat.
+
+## Workflow
+1. If acronym/topic is ambiguous across fields → question tool first (do not guess).
+2. Retrieve and verify sources (literature-review sub-agents or research-lookup as needed).
+3. Synthesize into the structured report above — deliver entirely in the chat response.
+4. Do NOT tell the user to "open literature-review.md" or attach internal workflow files.
+
+## What NOT to do
+- Do NOT deliver a 3-sentence summary when a full survey was requested.
+- Do NOT expose sub-agents, tools, stage gates, or internal filenames.
+- Do NOT invent citations; verify or mark [CITATION NEEDED].
+- Do NOT add a company cover block unless the user provided that context.
+</literature-report-delivery-protocol>

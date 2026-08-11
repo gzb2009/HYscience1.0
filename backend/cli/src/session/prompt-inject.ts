@@ -32,6 +32,7 @@ import PROMPT_PLAN_ENTER from "../session/prompt/plan-enter.txt"
 import BUILD_SWITCH from "../session/prompt/build-switch.txt"
 import RESULT_DELIVERY from "../session/prompt/result-delivery.txt"
 import DIRECT_ANSWER_DELIVERY from "../session/prompt/direct-answer-delivery.txt"
+import LITERATURE_REPORT_DELIVERY from "../session/prompt/literature-report-delivery.txt"
 import BIOLOGY_SERVICE_CONTRACT from "../agent/prompt/biology-service-contract.txt"
 
 const log = Log.create({ service: "prompt-inject" })
@@ -48,6 +49,8 @@ const DESIGN_RE =
   /\b(experiment design|study design|control group|treatment group|randomization|blocking|replicate|confounding|sample size|power analysis|comparison group|分组|对照|重复|样本量)\b/i
 const LIT_RE =
   /\b(literature|literature review|paper|publication|citation|pubmed|research-lookup|related work|prior art|review)\b/i
+const LITERATURE_REPORT_RE =
+  /(?:文献调研|调研报告|撰写.*(?:文献|报告|调研)|写一份.*(?:文献|调研|报告)|literature\s+survey|literature\s+review\s+report|systematic\s+literature)/i
 const CAUSAL_RE = /\b(cause|causal|effect of|leads to|due to|because|increases|decreases|mediat|confound)\b/i
 const META_RE = /\b(meta.?analysis|pooled effect|heterogeneity|i\^2|tau\^2|forest plot|systematic review)\b/i
 const ACTIVE_RE =
@@ -80,19 +83,33 @@ export function injectBiologyServiceContract(userMessage: MessageV2.WithParts) {
   })
 }
 
+function isLiteratureReportRequest(text: string, contract: AgentRouter.Contract) {
+  if (LITERATURE_REPORT_RE.test(text)) return true
+  if (contract.intent === "literature_verification" && /(?:调研|综述|survey|review report)/i.test(text)) return true
+  return false
+}
+
 export function injectResultDelivery(
   messages: MessageV2.WithParts[],
   userMessage: MessageV2.WithParts,
   contract = InjectionPipeline.interpretTurn(messages, userMessage),
 ) {
-  const text = isDirectAnswer(contract) ? DIRECT_ANSWER_DELIVERY : RESULT_DELIVERY
-  if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === text)) return
+  const userText = userMessage.parts
+    .filter((p): p is MessageV2.TextPart => p.type === "text" && !p.hybio)
+    .map((p) => p.text)
+    .join(" ")
+  const body = isLiteratureReportRequest(userText, contract)
+    ? LITERATURE_REPORT_DELIVERY
+    : isDirectAnswer(contract)
+      ? DIRECT_ANSWER_DELIVERY
+      : RESULT_DELIVERY
+  if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === body)) return
   userMessage.parts.push({
     id: Identifier.ascending("part"),
     messageID: userMessage.info.id,
     sessionID: userMessage.info.sessionID,
     type: "text",
-    text,
+    text: body,
     hybio: true,
   })
 }
@@ -625,6 +642,13 @@ export function injectResearchContract(
   if (isDirectAnswer(contract)) {
     lines.push(
       "Direct-answer mode: respond concisely (lead with the answer; default ≤20 lines). No literature-review sub-agents, no literature-review.md, no fixed report sections, no large tables unless the user asked for them. At most one natural follow-up at the end.",
+    )
+  }
+
+  const reportText = InjectionPipeline.plainUserText(userMessage)
+  if (isLiteratureReportRequest(reportText, contract)) {
+    lines.push(
+      "Literature-report mode: after any required term disambiguation via the question tool, deliver the full structured survey inline in the chat (see literature-report-delivery protocol). Target comprehensive depth (typically 4000–8000 characters, 25–40 verified references). Include org cover block only if the user named a company/lab/project; otherwise omit it.",
     )
   }
 

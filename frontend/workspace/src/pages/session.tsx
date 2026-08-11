@@ -77,7 +77,7 @@ import {
   collectRecentTurnFileNames,
   collectResultFiles,
   collectTaskFileNames,
-  organizeResultFiles,
+  customerFacingResultFiles,
   type ResultFile,
 } from "@hysci/ui/session-result"
 import {
@@ -380,7 +380,7 @@ export default function Page(): JSX.Element {
     const id = params.id
     if (!id) return [] as ResultFile[]
     const msgs = sync.data.message[id] ?? []
-    return organizeResultFiles(
+    return customerFacingResultFiles(
       collectResultFiles({
         assistantMessages: msgs.filter(
           (message) => message.role === "assistant",
@@ -388,19 +388,19 @@ export default function Page(): JSX.Element {
         partsByMessage: sync.data.part,
         responseText: "",
       }),
-    ).deliverables
+    )
   })
   const recentResultFiles = createMemo(() => {
     const id = params.id
     if (!id) return [] as ResultFile[]
     const msgs = sync.data.message[id] ?? []
-    return organizeResultFiles(
+    return customerFacingResultFiles(
       collectResultFiles({
         assistantMessages: assistantMessagesForLastTurn(msgs) as import("@hysci/sdk/v2/client").AssistantMessage[],
         partsByMessage: sync.data.part,
         responseText: "",
       }),
-    ).deliverables
+    )
   })
   const lastUserMessage = createMemo(() => {
     const ms = messages()
@@ -459,16 +459,6 @@ export default function Page(): JSX.Element {
 
   const [stepsExpanded, setStepsExpanded] = createSignal<Record<string, boolean>>({})
   const toggleSteps = (id: string) => setStepsExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
-
-  // While the agent is running, auto-expand steps so tool/reasoning progress stays visible.
-  createEffect(() => {
-    const sessionID = params.id
-    const user = lastUserMessage()
-    if (!sessionID || !user) return
-    const busy = sync.data.session_status[sessionID]?.type !== "idle"
-    if (!busy) return
-    setStepsExpanded((prev) => ({ ...prev, [user.id]: true }))
-  })
 
   const [sidebarOpen, setSidebarOpen] = createSignal(true)
 

@@ -45,8 +45,9 @@
 
   [data-slot="session-turn-working-copy"] {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
     min-width: 0;
   }
 
