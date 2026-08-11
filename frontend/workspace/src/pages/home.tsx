@@ -4,7 +4,6 @@ import { base64Encode } from "@hysci/util/encode"
 import type { Project, Session } from "@hysci/sdk/v2/client"
 import { DropdownMenu } from "@hysci/ui/dropdown-menu"
 import { useDialog } from "@hysci/ui/context/dialog"
-import { FolderPicker } from "@/thesis/FolderPicker"
 import { DialogProjectForm, type ProjectFormValues } from "@/components/dialog-project-form"
 import { useServer } from "@/context/server"
 import { useGlobalSync } from "@/context/global-sync"
@@ -17,6 +16,7 @@ import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { ToastContainer } from "@/thesis/Toast"
 import { toast } from "@/thesis/Toast"
 import { DialogSettings } from "@/components/dialog-settings"
+import { HomeCapabilities } from "@/components/home-capabilities/HomeCapabilities"
 import { DisconnectedPanel } from "@/thesis/DisconnectedPanel"
 import { uiStore } from "@/thesis/store/ui"
 import { useGlobalKeys } from "@/thesis/useGlobalKeys"
@@ -51,6 +51,8 @@ function sessionUpdatedAt(session: Session): number {
 }
 
 function compactTime(ms: number): string {
+  // 0 / missing timestamps used to render as ~1970 → "689mo"
+  if (!Number.isFinite(ms) || ms < 1_000_000_000_000) return "—"
   const diff = Math.max(0, Date.now() - ms)
   const mins = Math.floor(diff / 60_000)
   if (mins < 1) return "now"
@@ -61,7 +63,9 @@ function compactTime(ms: number): string {
   if (days < 7) return `${days}d`
   const weeks = Math.floor(days / 7)
   if (weeks < 5) return `${weeks}w`
-  return `${Math.floor(days / 30)}mo`
+  const months = Math.floor(days / 30)
+  if (months > 120) return "—"
+  return `${months}mo`
 }
 
 export default function Home(): JSX.Element {
@@ -97,41 +101,43 @@ export default function Home(): JSX.Element {
       const worktree = entry.worktree
       if (!worktree || hide.has(worktree) || hide.has(norm(worktree)) || byWorktree.has(worktree)) continue
       if (isResultDirectory(worktree)) continue
+      // Skip if a sync project already covers this path (same folder / git root).
+      if ([...byWorktree.keys()].some((root) => worktree === root || worktree.startsWith(root + "/"))) continue
+      const now = Date.now()
       byWorktree.set(worktree, {
         id: worktree,
         worktree,
         sandboxes: [],
-        time: { created: 0, updated: 0 },
+        time: { created: now, updated: now },
       })
     }
+    // Stable order: favorites first, then worktree path. Avoid sorting by
+    // time.updated — config/session refreshes mutate timestamps and reshuffle the list.
     return Array.from(byWorktree.values()).sort((a, b) => {
       const af = fav.has(a.worktree) ? 1 : 0
       const bf = fav.has(b.worktree) ? 1 : 0
       if (af !== bf) return bf - af
-      return (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created)
+      return a.worktree.localeCompare(b.worktree)
     })
   })
 
   const projectRows = createMemo(() => {
     projectMetaLocal.all()
-    const validWorktrees = new Set(sync.data.project.map((p) => p.worktree))
-    return projects()
-      .filter((p) => validWorktrees.has(p.worktree))
-      .map((project) => {
-        const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
-        const sessions = child.session.filter((s) => !s.parentID && !s.time?.archived)
-        const latestSession = sessions.reduce<Session | undefined>((best, s) => {
-          if (!best) return s
-          return sessionUpdatedAt(s) > sessionUpdatedAt(best) ? s : best
-        }, undefined)
-        const updatedAt = Math.max(
-          project.time.updated ?? project.time.created ?? 0,
-          latestSession ? sessionUpdatedAt(latestSession) : 0,
-        )
-        const total = sessions.length
-        const running = runningSessionCount(sessions, child.session_status)
-        return { project, total, running, updatedAt }
-      })
+    return projects().map((project) => {
+      const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
+      const sessions = child.session.filter((s) => !s.parentID && !s.time?.archived)
+      const latestSession = sessions.reduce<Session | undefined>((best, s) => {
+        if (!best) return s
+        return sessionUpdatedAt(s) > sessionUpdatedAt(best) ? s : best
+      }, undefined)
+      const updatedAt = Math.max(
+        project.time.updated ?? project.time.created ?? 0,
+        latestSession ? sessionUpdatedAt(latestSession) : 0,
+      )
+      const total = Math.max(child.sessionTotal, sessions.length)
+      const running = runningSessionCount(sessions, child.session_status)
+      return { project, total, running, updatedAt }
+    })
   })
 
   const recentSessions = createMemo(() => {
@@ -139,10 +145,8 @@ export default function Home(): JSX.Element {
     sessionTitleLocal.all()
     const hidden = projectPrefs.hidden()
     const items: Array<{ session: Session; project: Project; title: string }> = []
-    const validWorktrees = new Set(sync.data.project.map((p) => p.worktree))
     for (const project of projects()) {
       if (hidden.has(project.worktree)) continue
-      if (!validWorktrees.has(project.worktree)) continue
       const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
       for (const session of child.session) {
         if (!session?.id || session.parentID || session.time?.archived) continue
@@ -155,22 +159,30 @@ export default function Home(): JSX.Element {
     }
     const seen = new Set<string>()
     const deduped: typeof items = []
-    for (const item of items.sort((a, b) => sessionUpdatedAt(b.session) - sessionUpdatedAt(a.session))) {
+    for (const item of items.sort((a, b) => {
+      const at = sessionUpdatedAt(b.session) - sessionUpdatedAt(a.session)
+      if (at !== 0) return at
+      return a.session.id.localeCompare(b.session.id)
+    })) {
       if (seen.has(item.session.id)) continue
       seen.add(item.session.id)
       deduped.push(item)
     }
-    return deduped.slice(0, 12)
+    return deduped
   })
 
-  createEffect(() => {
+  createEffect((prev?: string) => {
     const dirs = projects().map((p) => p.worktree)
-    if (dirs.length === 0) return
+    const key = dirs.slice().sort().join("\0")
+    if (key === prev) return key
+    if (dirs.length === 0) return key
     void Promise.all(dirs.map((dir) => sync.project.loadSessions(resolveProjectWorkingDir(dir))))
     void Promise.all(dirs.map((dir) => sync.project.loadSessionStatus(resolveProjectWorkingDir(dir))))
+    return key
   })
 
   function sessionCountLabel(count: number): string {
+    if (count === 0) return language.t("home.session.zero")
     if (count === 1) return language.t("home.session.one")
     return language.t("home.session.other", { count: String(count) })
   }
@@ -189,45 +201,35 @@ export default function Home(): JSX.Element {
     navigate(`/${base64Encode(directory)}/session/${sessionId}`)
   }
 
-  function pickProjectDirectory(): Promise<string | string[] | null> {
-    return new Promise((resolve) => {
-      function resolveResult(result: string | string[] | null) {
-        resolve(result)
-      }
-      if (platform.openDirectoryPickerDialog && server.isLocal()) {
-        void platform
-          .openDirectoryPickerDialog?.({
-            title: language.t("command.project.open"),
-            multiple: true,
-          })
-          .then(resolveResult)
-        return
-      }
-      dialog.show(() => <FolderPicker onSelect={resolveResult} />, { onClose: () => resolveResult(null), lite: true })
-    })
-  }
-
   async function applyProjectMeta(directory: string, values: ProjectFormValues) {
-    const resultName = normalizeResultFolderName(values.resultFolderName ?? values.name, directory)
-    projectMetaLocal.patch(directory, {
+    // Resolve canonical project root first — git subfolders share one worktree/id.
+    const current = await sdk.client.project.current({ directory }).catch(() => undefined)
+    const project = current?.data
+    const root = project?.worktree ?? directory
+    const workspace = resolveProjectWorkingDir(root)
+    const resultName = normalizeResultFolderName(values.resultFolderName ?? values.name, root)
+    const existed =
+      !!project?.name ||
+      !!sync.data.project.some((p) => p.id === project?.id || p.worktree === root) ||
+      !!server.projects.list().some((p) => p.worktree === root)
+
+    projectMetaLocal.patch(root, {
       description: values.description,
       resultFolderName: resultName,
       name: values.name?.trim() || undefined,
     })
-    const workspace = resolveProjectWorkingDir(directory)
-    layout.projects.open(directory)
-    server.projects.touch(directory)
-    await sync.project.loadSessions(workspace)
+    if (directory !== root) projectMetaLocal.remove(directory)
 
-    const listed = await sdk.client.project.list().catch(() => undefined)
-    const project =
-      listed?.data?.find((p) => p.worktree === directory) ?? sync.data.project.find((p) => p.worktree === directory)
+    layout.projects.open(root)
+    server.projects.open(root)
+    server.projects.touch(root)
+    if (directory !== root) server.projects.close(directory)
 
     if (project?.id && project.id !== "global") {
       await sdk.client.project
         .update({
           projectID: project.id,
-          directory,
+          directory: root,
           name: values.name || undefined,
           description: values.description || undefined,
           resultFolder: resultName,
@@ -239,24 +241,42 @@ export default function Home(): JSX.Element {
         } as any)
         .catch(() => undefined)
     }
+
     if (values.agentContext) {
-      await saveProjectAgentContext(sdk.url, directory, values.agentContext, fetchFn()).catch(() => undefined)
+      await saveProjectAgentContext(sdk.url, root, values.agentContext, fetchFn()).catch(() => undefined)
     }
+
+    sync.child(workspace, { bootstrap: true })
+    await sync.project.loadSessions(workspace)
+
+    const next = await sdk.client.project.list().catch(() => undefined)
+    const listed = (next?.data ?? [])
+      .filter((p) => !!p?.id)
+      .filter((p) => !!p.worktree && !p.worktree.includes("hyscience-test"))
+    const refreshed = await sdk.client.project.current({ directory: root }).catch(() => undefined)
+    const created = refreshed?.data
+    const merged = created?.id && !listed.some((p) => p.id === created.id) ? [...listed, created] : listed
+    if (merged.length > 0 || created) {
+      sync.set("project", merged)
+    }
+    return { root, existed }
   }
 
   async function finalizeCreate(values: ProjectFormValues) {
-    const picked = await pickProjectDirectory()
-    const directory = Array.isArray(picked) ? picked[0] : (picked ?? undefined)
+    const directory = values.directory
     if (!directory) return
     try {
-      await applyProjectMeta(directory, {
+      const result = await applyProjectMeta(directory, {
         ...values,
         resultFolderName: normalizeResultFolderName(
           values.name ? (values.resultFolderName ?? values.name) : "",
           directory,
         ),
       })
-      openProject(directory)
+      projectPrefs.unhide(result.root)
+      if (result.existed) {
+        toast.info(language.t("dialog.project.new.updatedExisting"))
+      }
     } catch (err) {
       toast.error(language.t("common.requestFailed"), err instanceof Error ? err.message : String(err))
     }
@@ -321,39 +341,43 @@ export default function Home(): JSX.Element {
         <Show when={projects().length > 0} fallback={<EmptyHero onChoose={openNewProjectDialog} />}>
           <div class="cs-workbench-inner">
             <div class="cs-workbench-header">
-              <AgentIcon
-                class="cs-workbench-mark"
-                size={96}
-                style={{
-                  "--agent-icon-ink": "var(--color-text)",
-                  "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
-                }}
-              />
-              <div class="cs-workbench-copy">
-                <h1 class="cs-workbench-brand">HYscience</h1>
-                <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
+              <div class="cs-workbench-brand-block">
+                <AgentIcon
+                  class="cs-workbench-mark"
+                  size={96}
+                  style={{
+                    "--agent-icon-ink": "var(--color-text)",
+                    "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
+                  }}
+                />
+                <div class="cs-workbench-copy">
+                  <h1 class="cs-workbench-brand">HYscience</h1>
+                  <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
+                </div>
               </div>
               <div class="cs-workbench-actions">
                 <HomeUserMenu onSettings={openSettings} />
-                <button
-                  type="button"
-                  class="cs-btn-primary"
-                  onClick={openNewProjectDialog}
-                  title={language.t("command.project.open")}
-                >
-                  <IconPlus size={15} strokeWidth={1.75} />
-                  {language.t("home.newProject")}
-                </button>
               </div>
             </div>
 
             <div class="cs-dashboard">
               <section>
-                <h2 class="cs-section-head">
-                  <IconFolder size={14} strokeWidth={1.5} />
-                  {language.t("home.projects")}
-                </h2>
-                <div class="cs-panel">
+                <div class="cs-section-head-row">
+                  <h2 class="cs-section-head">
+                    <IconFolder size={24} strokeWidth={1.5} />
+                    {language.t("home.projects")}
+                  </h2>
+                  <button
+                    type="button"
+                    class="cs-btn-primary cs-section-head-action"
+                    onClick={openNewProjectDialog}
+                    title={language.t("command.project.open")}
+                    aria-label={language.t("home.newProject")}
+                  >
+                    <IconPlus size={22} strokeWidth={1.75} />
+                  </button>
+                </div>
+                <div class="cs-panel cs-home-scroll-panel thesis-scroll">
                   <For each={projectRows()}>
                     {(row, i) => (
                       <ProjectRow
@@ -377,12 +401,12 @@ export default function Home(): JSX.Element {
                 </div>
               </section>
 
-              <section>
+              <section class="cs-dashboard-recent">
                 <h2 class="cs-section-head">
-                  <IconClock size={14} strokeWidth={1.5} />
+                  <IconClock size={16} strokeWidth={1.5} />
                   {language.t("sidebar.project.recentSessions")}
                 </h2>
-                <div class="cs-panel">
+                <div class="cs-panel cs-home-scroll-panel thesis-scroll">
                   <Show
                     when={recentSessions().length > 0}
                     fallback={<div class="cs-empty-panel">{language.t("home.noRecentSessions")}</div>}
@@ -408,6 +432,8 @@ export default function Home(): JSX.Element {
                 </div>
               </section>
             </div>
+
+            <HomeCapabilities />
           </div>
         </Show>
       </main>
@@ -451,9 +477,9 @@ function HomeUserMenu(props: { onSettings: () => void }): JSX.Element {
   }
 
   return (
-    <DropdownMenu open={open()} onOpenChange={setOpen}>
+    <DropdownMenu open={open()} onOpenChange={setOpen} modal={false}>
       <DropdownMenu.Trigger class="cs-workbench-icon-btn" data-expanded={open() ? "true" : "false"}>
-        <IconUser size={16} strokeWidth={1.5} />
+        <IconUser size={64} strokeWidth={1.5} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content class="cs-user-menu mt-2">
@@ -507,6 +533,7 @@ function ProjectRow(props: {
           <div class="cs-row-title-line">
             <ProjectSessionStatus
               index={props.index}
+              total={props.total}
               running={props.running}
               sessionCountLabel={props.sessionCountLabel}
               runningSessionLabel={props.runningSessionLabel}
@@ -523,6 +550,7 @@ function ProjectRow(props: {
           </div>
         </div>
         <span class="cs-row-meta">
+          <span class="cs-row-count">{props.sessionCountLabel}</span>
           <span class="cs-row-time">{compactTime(props.updatedAt)}</span>
         </span>
       </button>
@@ -578,6 +606,7 @@ function ProjectRow(props: {
 
 function ProjectSessionStatus(props: {
   index: number
+  total: number
   running: number
   sessionCountLabel: string
   runningSessionLabel: string
@@ -586,7 +615,12 @@ function ProjectSessionStatus(props: {
     <Show
       when={props.running > 0}
       fallback={
-        <span class="cs-project-index" aria-label={props.sessionCountLabel}>
+        <span
+          class="cs-project-index"
+          data-wide={props.index >= 10 ? "true" : undefined}
+          aria-label={props.sessionCountLabel}
+          title={props.sessionCountLabel}
+        >
           {props.index}
         </span>
       }

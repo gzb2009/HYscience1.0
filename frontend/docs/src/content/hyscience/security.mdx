@@ -15,8 +15,8 @@ The permission system prompts you before the agent runs a command or writes a fi
 | Surface | Where | Notes |
 | --- | --- | --- |
 | BYOK provider keys | Environment variables or the local credential store | Never leave your machine; requests go straight to the provider. No account required. |
-| HYscience Cloud session | `~/.config/hyscience/config.json` | `thk_*` key created by `hyscience login`; revocable from the dashboard. |
-| Synced service credentials | `~/.config/hyscience/credentials.json` | Present only when [connected to HYscience Cloud](/hyscience/cloud); refresh with `hyscience sync`. |
+| HYcloud session | `~/.config/hyscience/config.json` | `thk_*` key created by `hyscience login`; revocable from the dashboard. |
+| Synced service credentials | `~/.config/hyscience/credentials.json` | Present only when [connected to HYcloud](/hyscience/cloud); refresh with `hyscience sync`. |
 | Native binary (curl install) | `~/.hyscience/bin/hyscience` | Added to PATH through your shell rc. |
 
 Override the config parent directory with `XDG_CONFIG_HOME`. Run `hyscience debug paths` to print the resolved data, config, cache, and state directories on your machine.
@@ -42,7 +42,7 @@ Server mode is opt-in. The server binds to localhost (127.0.0.1) only and enforc
 ## What leaves your machine
 
 - Prompts and responses sent to your model provider, governed by that provider's policy.
-- Nothing else, in BYOK mode. If you [connect to Atlas](/hyscience/cloud), synced credentials and usage metering are held against your account.
+- Nothing else, in BYOK mode. If you [connect to HYcloud](/hyscience/cloud), synced credentials and usage metering are held against your account.
 
 Source files stay local unless the agent explicitly uploads them through a tool you approve, and local environment variables outside the allow-list above are never forwarded.
 

@@ -481,6 +481,31 @@ export namespace Server {
             return c.json(skills)
           },
         )
+        .get(
+          "/skill/:name",
+          describeRoute({
+            summary: "Read skill",
+            description: "Get a skill's metadata and full SKILL.md content.",
+            operationId: "app.skill.read",
+            responses: {
+              200: {
+                description: "Skill detail",
+                content: {
+                  "application/json": {
+                    schema: resolver(Skill.Detail),
+                  },
+                },
+              },
+              ...errors(404),
+            },
+          }),
+          validator("param", z.object({ name: z.string() })),
+          async (c) => {
+            const detail = await Skill.read(c.req.valid("param").name)
+            if (!detail) return c.json({ error: "Skill not found" }, 404)
+            return c.json(detail)
+          },
+        )
         .put(
           "/skill/:name",
           describeRoute({

@@ -654,7 +654,7 @@ export default function Landing() {
             <Reveal delay={150}>
               <p className={`mt-5 max-w-[44ch] ${P_BIG}`}>
                 Install with npm or the script, then run <span className="text-foreground">hyscience</span>. A short
-                setup asks how you want to power the models — Atlas managed models, your own provider keys, or the free
+                setup asks how you want to power the models — HYcloud managed models, your own provider keys, or the free
                 demo models — and the workspace opens in your browser.
               </p>
             </Reveal>
@@ -887,10 +887,6 @@ export default function Landing() {
                   q: "Can I extend it?",
                   a: "Yes. Skills, plugins, MCP servers, custom agents and commands, LSP integration, and a TypeScript SDK. If your lab has a private tool, the agent can learn it.",
                 },
-                {
-                  q: "What is Atlas?",
-                  a: "HYscience' managed platform: curated frontier models billed from one wallet, a persistent research graph, and cloud compute. HYscience works with Atlas but never requires it.",
-                },
               ]}
             />
           </div>
@@ -1026,7 +1022,7 @@ export default function Landing() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Atlas
+                    HYcloud
                     <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
                       <path d="M2 8 L8 2 M4 2 L8 2 L8 6" stroke="currentColor" fill="none" />
                     </svg>

@@ -6,8 +6,7 @@ import { dict as en } from "@/i18n/en"
 import { dict as zh } from "@/i18n/zh"
 import { hyscienceFetch } from "@/utils/hyscience-fetch"
 import { URLS } from "@/config/urls"
-import { chooseDirectory, openServerFolderDialog, resolveAbsolute, validateDirectoryPath } from "@/thesis/openDirectory"
-import { toast } from "@/thesis/Toast"
+import { openServerFolderDialog, validateDirectoryPath } from "@/thesis/openDirectory"
 import pkg from "../package.json"
 
 const DEFAULT_SERVER_URL_KEY = "hyscience.settings.dat:defaultServerUrl"
@@ -92,29 +91,19 @@ const platform: Platform = {
   fetch: hyscienceFetch,
   openDirectoryPickerDialog: async (opts) => {
     const serverResult = await openServerFolderDialog(opts?.title)
-    if (serverResult !== "unsupported") {
-      if (!serverResult?.length) return null
-      if (opts?.multiple) {
-        const paths: string[] = []
-        for (const candidate of serverResult) {
-          const validated = await validateDirectoryPath(candidate)
-          if (validated) paths.push(validated)
-        }
-        return paths.length > 0 ? paths : null
+    if (serverResult === "unsupported") return null
+    if (!serverResult?.length) return null
+    if (opts?.multiple) {
+      const paths: string[] = []
+      for (const candidate of serverResult) {
+        const validated = await validateDirectoryPath(candidate)
+        if (validated) paths.push(validated)
       }
-      const first = serverResult[0]
-      if (!first) return null
-      return validateDirectoryPath(first)
+      return paths.length > 0 ? paths : null
     }
-
-    const entry = await chooseDirectory()
-    if (!entry) return null
-    const absolute = await resolveAbsolute(entry.name, entry.hint, entry.children)
-    if (!absolute) {
-      toast.error("could not resolve folder path", entry.name)
-      return null
-    }
-    return opts?.multiple ? [absolute] : absolute
+    const first = serverResult[0]
+    if (!first) return null
+    return validateDirectoryPath(first)
   },
 }
 

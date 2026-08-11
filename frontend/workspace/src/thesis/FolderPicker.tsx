@@ -24,6 +24,11 @@ interface PickerProps {
   multiple?: boolean
   /** "project" opens a folder as a new project root; "workspace" selects a working directory only. */
   purpose?: "project" | "workspace"
+  /**
+   * Render inside an existing dialog/panel instead of calling dialog.show/close.
+   * Required when opened from another dialog — dialog.show replaces the active dialog.
+   */
+  embedded?: boolean
   onSelect: (result: string | string[] | null) => void
 }
 
@@ -63,6 +68,7 @@ export function FolderPicker(props: PickerProps): JSX.Element {
   const sync = useGlobalSync()
   const dialog = useDialog()
   const purpose = () => props.purpose ?? "project"
+  const embedded = () => !!props.embedded
   const dialogTitle = () => (purpose() === "workspace" ? "Choose workspace folder" : "Open folder")
   const confirmLabel = () => (purpose() === "workspace" ? "Select this folder" : "open this folder")
   const confirmTitle = () =>
@@ -174,12 +180,12 @@ export function FolderPicker(props: PickerProps): JSX.Element {
   const pick = (path: string) => {
     pushRecent(path)
     props.onSelect(props.multiple ? [path] : path)
-    dialog.close()
+    if (!embedded()) dialog.close()
   }
 
   const cancel = () => {
     props.onSelect(null)
-    dialog.close()
+    if (!embedded()) dialog.close()
   }
 
   const sidebarLinks = createMemo(() => {
@@ -196,323 +202,285 @@ export function FolderPicker(props: PickerProps): JSX.Element {
 
   const recents = createMemo(() => readRecents())
 
-  return (
-    <Dialog title={dialogTitle()} size="large" transition>
+  const body = (
+    <div
+      style={{
+        display: "flex",
+        gap: "12px",
+        "min-height": embedded() ? "360px" : "480px",
+        "max-height": embedded() ? "420px" : "560px",
+      }}
+    >
+      {/* Sidebar */}
       <div
         style={{
+          flex: "0 0 180px",
           display: "flex",
-          gap: "12px",
-          "min-height": "480px",
-          "max-height": "560px",
+          "flex-direction": "column",
+          gap: "14px",
+          "border-right": "1px solid var(--color-border)",
+          "padding-right": "10px",
+          overflow: "auto",
         }}
       >
-        {/* Sidebar */}
-        <div
-          style={{
-            flex: "0 0 180px",
-            display: "flex",
-            "flex-direction": "column",
-            gap: "14px",
-            "border-right": "1px solid var(--color-border)",
-            "padding-right": "10px",
-            overflow: "auto",
-          }}
-        >
-          <div style={{ display: "flex", "flex-direction": "column", gap: "1px" }}>
-            <SectionLabel>favorites</SectionLabel>
-            <For each={sidebarLinks()}>
-              {(l) => <SidebarRow label={l.label} active={cwd() === l.path} onClick={() => goTo(l.path)} />}
-            </For>
-          </div>
-          <Show when={recents().length > 0}>
-            <div style={{ display: "flex", "flex-direction": "column", gap: "1px" }}>
-              <SectionLabel>recent</SectionLabel>
-              <For each={recents()}>
-                {(p) => (
-                  <SidebarRow
-                    label={p.split("/").filter(Boolean).pop() ?? "/"}
-                    sublabel={p.replace(home() + "/", "~/").replace(home(), "~")}
-                    active={cwd() === p}
-                    onClick={() => goTo(p)}
-                    onDblClick={() => pick(p)}
-                  />
-                )}
-              </For>
-            </div>
-          </Show>
+        <div style={{ display: "flex", "flex-direction": "column", gap: "1px" }}>
+          <SectionLabel>favorites</SectionLabel>
+          <For each={sidebarLinks()}>
+            {(l) => <SidebarRow label={l.label} active={cwd() === l.path} onClick={() => goTo(l.path)} />}
+          </For>
         </div>
-
-        {/* Main pane */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            "flex-direction": "column",
-            gap: "10px",
-            "min-width": 0,
-          }}
-        >
-          {/* Breadcrumbs */}
-          <div
-            style={{
-              display: "flex",
-              "align-items": "center",
-              gap: "6px",
-              padding: "6px 8px",
-              background: "var(--color-bg-subtle)",
-              border: "1px solid var(--color-border)",
-              "border-radius": "4px",
-              "flex-wrap": "wrap",
-            }}
-          >
-            <button
-              onClick={goUp}
-              title="parent folder"
-              style={navBtn(cwd() === "/" || cwd() === "")}
-              disabled={cwd() === "/" || cwd() === ""}
-            >
-              <IconChevronLeft size={11} strokeWidth={1.5} />
-            </button>
-            <button onClick={() => goTo(home())} title="home" style={navBtn(false)}>
-              <IconHome size={11} strokeWidth={1.5} />
-            </button>
-            <span style={{ width: "1px", height: "16px", background: "var(--color-border)" }} />
-            <For each={crumbs()}>
-              {(c, i) => (
-                <>
-                  <Show when={i() > 0}>
-                    <span style={{ color: "var(--color-text-faint)" }}>/</span>
-                  </Show>
-                  <button
-                    onClick={() => goTo(c.path)}
-                    style={{
-                      all: "unset",
-                      cursor: "pointer",
-                      "font-family": FONT_MONO,
-                      "font-size": "11px",
-                      color: i() === crumbs().length - 1 ? "var(--color-text)" : "var(--color-text-muted)",
-                      "font-weight": i() === crumbs().length - 1 ? 600 : 500,
-                      padding: "2px 4px",
-                      "border-radius": "4px",
-                      transition: "background 120ms ease, color 120ms ease",
-                    }}
-                    onMouseEnter={(el) => {
-                      el.currentTarget.style.background = "var(--color-accent-subtle)"
-                      el.currentTarget.style.color = "var(--color-text)"
-                    }}
-                    onMouseLeave={(el) => {
-                      el.currentTarget.style.background = "transparent"
-                      el.currentTarget.style.color =
-                        i() === crumbs().length - 1 ? "var(--color-text)" : "var(--color-text-muted)"
-                    }}
-                  >
-                    {c.label}
-                  </button>
-                </>
+        <Show when={recents().length > 0}>
+          <div style={{ display: "flex", "flex-direction": "column", gap: "1px" }}>
+            <SectionLabel>recent</SectionLabel>
+            <For each={recents()}>
+              {(p) => (
+                <SidebarRow
+                  label={p.split("/").filter(Boolean).pop() ?? "/"}
+                  sublabel={p.replace(home() + "/", "~/").replace(home(), "~")}
+                  active={cwd() === p}
+                  onClick={() => goTo(p)}
+                  onDblClick={() => pick(p)}
+                />
               )}
             </For>
-            <span style={{ flex: 1 }} />
-            <button onClick={() => refetch()} title="refresh" style={navBtn(false)}>
-              <IconRefresh size={11} strokeWidth={1.5} />
-            </button>
           </div>
+        </Show>
+      </div>
 
-          {/* Filter */}
-          <div
+      {/* Main pane */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          "flex-direction": "column",
+          gap: "10px",
+          "min-width": 0,
+        }}
+      >
+        {/* Breadcrumbs */}
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "6px",
+            padding: "6px 8px",
+            background: "var(--color-bg-subtle)",
+            border: "1px solid var(--color-border)",
+            "border-radius": "4px",
+            "flex-wrap": "wrap",
+          }}
+        >
+          <button
+            onClick={goUp}
+            title="parent folder"
+            style={navBtn(cwd() === "/" || cwd() === "")}
+            disabled={cwd() === "/" || cwd() === ""}
+          >
+            <IconChevronLeft size={11} strokeWidth={1.5} />
+          </button>
+          <button onClick={() => goTo(home())} title="home" style={navBtn(false)}>
+            <IconHome size={11} strokeWidth={1.5} />
+          </button>
+          <span style={{ width: "1px", height: "16px", background: "var(--color-border)" }} />
+          <For each={crumbs()}>
+            {(c, i) => (
+              <>
+                <Show when={i() > 0}>
+                  <span style={{ color: "var(--color-text-faint)" }}>/</span>
+                </Show>
+                <button
+                  onClick={() => goTo(c.path)}
+                  style={{
+                    all: "unset",
+                    cursor: "pointer",
+                    "font-family": FONT_MONO,
+                    "font-size": "11px",
+                    color: i() === crumbs().length - 1 ? "var(--color-text)" : "var(--color-text-muted)",
+                    "font-weight": i() === crumbs().length - 1 ? 600 : 500,
+                    padding: "2px 4px",
+                    "border-radius": "4px",
+                    transition: "background 120ms ease, color 120ms ease",
+                  }}
+                  onMouseEnter={(el) => {
+                    el.currentTarget.style.background = "var(--color-accent-subtle)"
+                    el.currentTarget.style.color = "var(--color-text)"
+                  }}
+                  onMouseLeave={(el) => {
+                    el.currentTarget.style.background = "transparent"
+                    el.currentTarget.style.color =
+                      i() === crumbs().length - 1 ? "var(--color-text)" : "var(--color-text-muted)"
+                  }}
+                >
+                  {c.label}
+                </button>
+              </>
+            )}
+          </For>
+          <span style={{ flex: 1 }} />
+          <button onClick={() => refetch()} title="refresh" style={navBtn(false)}>
+            <IconRefresh size={11} strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* Filter */}
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "6px",
+            padding: "6px 10px",
+            border: "1px solid var(--color-border)",
+            "border-radius": "4px",
+            background: "var(--color-surface-solid)",
+          }}
+        >
+          <IconSearch size={11} strokeWidth={1.5} />
+          <input
+            value={filter()}
+            onInput={(e) => setFilter(e.currentTarget.value)}
+            placeholder="filter folders…"
+            autofocus
             style={{
-              display: "flex",
-              "align-items": "center",
-              gap: "6px",
-              padding: "6px 10px",
-              border: "1px solid var(--color-border)",
-              "border-radius": "4px",
-              background: "var(--color-surface-solid)",
+              all: "unset",
+              flex: 1,
+              "font-family": FONT_MONO,
+              "font-size": "12px",
+              color: "var(--color-text)",
+            }}
+          />
+          <span
+            class="tab-fig"
+            style={{
+              "font-family": FONT_MONO,
+              "font-size": "10px",
+              color: "var(--color-text-faint)",
+              "letter-spacing": "0.04em",
             }}
           >
-            <IconSearch size={11} strokeWidth={1.5} />
-            <input
-              value={filter()}
-              onInput={(e) => setFilter(e.currentTarget.value)}
-              placeholder="filter folders…"
-              autofocus
-              style={{
-                all: "unset",
-                flex: 1,
-                "font-family": FONT_MONO,
-                "font-size": "12px",
-                color: "var(--color-text)",
-              }}
-            />
-            <span
-              class="tab-fig"
-              style={{
-                "font-family": FONT_MONO,
-                "font-size": "10px",
-                color: "var(--color-text-faint)",
-                "letter-spacing": "0.04em",
-              }}
-            >
-              {filtered().length} {filtered().length === 1 ? "folder" : "folders"}
-            </span>
-          </div>
+            {filtered().length} {filtered().length === 1 ? "folder" : "folders"}
+          </span>
+        </div>
 
-          {/* Always-visible "paste a path" — bypass for TCC-blocked dirs
+        {/* Always-visible "paste a path" — bypass for TCC-blocked dirs
               (macOS hides ~/Desktop from non-FDA processes, leaving the
               folder list empty). User pastes any absolute path here and
               we jump straight there. */}
-          <div
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "6px",
+            padding: "6px 10px",
+            border: "1px dashed var(--color-border)",
+            "border-radius": "4px",
+            background: "var(--color-bg-subtle)",
+          }}
+        >
+          <span
             style={{
-              display: "flex",
-              "align-items": "center",
-              gap: "6px",
-              padding: "6px 10px",
-              border: "1px dashed var(--color-border)",
-              "border-radius": "4px",
-              background: "var(--color-bg-subtle)",
+              "font-family": FONT_MONO,
+              "font-size": "10px",
+              color: "var(--color-text-faint)",
+              "letter-spacing": "0.08em",
+              "text-transform": "uppercase",
             }}
           >
-            <span
-              style={{
-                "font-family": FONT_MONO,
-                "font-size": "10px",
-                color: "var(--color-text-faint)",
-                "letter-spacing": "0.08em",
-                "text-transform": "uppercase",
-              }}
-            >
-              go to
-            </span>
-            <input
-              value={pathInput()}
-              onInput={(e) => setPathInput(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void goToTyped(pathInput())
-              }}
-              placeholder="/Users/you/Desktop/bs-local · or paste any absolute path"
-              spellcheck={false}
-              style={{
-                all: "unset",
-                flex: 1,
-                "font-family": FONT_MONO,
-                "font-size": "11px",
-                color: "var(--color-text)",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => void goToTyped(pathInput())}
-              disabled={!pathInput().trim()}
-              style={{
-                all: "unset",
-                cursor: pathInput().trim() ? "pointer" : "not-allowed",
-                padding: "3px 10px",
-                "border-radius": "4px",
-                background: pathInput().trim() ? "var(--color-surface-solid)" : "transparent",
-                border: "1px solid var(--color-border)",
-                "font-family": FONT_MONO,
-                "font-size": "10px",
-                color: "var(--color-text-muted)",
-                opacity: pathInput().trim() ? 1 : 0.5,
-              }}
-            >
-              go
-            </button>
-          </div>
-
-          {/* Folder list */}
-          <div
-            class="thesis-scroll"
-            ref={(el) => {
-              // Reset scroll position whenever the user navigates so the new
-              // folder always starts at the top instead of carrying the prior
-              // scroll offset (which feels jumpy mid-navigation).
-              createEffect(() => {
-                cwd()
-                el.scrollTop = 0
-              })
+            go to
+          </span>
+          <input
+            value={pathInput()}
+            onInput={(e) => setPathInput(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void goToTyped(pathInput())
             }}
+            placeholder="/Users/you/Desktop/bs-local · or paste any absolute path"
+            spellcheck={false}
             style={{
+              all: "unset",
               flex: 1,
-              "overflow-y": "auto",
-              border: "1px solid var(--color-border)",
+              "font-family": FONT_MONO,
+              "font-size": "11px",
+              color: "var(--color-text)",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void goToTyped(pathInput())}
+            disabled={!pathInput().trim()}
+            style={{
+              all: "unset",
+              cursor: pathInput().trim() ? "pointer" : "not-allowed",
+              padding: "3px 10px",
               "border-radius": "4px",
-              background: "var(--color-surface-solid)",
-              "min-height": "240px",
-              position: "relative",
-              // Slight desaturation while loading hints at activity without
-              // unmounting the rows — feels much smoother than a full swap.
-              opacity: entries.loading ? 0.55 : 1,
-              transition: "opacity 120ms ease",
+              background: pathInput().trim() ? "var(--color-surface-solid)" : "transparent",
+              border: "1px solid var(--color-border)",
+              "font-family": FONT_MONO,
+              "font-size": "10px",
+              color: "var(--color-text-muted)",
+              opacity: pathInput().trim() ? 1 : 0.5,
             }}
           >
-            {/* Thin indeterminate loading bar across the top while fetching. */}
-            <Show when={entries.loading}>
+            go
+          </button>
+        </div>
+
+        {/* Folder list */}
+        <div
+          class="thesis-scroll"
+          ref={(el) => {
+            // Reset scroll position whenever the user navigates so the new
+            // folder always starts at the top instead of carrying the prior
+            // scroll offset (which feels jumpy mid-navigation).
+            createEffect(() => {
+              cwd()
+              el.scrollTop = 0
+            })
+          }}
+          style={{
+            flex: 1,
+            "overflow-y": "auto",
+            border: "1px solid var(--color-border)",
+            "border-radius": "4px",
+            background: "var(--color-surface-solid)",
+            "min-height": "240px",
+            position: "relative",
+            // Slight desaturation while loading hints at activity without
+            // unmounting the rows — feels much smoother than a full swap.
+            opacity: entries.loading ? 0.55 : 1,
+            transition: "opacity 120ms ease",
+          }}
+        >
+          {/* Thin indeterminate loading bar across the top while fetching. */}
+          <Show when={entries.loading}>
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "2px",
+                overflow: "hidden",
+                "pointer-events": "none",
+                "z-index": 1,
+              }}
+            >
               <div
                 style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: "2px",
-                  overflow: "hidden",
-                  "pointer-events": "none",
-                  "z-index": 1,
+                  width: "30%",
+                  height: "100%",
+                  background: "linear-gradient(90deg, transparent, var(--color-accent), transparent)",
+                  animation: "thesis-loading-slide 1.1s ease-in-out infinite",
                 }}
-              >
-                <div
-                  style={{
-                    width: "30%",
-                    height: "100%",
-                    background: "linear-gradient(90deg, transparent, var(--color-accent), transparent)",
-                    animation: "thesis-loading-slide 1.1s ease-in-out infinite",
-                  }}
-                />
-              </div>
-            </Show>
-            <Show
-              when={filtered().length > 0}
-              fallback={
-                <Show when={!entries.loading}>
-                  <Show
-                    when={!error()}
-                    fallback={
-                      <div
-                        class="thesis-fade-in"
-                        style={{
-                          padding: "32px 24px",
-                          "text-align": "center",
-                          "font-family": FONT_SANS,
-                          "font-size": "12px",
-                          color: "var(--color-error)",
-                          display: "flex",
-                          "flex-direction": "column",
-                          "align-items": "center",
-                          gap: "10px",
-                        }}
-                      >
-                        <span>couldn't read this folder</span>
-                        <span style={{ color: "var(--color-text-faint)", "max-width": "360px", "line-height": 1.5 }}>
-                          {error()}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void refetch()}
-                          style={{
-                            all: "unset",
-                            cursor: "pointer",
-                            padding: "5px 12px",
-                            "border-radius": "4px",
-                            border: "1px solid var(--color-border)",
-                            "font-family": FONT_MONO,
-                            "font-size": "11px",
-                            color: "var(--color-text)",
-                          }}
-                        >
-                          retry
-                        </button>
-                      </div>
-                    }
-                  >
+              />
+            </div>
+          </Show>
+          <Show
+            when={filtered().length > 0}
+            fallback={
+              <Show when={!entries.loading}>
+                <Show
+                  when={!error()}
+                  fallback={
                     <div
                       class="thesis-fade-in"
                       style={{
@@ -520,83 +488,136 @@ export function FolderPicker(props: PickerProps): JSX.Element {
                         "text-align": "center",
                         "font-family": FONT_SANS,
                         "font-size": "12px",
-                        color: "var(--color-text-faint)",
+                        color: "var(--color-error)",
                         display: "flex",
                         "flex-direction": "column",
-                        gap: "8px",
+                        "align-items": "center",
+                        gap: "10px",
                       }}
                     >
-                      <Show when={(entries() ?? []).length === 0} fallback={<span>nothing matches the filter</span>}>
-                        <Show
-                          when={
-                            /\/Desktop$|\/Documents$|\/Downloads$/.test(cwd()) ||
-                            cwd().endsWith("/Desktop") ||
-                            cwd().endsWith("/Documents") ||
-                            cwd().endsWith("/Downloads")
-                          }
-                          fallback={<span>this folder is empty · pick it with the button below</span>}
-                        >
-                          <span style={{ color: "var(--color-text)" }}>
-                            macOS is blocking the listing of <code>{cwd().split("/").pop()}</code>
-                          </span>
-                          <span style={{ "max-width": "360px", "line-height": 1.5 }}>
-                            To list this folder we'd need Full Disk Access for the
-                            <code>hyscience</code> binary. For now, paste the absolute path of the folder you want into
-                            the <em>go to</em> bar above — HYscience can still open any path you give it.
-                          </span>
-                        </Show>
-                      </Show>
+                      <span>couldn't read this folder</span>
+                      <span style={{ color: "var(--color-text-faint)", "max-width": "360px", "line-height": 1.5 }}>
+                        {error()}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void refetch()}
+                        style={{
+                          all: "unset",
+                          cursor: "pointer",
+                          padding: "5px 12px",
+                          "border-radius": "4px",
+                          border: "1px solid var(--color-border)",
+                          "font-family": FONT_MONO,
+                          "font-size": "11px",
+                          color: "var(--color-text)",
+                        }}
+                      >
+                        retry
+                      </button>
                     </div>
-                  </Show>
+                  }
+                >
+                  <div
+                    class="thesis-fade-in"
+                    style={{
+                      padding: "32px 24px",
+                      "text-align": "center",
+                      "font-family": FONT_SANS,
+                      "font-size": "12px",
+                      color: "var(--color-text-faint)",
+                      display: "flex",
+                      "flex-direction": "column",
+                      gap: "8px",
+                    }}
+                  >
+                    <Show when={(entries() ?? []).length === 0} fallback={<span>nothing matches the filter</span>}>
+                      <Show
+                        when={
+                          /\/Desktop$|\/Documents$|\/Downloads$/.test(cwd()) ||
+                          cwd().endsWith("/Desktop") ||
+                          cwd().endsWith("/Documents") ||
+                          cwd().endsWith("/Downloads")
+                        }
+                        fallback={<span>this folder is empty · pick it with the button below</span>}
+                      >
+                        <span style={{ color: "var(--color-text)" }}>
+                          macOS is blocking the listing of <code>{cwd().split("/").pop()}</code>
+                        </span>
+                        <span style={{ "max-width": "360px", "line-height": 1.5 }}>
+                          To list this folder we'd need Full Disk Access for the
+                          <code>hyscience</code> binary. For now, paste the absolute path of the folder you want into
+                          the <em>go to</em> bar above — HYscience can still open any path you give it.
+                        </span>
+                      </Show>
+                    </Show>
+                  </div>
                 </Show>
-              }
-            >
-              <For each={filtered()}>
-                {(e) => <FolderRow entry={e} onDrill={() => drillInto(e)} onPick={() => pick(e.absolute)} />}
-              </For>
-            </Show>
-          </div>
-
-          {/* Footer */}
-          <div
-            style={{
-              display: "flex",
-              "align-items": "center",
-              gap: "8px",
-              "padding-top": "4px",
-            }}
+              </Show>
+            }
           >
-            <span
-              style={{
-                "font-family": FONT_MONO,
-                "font-size": "10px",
-                color: "var(--color-text-faint)",
-                flex: 1,
-                overflow: "hidden",
-                "text-overflow": "ellipsis",
-                "white-space": "nowrap",
-              }}
-              title={cwd()}
-            >
-              {cwd().replace(home(), "~")}
-            </span>
-            <button onClick={cancel} style={cancelBtn()}>
-              cancel
-            </button>
-            <button
-              onClick={async () => {
-                const valid = await validateDirectoryPath(cwd())
-                if (valid) pick(valid)
-              }}
-              title={confirmTitle()}
-              style={primaryBtn()}
-            >
-              <IconArrowRight size={11} strokeWidth={2} />
-              {confirmLabel()}
-            </button>
-          </div>
+            <For each={filtered()}>
+              {(e) => <FolderRow entry={e} onDrill={() => drillInto(e)} onPick={() => pick(e.absolute)} />}
+            </For>
+          </Show>
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "8px",
+            "padding-top": "4px",
+          }}
+        >
+          <span
+            style={{
+              "font-family": FONT_MONO,
+              "font-size": "10px",
+              color: "var(--color-text-faint)",
+              flex: 1,
+              overflow: "hidden",
+              "text-overflow": "ellipsis",
+              "white-space": "nowrap",
+            }}
+            title={cwd()}
+          >
+            {cwd().replace(home(), "~")}
+          </span>
+          <button onClick={cancel} style={cancelBtn()}>
+            cancel
+          </button>
+          <button
+            onClick={async () => {
+              const valid = await validateDirectoryPath(cwd())
+              if (valid) pick(valid)
+            }}
+            title={confirmTitle()}
+            style={primaryBtn()}
+          >
+            <IconArrowRight size={11} strokeWidth={2} />
+            {confirmLabel()}
+          </button>
         </div>
       </div>
+    </div>
+  )
+
+  if (embedded()) {
+    return (
+      <div class="cs-folder-picker-embedded">
+        <div class="cs-folder-picker-embedded-head">
+          <strong>{dialogTitle()}</strong>
+        </div>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <Dialog title={dialogTitle()} size="large" transition>
+      {body}
     </Dialog>
   )
 }

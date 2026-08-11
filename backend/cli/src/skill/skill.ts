@@ -415,6 +415,21 @@ export namespace Skill {
     return state().then((x) => x[name])
   }
 
+  export const Detail = Info.extend({
+    content: z.string(),
+  })
+  export type Detail = z.infer<typeof Detail>
+
+  export async function read(name: string): Promise<Detail | undefined> {
+    const skill = await get(name)
+    if (!skill) return undefined
+    const content = await Bun.file(skill.location)
+      .text()
+      .catch(() => undefined)
+    if (content === undefined) return undefined
+    return { ...skill, content }
+  }
+
   export async function all() {
     return state().then((x) => Object.values(x))
   }

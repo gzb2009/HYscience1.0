@@ -116,4 +116,13 @@ export const Instance = {
 
     return disposal.all
   },
+  /**
+   * Drop cached Instance.state values without tearing down instances or
+   * emitting disposed events. Used for lightweight config patches (e.g. skill
+   * toggles) so agents rebuild permissions on next access without a full UI refresh.
+   */
+  async reloadState() {
+    const keys = [...cache.keys()]
+    await Promise.all(keys.map((key) => State.dispose(key)))
+  },
 }

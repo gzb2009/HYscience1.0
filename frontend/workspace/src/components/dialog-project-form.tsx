@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, onMount, Show, type JSX } from "solid-js"
 import { Dialog } from "@hysci/ui/dialog"
 import { useDialog } from "@hysci/ui/context/dialog"
+import { showToast } from "@hysci/ui/toast"
 import { useLanguage } from "@/context/language"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { usePlatform } from "@/context/platform"
@@ -15,12 +16,14 @@ import {
   normalizeResultFolderName,
   resultFolderName,
 } from "@/utils/projectResult"
+import { FolderPicker } from "@/thesis/FolderPicker"
 import { IconX } from "@/thesis/shared/Icon"
 
 export type ProjectFormValues = {
   name: string
   description: string
   agentContext: string
+  directory?: string
   resultFolderName?: string
   researchDomain: "general" | "biology" | "physics" | "ml"
   researchSubdomain?: string
@@ -50,6 +53,7 @@ export function DialogProjectForm(props: {
   const fetchFn = platform.fetch ?? fetch
 
   const [name, setName] = createSignal(props.initial?.name ?? "")
+  const [directory, setDirectory] = createSignal(props.initial?.directory ?? "")
   const [description, setDescription] = createSignal(props.initial?.description ?? "")
   const [resultName, setResultName] = createSignal(props.initial?.resultFolderName ?? "")
   const [resultTouched, setResultTouched] = createSignal(!!props.initial?.resultFolderName)
@@ -61,6 +65,8 @@ export function DialogProjectForm(props: {
   const [researchNotes, setResearchNotes] = createSignal(props.initial?.researchNotes ?? "")
   const [saving, setSaving] = createSignal(false)
   const [loading, setLoading] = createSignal(props.mode === "edit")
+  // Folder picker must stay inside this dialog — dialog.show replaces the active dialog.
+  const [picking, setPicking] = createSignal(false)
 
   onMount(async () => {
     if (props.mode !== "edit" || !props.project) return
@@ -93,6 +99,10 @@ export function DialogProjectForm(props: {
     if (resultTouched()) return
     setResultName(normalizeResultFolderName(name(), props.project?.worktree ?? "Project"))
   })
+
+  function pickDirectory() {
+    setPicking(true)
+  }
 
   async function persistEdit() {
     const project = props.project
@@ -135,20 +145,26 @@ export function DialogProjectForm(props: {
   }
 
   function submit() {
+    if (props.mode === "create" && !directory().trim()) {
+      showToast({
+        variant: "error",
+        title: language.t("dialog.project.new.directoryRequired"),
+      })
+      return
+    }
     const values: ProjectFormValues = {
       name: name().trim(),
       description: description().trim(),
       agentContext: agentContext().trim(),
+      directory: directory().trim() || undefined,
       resultFolderName: normalizeResultFolderName(resultName(), name().trim() || props.project?.worktree || "Project"),
       researchDomain: domain(),
       researchSubdomain: subdomain().trim() || undefined,
       researchNotes: researchNotes().trim(),
     }
     if (props.mode === "create") {
+      props.onCreate?.(values)
       dialog.close()
-      // Let the form finish closing before opening the folder picker — otherwise
-      // dialog.close() in submit races with pickProjectDirectory()'s dialog.show().
-      window.setTimeout(() => props.onCreate?.(values), 120)
       return
     }
     void persistEdit()
@@ -173,121 +189,158 @@ export function DialogProjectForm(props: {
         </div>
 
         <Show when={!loading()} fallback={<div class="cs-project-form-loading">{language.t("common.loading")}</div>}>
-          <div class="cs-project-form-body thesis-scroll">
-            <label class="cs-field">
-              <span class="cs-field-label">{language.t("dialog.project.edit.name")}</span>
-              <input
-                class="cs-field-input"
-                value={name()}
-                onInput={(e) => setName(e.currentTarget.value)}
-                placeholder={language.t("dialog.project.new.namePlaceholder")}
-              />
-            </label>
-
-            <section class="cs-field">
-              <span class="cs-field-label">Research direction</span>
-              <span class="cs-field-hint">
-                This setting automatically selects the analysis agent and strategy for future turns.
-              </span>
-              <select
-                class="cs-field-input"
-                value={domain()}
-                onChange={(e) => {
-                  const next = e.currentTarget.value as ProjectFormValues["researchDomain"]
-                  setDomain(next)
-                  setSubdomain("")
+          <Show when={picking()}>
+            <div class="cs-project-form-body">
+              <FolderPicker
+                embedded
+                onSelect={(result) => {
+                  const dir = Array.isArray(result) ? result[0] : result
+                  if (dir) setDirectory(dir)
+                  setPicking(false)
                 }}
-              >
-                <option value="general">General research</option>
-                <option value="biology">Biology</option>
-                <option value="physics">Physics</option>
-                <option value="ml">Machine learning</option>
-              </select>
-              <Show when={SUBDOMAINS[domain()].length > 0}>
+              />
+            </div>
+          </Show>
+          <Show when={!picking()}>
+            <div class="cs-project-form-body thesis-scroll">
+              <label class="cs-field">
+                <span class="cs-field-label">{language.t("dialog.project.edit.name")}</span>
+                <input
+                  class="cs-field-input"
+                  value={name()}
+                  onInput={(e) => setName(e.currentTarget.value)}
+                  placeholder={language.t("dialog.project.new.namePlaceholder")}
+                />
+              </label>
+
+              <Show when={props.mode === "create"}>
+                <div class="cs-field">
+                  <span class="cs-field-label">{language.t("dialog.project.new.directory")}</span>
+                  <span class="cs-field-hint">{language.t("dialog.project.new.directoryHint")}</span>
+                  <div class="cs-field-row">
+                    <input
+                      class="cs-field-input"
+                      value={directory()}
+                      readOnly
+                      placeholder={language.t("dialog.project.new.directoryPlaceholder")}
+                    />
+                    <button type="button" class="cs-btn-text cs-field-browse" onClick={pickDirectory}>
+                      {language.t("dialog.project.new.browse")}
+                    </button>
+                  </div>
+                  <Show when={directory()}>
+                    <span class="cs-field-hint">{formatWorkingDirLabel(directory())}</span>
+                  </Show>
+                </div>
+              </Show>
+
+              <section class="cs-field">
+                <span class="cs-field-label">Research direction</span>
+                <span class="cs-field-hint">
+                  This setting automatically selects the analysis agent and strategy for future turns.
+                </span>
                 <select
                   class="cs-field-input"
-                  value={subdomain()}
-                  onChange={(e) => setSubdomain(e.currentTarget.value)}
+                  value={domain()}
+                  onChange={(e) => {
+                    const next = e.currentTarget.value as ProjectFormValues["researchDomain"]
+                    setDomain(next)
+                    setSubdomain("")
+                  }}
                 >
-                  <option value="">Automatic subdirection</option>
-                  <For each={SUBDOMAINS[domain()]}>{(item) => <option value={item}>{item}</option>}</For>
+                  <option value="general">General research</option>
+                  <option value="biology">Biology</option>
+                  <option value="physics">Physics</option>
+                  <option value="ml">Machine learning</option>
                 </select>
-              </Show>
-              <textarea
-                class="cs-field-textarea"
-                rows={3}
-                value={researchNotes()}
-                onInput={(e) => setResearchNotes(e.currentTarget.value)}
-                placeholder="Research context, constraints, or preferred methodology"
-              />
-            </section>
+                <Show when={SUBDOMAINS[domain()].length > 0}>
+                  <select
+                    class="cs-field-input"
+                    value={subdomain()}
+                    onChange={(e) => setSubdomain(e.currentTarget.value)}
+                  >
+                    <option value="">Automatic subdirection</option>
+                    <For each={SUBDOMAINS[domain()]}>{(item) => <option value={item}>{item}</option>}</For>
+                  </select>
+                </Show>
+                <textarea
+                  class="cs-field-textarea"
+                  rows={3}
+                  value={researchNotes()}
+                  onInput={(e) => setResearchNotes(e.currentTarget.value)}
+                  placeholder="Research context, constraints, or preferred methodology"
+                />
+              </section>
 
-            <label class="cs-field">
-              <span class="cs-field-label">{language.t("dialog.project.new.description")}</span>
-              <span class="cs-field-hint">{language.t("dialog.project.new.descriptionHint")}</span>
-              <textarea
-                class="cs-field-textarea"
-                rows={3}
-                value={description()}
-                onInput={(e) => setDescription(e.currentTarget.value)}
-                placeholder={language.t("dialog.project.new.descriptionPlaceholder")}
-              />
-            </label>
-
-            <label class="cs-field">
-              <span class="cs-field-label">Result folder name</span>
-              <span class="cs-field-hint">
-                Analysis outputs are isolated under this English-only folder inside the project root.
-              </span>
-              <input
-                class="cs-field-input"
-                value={resultName()}
-                onInput={(e) => {
-                  setResultTouched(true)
-                  setResultName(e.currentTarget.value)
-                }}
-                onBlur={() => setResultName(normalizeResultFolderName(resultName(), name().trim() || "Project"))}
-                placeholder="Project_Result"
-              />
-              <Show when={props.project?.worktree}>
-                <span class="cs-field-hint">
-                  {formatWorkingDirLabel(
-                    `${props.project!.worktree}/${normalizeResultFolderName(resultName(), name().trim() || props.project!.worktree)}`,
-                  )}
-                </span>
-              </Show>
-            </label>
-
-            <Show when={props.mode === "edit" && props.project?.worktree}>
               <label class="cs-field">
-                <span class="cs-field-label">Project root</span>
-                <span class="cs-field-hint">Workbench uses this root as the project boundary.</span>
-                <input class="cs-field-input" value={props.project!.worktree} readOnly />
+                <span class="cs-field-label">{language.t("dialog.project.new.description")}</span>
+                <span class="cs-field-hint">{language.t("dialog.project.new.descriptionHint")}</span>
+                <textarea
+                  class="cs-field-textarea"
+                  rows={3}
+                  value={description()}
+                  onInput={(e) => setDescription(e.currentTarget.value)}
+                  placeholder={language.t("dialog.project.new.descriptionPlaceholder")}
+                />
               </label>
-            </Show>
 
-            <label class="cs-field">
-              <span class="cs-field-label">{language.t("dialog.project.new.agentContext")}</span>
-              <span class="cs-field-hint">{language.t("dialog.project.new.agentContextHint")}</span>
-              <textarea
-                class="cs-field-textarea cs-field-textarea-lg"
-                rows={6}
-                value={agentContext()}
-                onInput={(e) => setAgentContext(e.currentTarget.value)}
-                placeholder={language.t("dialog.project.new.agentContextPlaceholder")}
-              />
-            </label>
-          </div>
+              <label class="cs-field">
+                <span class="cs-field-label">Result folder name</span>
+                <span class="cs-field-hint">
+                  Analysis outputs are isolated under this English-only folder inside the project root.
+                </span>
+                <input
+                  class="cs-field-input"
+                  value={resultName()}
+                  onInput={(e) => {
+                    setResultTouched(true)
+                    setResultName(e.currentTarget.value)
+                  }}
+                  onBlur={() => setResultName(normalizeResultFolderName(resultName(), name().trim() || "Project"))}
+                  placeholder="Project_Result"
+                />
+                <Show when={props.project?.worktree}>
+                  <span class="cs-field-hint">
+                    {formatWorkingDirLabel(
+                      `${props.project!.worktree}/${normalizeResultFolderName(resultName(), name().trim() || props.project!.worktree)}`,
+                    )}
+                  </span>
+                </Show>
+              </label>
+
+              <Show when={props.mode === "edit" && props.project?.worktree}>
+                <label class="cs-field">
+                  <span class="cs-field-label">Project root</span>
+                  <span class="cs-field-hint">Workbench uses this root as the project boundary.</span>
+                  <input class="cs-field-input" value={props.project!.worktree} readOnly />
+                </label>
+              </Show>
+
+              <label class="cs-field">
+                <span class="cs-field-label">{language.t("dialog.project.new.agentContext")}</span>
+                <span class="cs-field-hint">{language.t("dialog.project.new.agentContextHint")}</span>
+                <textarea
+                  class="cs-field-textarea cs-field-textarea-lg"
+                  rows={6}
+                  value={agentContext()}
+                  onInput={(e) => setAgentContext(e.currentTarget.value)}
+                  placeholder={language.t("dialog.project.new.agentContextPlaceholder")}
+                />
+              </label>
+            </div>
+          </Show>
         </Show>
 
-        <div class="cs-project-form-foot">
-          <button type="button" class="cs-btn-text" onClick={() => dialog.close()}>
-            {language.t("common.cancel")}
-          </button>
-          <button type="button" class="cs-btn-primary" disabled={saving() || loading()} onClick={submit}>
-            {props.mode === "create" ? language.t("dialog.project.new.create") : language.t("common.save")}
-          </button>
-        </div>
+        <Show when={!picking()}>
+          <div class="cs-project-form-foot">
+            <button type="button" class="cs-btn-text" onClick={() => dialog.close()}>
+              {language.t("common.cancel")}
+            </button>
+            <button type="button" class="cs-btn-primary" disabled={saving() || loading()} onClick={submit}>
+              {props.mode === "create" ? language.t("dialog.project.new.create") : language.t("common.save")}
+            </button>
+          </div>
+        </Show>
       </div>
     </Dialog>
   )

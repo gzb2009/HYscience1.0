@@ -14,6 +14,9 @@ export namespace SessionArtifact {
 
   const EXTENSIONS = /\.(?:xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|rds)$/i
 
+  /** Only tools that can create deliverables — not read-only exploration. */
+  const OUTPUT_TOOLS = new Set(["bash", "write", "edit", "notebook", "rkernel"])
+
   function mime(name: string) {
     const ext = path.extname(name).slice(1).toLowerCase()
     if (ext === "png") return "image/png"
@@ -30,32 +33,41 @@ export namespace SessionArtifact {
   }
 
   function paths(input: { tool: string; args: unknown; output: string }) {
-    const args = input.args as { filePath?: string; path?: string; output?: string } | undefined
+    if (!OUTPUT_TOOLS.has(input.tool)) return []
+
+    const args = input.args as { filePath?: string; path?: string; output?: string; command?: string } | undefined
     const values =
       input.tool === "write" || input.tool === "edit"
         ? [args?.filePath].filter((value): value is string => !!value)
         : [args?.output].filter((value): value is string => !!value)
+
     const text = input.output ?? ""
     for (const match of text.matchAll(
       /(?:wrote|saved|output|created|生成|写入|保存|输出)(?:\s+to)?\s*:?\s*([^\s\n()]+?\.\w{2,8})(?=$|[\s.,;)\]])/gi,
     )) {
       values.push(match[1])
     }
-    for (const match of text.matchAll(/([^\s"'`()]+?\.\w{2,8})(?=$|[\s.,;)\]])/g)) {
-      if (EXTENSIONS.test(match[1])) values.push(match[1])
+
+    if (input.tool === "bash") {
+      const cmd = args?.command ?? ""
+      for (const match of cmd.matchAll(/(?:--output|-o)\s*(?:=\s*)?["']?([^\s"']+)["']?/gi)) values.push(match[1])
+      for (const match of text.matchAll(
+        /\.(?:savefig|to_csv|to_excel|to_json|to_hdf|to_parquet)\s*\(\s*["']([^"']+)["']/gi,
+      ))
+        values.push(match[1])
     }
+
     return [...new Set(values.map((value) => value.replace(/^file:\/\//, "").replace(/^["'`]+|["'`,;:.]+$/g, "")))]
   }
 
   async function recent(since: number) {
     const top = await fs.promises.readdir(Instance.directory, { withFileTypes: true }).catch(() => [])
-    const dirs = top
+    const roots = top
       .filter(
         (entry) =>
           entry.isDirectory() && (entry.name === "result" || entry.name === "results" || /_Result$/i.test(entry.name)),
       )
       .map((entry) => path.join(Instance.directory, entry.name))
-    const roots = [Instance.directory, ...dirs]
     const out: string[] = []
     for (const root of roots) {
       const entries = await fs.promises.readdir(root, { withFileTypes: true }).catch(() => [])
@@ -66,7 +78,7 @@ export namespace SessionArtifact {
           if (stat && stat.mtimeMs >= since - 1_000) out.push(full)
           continue
         }
-        if (!entry.isDirectory() || root === Instance.directory) continue
+        if (!entry.isDirectory()) continue
         const nested = await fs.promises.readdir(full, { withFileTypes: true }).catch(() => [])
         for (const child of nested) {
           if (!child.isFile() || !EXTENSIONS.test(child.name)) continue

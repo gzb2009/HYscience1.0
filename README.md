@@ -13,7 +13,7 @@ Give it a goal. It reads the literature, writes and runs code, runs the experime
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![docs](https://img.shields.io/badge/docs-hyscience.sh-0d9488.svg)](https://hyscience.sh/docs)
 
-[Install](#install) · [Quickstart](#quickstart) · [Docs](https://hyscience.sh/docs) · [Atlas](#atlas)
+[Install](#install) · [Quickstart](#quickstart) · [Docs](https://hyscience.sh/docs) · [HYcloud](#hycloud)
 
 </div>
 
@@ -41,7 +41,7 @@ npm install -g @hysci/hyscience
 hyscience
 ```
 
-The command is `hyscience`, and it opens the workspace in your browser. The first time you run it, a short setup walks you through how to power the models — Atlas managed models, your own provider keys, or skip and start on the free demo models. If you would rather not install it globally, `npx hysci` does the same thing in a single step:
+The command is `hyscience`, and it opens the workspace in your browser. The first time you run it, a short setup walks you through how to power the models — HYcloud managed models, your own provider keys, or skip and start on the free demo models. If you would rather not install it globally, `npx hysci` does the same thing in a single step:
 
 ```bash
 npx hysci
@@ -64,16 +64,14 @@ hyscience
 hyscience ~/code/my-project
 ```
 
-## Atlas
-
-[Atlas](https://app.hyscience.ai) is HYscience' managed platform. It gives you a curated set of frontier models billed from a prepaid wallet, so you do not need per-provider keys, plus a persistent research graph and cloud compute. HYscience works with Atlas but never requires it.
+## HYcloud
 
 ```bash
-hyscience login          # connect your Atlas account
+hyscience login          # connect your HYcloud account
 hyscience wallet         # check your balance and top up
+hyscience status         # connection and account state
+hyscience logout         # disconnect this machine
 ```
-
-Bring-your-own-key usage is always free and is never gated — Atlas only meters the models it serves. Use `hyscience status` to see what you are connected to, and `hyscience logout` to disconnect.
 
 ## How it works
 

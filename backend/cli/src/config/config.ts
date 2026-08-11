@@ -1588,6 +1588,16 @@ export namespace Config {
     })
   }
 
+  /** True when the patch only touches permission.skill (Home skill toggles). */
+  function isSkillPermissionOnly(config: Info) {
+    const keys = Object.keys(config).filter((key) => key !== "$schema")
+    if (keys.length !== 1 || keys[0] !== "permission") return false
+    const perm = config.permission
+    if (!perm || typeof perm === "string") return false
+    const nested = Object.keys(perm)
+    return nested.length === 1 && nested[0] === "skill"
+  }
+
   export async function updateGlobal(config: Info) {
     const filepath = globalConfigFile()
     const before = await Bun.file(filepath)
@@ -1612,6 +1622,13 @@ export namespace Config {
     })()
 
     global.reset()
+
+    // Skill enable/disable must not dispose every instance — that fires
+    // global.disposed and forces the Home UI to reshuffle project/session lists.
+    if (isSkillPermissionOnly(config)) {
+      await Instance.reloadState().catch(() => undefined)
+      return next
+    }
 
     void Instance.disposeAll()
       .catch(() => undefined)
