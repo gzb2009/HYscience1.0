@@ -25,6 +25,7 @@ import { ComputeSettings } from "../server/routes/settings/compute"
 import { Flag } from "../flag/flag"
 import { InjectionPipeline } from "./injection-pipeline"
 import { advisoryInjections, scientificInjections } from "./injection-registry"
+import { SessionTrace } from "./session-trace"
 import { Log } from "../util/log"
 import PROMPT_PLAN from "../session/prompt/plan.txt"
 import PROMPT_PLAN_ENTER from "../session/prompt/plan-enter.txt"
@@ -685,7 +686,10 @@ async function applyDynamicInjections(
     scopedMessages: messages,
   })
 
-  const note = (name: string) => log.info("prompt-inject", { sessionID: input.session.id, name })
+  const note = (name: string) => {
+    log.info("prompt-inject", { sessionID: input.session.id, name })
+    SessionTrace.injection(input.session.id, name)
+  }
 
   if (input.agent.promptText) {
     userMessage.parts.push({

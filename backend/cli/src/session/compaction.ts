@@ -6,7 +6,7 @@ import { Instance } from "../project/instance"
 import { Provider } from "../provider/provider"
 import { MessageV2 } from "./message-v2"
 import z from "zod"
-import { SessionPrompt } from "./prompt"
+import { ContextBudget } from "./context-budget"
 import { Token } from "../util/token"
 import { Log } from "../util/log"
 import { SessionProcessor } from "./processor"
@@ -32,16 +32,53 @@ export namespace SessionCompaction {
   export async function isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
     const config = await Config.get()
     if (config.compaction?.auto === false) return false
-    const context = input.model.limit.context
-    if (context === 0) return false
-    const count = input.tokens.input + input.tokens.cache.read + input.tokens.output
-    const output = Math.min(input.model.limit.output, SessionPrompt.OUTPUT_TOKEN_MAX) || SessionPrompt.OUTPUT_TOKEN_MAX
-    const usable = input.model.limit.input || context - output
-    return count > usable
+    if (input.model.limit.context === 0) return false
+    return ContextBudget.isOverflow(input.tokens, input.model)
+  }
+
+  export async function isProactive(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
+    const config = await Config.get()
+    if (config.compaction?.auto === false) return false
+    if (input.model.limit.context === 0) return false
+    return ContextBudget.isProactive(input.tokens, input.model)
+  }
+
+  export async function shouldCompact(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
+    if (await isOverflow(input)) return true
+    return isProactive(input)
+  }
+
+  export async function shouldPrune(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
+    const config = await Config.get()
+    if (config.compaction?.prune === false) return false
+    if (input.model.limit.context === 0) return false
+    return ContextBudget.shouldPrune(input.tokens, input.model)
   }
 
   export const PRUNE_MINIMUM = 20_000
   export const PRUNE_PROTECT = 40_000
+
+  const PRUNE_FIRST = new Set([
+    "bash",
+    "grep",
+    "glob",
+    "webfetch",
+    "websearch",
+    "codesearch",
+    "lsp",
+    "batch",
+    "notebook",
+    "rkernel",
+    "remote",
+    "todo_read",
+    "todo_write",
+    "planwrite",
+    "visualize",
+    "pdf",
+    "image",
+    "dvc",
+    "git",
+  ])
 
   export function taskMessages(messages: MessageV2.WithParts[], scope: TaskScope.State | undefined) {
     return TaskScope.messages(messages, scope)
@@ -75,18 +112,18 @@ export namespace SessionCompaction {
     return [TaskDecisionState.format(current.id, state), ...references].join("\n")
   }
 
-  // goes backwards through parts until there are 40_000 tokens worth of tool
-  // calls. then erases output of previous tool calls. idea is to throw away old
-  // tool calls that are no longer relevant.
-  export async function prune(input: { sessionID: string }) {
-    const config = await Config.get()
-    if (config.compaction?.prune === false) return
-    log.info("pruning")
-    const protectedTools = ["skill", "artifact", ...(config.compaction?.protectedTools ?? [])]
-    const msgs = await Session.messages({ sessionID: input.sessionID })
+  type PruneCandidate = { part: MessageV2.ToolPart; estimate: number; tier: "first" | "other" }
+
+  function pruneTier(tool: string, protectedTools: string[]) {
+    if (protectedTools.includes(tool)) return "protected"
+    if (PRUNE_FIRST.has(tool)) return "first"
+    return "other"
+  }
+
+  function collectPruneCandidates(msgs: MessageV2.WithParts[], protectedTools: string[]) {
+    const first: PruneCandidate[] = []
+    const other: PruneCandidate[] = []
     let total = 0
-    let pruned = 0
-    const toPrune = []
     let turns = 0
 
     loop: for (let msgIndex = msgs.length - 1; msgIndex >= 0; msgIndex--) {
@@ -96,32 +133,57 @@ export namespace SessionCompaction {
       if (msg.info.role === "assistant" && msg.info.summary) break loop
       for (let partIndex = msg.parts.length - 1; partIndex >= 0; partIndex--) {
         const part = msg.parts[partIndex]
-        // Preserve RLM state blocks — they carry planner progress
         if (part.type === "text" && part.text.includes("<rlm_state>")) continue
-        if (part.type === "tool")
-          if (part.state.status === "completed") {
-            if (protectedTools.includes(part.tool)) continue
+        if (part.type !== "tool" || part.state.status !== "completed") continue
+        if (pruneTier(part.tool, protectedTools) === "protected") continue
+        if (part.state.time.compacted) break loop
+        const estimate = Token.estimate(part.state.output)
+        total += estimate
+        if (total <= PRUNE_PROTECT) continue
+        const candidate = { part, estimate, tier: pruneTier(part.tool, protectedTools) as "first" | "other" }
+        if (candidate.tier === "first") first.push(candidate)
+        if (candidate.tier === "other") other.push(candidate)
+      }
+    }
 
-            if (part.state.time.compacted) break loop
-            const estimate = Token.estimate(part.state.output)
-            total += estimate
-            if (total > PRUNE_PROTECT) {
-              pruned += estimate
-              toPrune.push(part)
-            }
-          }
-      }
+    return { first, other, total }
+  }
+
+  // goes backwards through parts until there are 40_000 tokens worth of tool
+  // calls. then erases output of previous tool calls. low-value tools are pruned first.
+  export async function prune(input: { sessionID: string }) {
+    const config = await Config.get()
+    if (config.compaction?.prune === false) return
+    log.info("pruning")
+    const protectedTools = [
+      "skill",
+      "artifact",
+      "read",
+      "edit",
+      "write",
+      "apply_patch",
+      ...(config.compaction?.protectedTools ?? []),
+    ]
+    const msgs = await Session.messages({ sessionID: input.sessionID })
+    const candidates = collectPruneCandidates(msgs, protectedTools)
+    const picked: MessageV2.ToolPart[] = []
+    let pruned = 0
+
+    for (const candidate of [...candidates.first, ...candidates.other]) {
+      if (pruned >= PRUNE_MINIMUM) break
+      picked.push(candidate.part)
+      pruned += candidate.estimate
     }
-    log.info("found", { pruned, total })
-    if (pruned > PRUNE_MINIMUM) {
-      for (const part of toPrune) {
-        if (part.state.status === "completed") {
-          part.state.time.compacted = Date.now()
-          await Session.updatePart(part)
-        }
-      }
-      log.info("pruned", { count: toPrune.length })
+
+    log.info("found", { pruned, total: candidates.total, count: picked.length })
+    if (pruned <= PRUNE_MINIMUM) return
+
+    for (const part of picked) {
+      if (part.state.status !== "completed") continue
+      part.state.time.compacted = Date.now()
+      await Session.updatePart(part)
     }
+    log.info("pruned", { count: picked.length })
   }
 
   export async function process(input: {
@@ -175,8 +237,16 @@ export namespace SessionCompaction {
       { sessionID: input.sessionID },
       { context: [], prompt: undefined },
     )
-    const defaultPrompt =
-      "Provide a detailed prompt for continuing our conversation above. Focus on information that would be helpful for continuing the conversation, including what we did, what we're doing, which files we're working on, and what we're going to do next considering new session will not have access to our conversation."
+    const defaultPrompt = [
+      "Summarize the conversation above for continuation in a new session.",
+      "",
+      "Use this structure wrapped in <compaction-summary> tags:",
+      "## task-state — current goal and unfinished work",
+      "## key-decisions — constraints, corrections, and choices that must persist",
+      "## artifacts — files, datasets, models, and important paths",
+      "## tool-context — only tool results still needed for next steps",
+      "## next-steps — ordered immediate actions",
+    ].join("\n")
     const decisions = await decisionPrompt(input.sessionID, session.taskScope)
     const promptText =
       compacting.prompt ??

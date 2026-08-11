@@ -41,9 +41,24 @@ import { PdfTool } from "./pdf"
 import { ImageTool } from "./image"
 import { DvcTool } from "./dvc"
 import { GitTool } from "./git"
+import { PermissionNext } from "@/permission/next"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
+  const initCache = new Map<string, Promise<Awaited<ReturnType<Tool.Info["init"]>>>>()
+
+  function cacheKey(tool: Tool.Info, agent?: Agent.Info) {
+    return `${tool.id}:${agent?.name ?? ""}`
+  }
+
+  async function initCached(tool: Tool.Info, ctx?: Tool.InitContext) {
+    const key = cacheKey(tool, ctx?.agent)
+    const existing = initCache.get(key)
+    if (existing) return existing
+    const pending = tool.init(ctx)
+    initCache.set(key, pending)
+    return pending
+  }
 
   export const state = Instance.state(async () => {
     const custom = [] as Tool.Info[]
@@ -157,6 +172,32 @@ export namespace ToolRegistry {
     return all().then((x) => x.map((t) => t.id))
   }
 
+  function filterForAgent(
+    tools: Tool.Info[],
+    model: {
+      providerID: string
+      modelID: string
+    },
+    agent?: Agent.Info,
+  ) {
+    return tools.filter((t) => {
+      if (BIOLOGY_QUERY_TOOL_IDS.has(t.id)) return agent?.biologyQueries
+      if (BIOLOGY_RUNTIME_TOOL_IDS.has(t.id)) return agent?.biologyRuntime
+      if (t.id === ARTIFACT_TOOL_ID) return agent?.hasArtifact
+
+      if (t.id === "codesearch" || t.id === "websearch") {
+        return model.providerID === "hysci" || Flag.HYSCIENCE_ENABLE_EXA
+      }
+
+      const usePatch =
+        model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
+      if (t.id === "apply_patch") return usePatch
+      if (t.id === "edit" || t.id === "write") return !usePatch
+
+      return true
+    })
+  }
+
   export async function tools(
     model: {
       providerID: string
@@ -164,33 +205,16 @@ export namespace ToolRegistry {
     },
     agent?: Agent.Info,
   ) {
-    const tools = await all()
-    const result = await Promise.all(
-      tools
-        .filter((t) => {
-          if (BIOLOGY_QUERY_TOOL_IDS.has(t.id)) return agent?.biologyQueries
-          if (BIOLOGY_RUNTIME_TOOL_IDS.has(t.id)) return agent?.biologyRuntime
-          if (t.id === ARTIFACT_TOOL_ID) return agent?.hasArtifact
-
-          if (t.id === "codesearch" || t.id === "websearch") {
-            return model.providerID === "hysci" || Flag.HYSCIENCE_ENABLE_EXA
-          }
-
-          const usePatch =
-            model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
-          if (t.id === "apply_patch") return usePatch
-          if (t.id === "edit" || t.id === "write") return !usePatch
-
-          return true
-        })
-        .map(async (t) => {
-          using _ = log.time(t.id)
-          return {
-            id: t.id,
-            ...(await t.init({ agent })),
-          }
-        }),
+    const tools = filterForAgent(await all(), model, agent)
+    const enabled = agent ? tools.filter((t) => !PermissionNext.disabled([t.id], agent.permission).has(t.id)) : tools
+    return Promise.all(
+      enabled.map(async (t) => {
+        using _ = log.time(t.id)
+        return {
+          id: t.id,
+          ...(await initCached(t, { agent })),
+        }
+      }),
     )
-    return result
   }
 }

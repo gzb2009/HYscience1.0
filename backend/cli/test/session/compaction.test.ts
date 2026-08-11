@@ -71,7 +71,7 @@ describe("session.compaction.isOverflow", () => {
       directory: tmp.path,
       fn: async () => {
         const model = createModel({ context: 100_000, output: 32_000 })
-        const tokens = { input: 50_000, output: 10_000, reasoning: 0, cache: { read: 10_000, write: 0 } }
+        const tokens = { input: 50_000, output: 10_000, reasoning: 0, cache: { read: 16_000, write: 0 } }
         expect(await SessionCompaction.isOverflow({ tokens, model })).toBe(true)
       },
     })
@@ -142,6 +142,34 @@ describe("session.compaction.isOverflow", () => {
         const model = createModel({ context: 100_000, output: 32_000 })
         const tokens = { input: 75_000, output: 5_000, reasoning: 0, cache: { read: 0, write: 0 } }
         expect(await SessionCompaction.isOverflow({ tokens, model })).toBe(false)
+      },
+    })
+  })
+})
+
+describe("session.compaction.shouldCompact", () => {
+  test("returns true on overflow", async () => {
+    await using tmp = await tmpdir()
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const model = createModel({ context: 100_000, output: 32_000 })
+        const tokens = { input: 75_000, output: 5_000, reasoning: 0, cache: { read: 0, write: 0 } }
+        expect(await SessionCompaction.shouldCompact({ tokens, model })).toBe(true)
+      },
+    })
+  })
+
+  test("returns true on proactive pressure before overflow", async () => {
+    await using tmp = await tmpdir()
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const model = createModel({ context: 100_000, output: 32_000 })
+        const tokens = { input: 50_000, output: 5_000, reasoning: 0, cache: { read: 0, write: 0 } }
+        expect(await SessionCompaction.isOverflow({ tokens, model })).toBe(false)
+        expect(await SessionCompaction.isProactive({ tokens, model })).toBe(true)
+        expect(await SessionCompaction.shouldCompact({ tokens, model })).toBe(true)
       },
     })
   })

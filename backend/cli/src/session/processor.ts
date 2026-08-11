@@ -87,7 +87,7 @@ export namespace SessionProcessor {
                 signal.throwIfAborted()
                 switch (value.type) {
                   case "start":
-                    SessionStatus.set(input.sessionID, { type: "busy" })
+                    SessionStatus.set(input.sessionID, { type: "busy", phase: "processing" })
                     break
 
                   case "reasoning-start":
