@@ -23,6 +23,8 @@ import { Session } from "."
 import { Config } from "../config/config"
 import { ComputeSettings } from "../server/routes/settings/compute"
 import { Flag } from "../flag/flag"
+import { InjectionPipeline } from "./injection-pipeline"
+import { advisoryInjections, scientificInjections } from "./injection-registry"
 import { Log } from "../util/log"
 import PROMPT_PLAN from "../session/prompt/plan.txt"
 import PROMPT_PLAN_ENTER from "../session/prompt/plan-enter.txt"
@@ -32,19 +34,6 @@ import DIRECT_ANSWER_DELIVERY from "../session/prompt/direct-answer-delivery.txt
 import BIOLOGY_SERVICE_CONTRACT from "../agent/prompt/biology-service-contract.txt"
 
 const log = Log.create({ service: "prompt-inject" })
-
-function interpretUserTurn(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
-  const text = userMessage.parts
-    .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.hybio)
-    .map((part) => part.text)
-    .join(" ")
-  const history = userText(messages).slice(0, -1)
-  const filenames = userMessage.parts
-    .filter((part): part is MessageV2.FilePart => part.type === "file")
-    .map((part) => part.filename ?? "")
-    .filter(Boolean)
-  return AgentRouter.interpret({ text, history, filenames })
-}
 
 function isDirectAnswer(contract: AgentRouter.Contract) {
   return contract.intent === "direct_answer" && !contract.mustClarify
@@ -90,8 +79,11 @@ export function injectBiologyServiceContract(userMessage: MessageV2.WithParts) {
   })
 }
 
-export function injectResultDelivery(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
-  const contract = interpretUserTurn(messages, userMessage)
+export function injectResultDelivery(
+  messages: MessageV2.WithParts[],
+  userMessage: MessageV2.WithParts,
+  contract = InjectionPipeline.interpretTurn(messages, userMessage),
+) {
   const text = isDirectAnswer(contract) ? DIRECT_ANSWER_DELIVERY : RESULT_DELIVERY
   if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === text)) return
   userMessage.parts.push({
@@ -559,15 +551,7 @@ function pushHybioText(userMessage: MessageV2.WithParts, text: string) {
 }
 
 function userText(messages: MessageV2.WithParts[]): string[] {
-  return messages
-    .filter((msg) => msg.info.role === "user")
-    .map((msg) =>
-      msg.parts
-        .filter((p): p is MessageV2.TextPart => p.type === "text")
-        .map((p) => p.text)
-        .join(" "),
-    )
-    .filter(Boolean)
+  return InjectionPipeline.userText(messages)
 }
 
 export function injectCorrectionContext(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
@@ -625,8 +609,11 @@ export function injectMultiQuestion(userMessage: MessageV2.WithParts) {
   )
 }
 
-export function injectResearchContract(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
-  const contract = interpretUserTurn(messages, userMessage)
+export function injectResearchContract(
+  messages: MessageV2.WithParts[],
+  userMessage: MessageV2.WithParts,
+  contract = InjectionPipeline.interpretTurn(messages, userMessage),
+) {
   const lines = [
     `<research-intent intent="${contract.intent}" confidence="${contract.confidence}">`,
     "Answer the user's substantive request before asking questions. Preserve explicit constraints and let the latest correction replace prior assumptions.",
@@ -687,9 +674,16 @@ export function injectResearchContract(messages: MessageV2.WithParts[], userMess
 async function applyDynamicInjections(
   input: { messages: MessageV2.WithParts[]; agent: Agent.Info; session: Session.Info },
   userMessage: MessageV2.WithParts,
-) {
+): Promise<AgentRouter.Contract> {
   const agentText = input.agent.promptText ?? ""
   const messages = TaskScope.messages(input.messages, input.session.taskScope)
+  const ctx = InjectionPipeline.buildTurnContext({
+    messages: input.messages,
+    userMessage,
+    agent: input.agent,
+    session: input.session,
+    scopedMessages: messages,
+  })
 
   const note = (name: string) => log.info("prompt-inject", { sessionID: input.session.id, name })
 
@@ -764,15 +758,47 @@ async function applyDynamicInjections(
   if (researchAgents.includes(input.agent.name)) {
     injectInteractionContract(userMessage)
     note("interaction-contract")
-    injectResultDelivery(messages, userMessage)
-    injectResearchContract(messages, userMessage)
+    injectResultDelivery(messages, userMessage, ctx.contract)
+    injectResearchContract(messages, userMessage, ctx.contract)
     if (input.agent.name === "biology") {
-      injectDataGate(messages, userMessage)
+      injectDataGate(messages, userMessage, ctx.contract)
       note("data-gate")
     }
     if (task) await injectResearchContext(userMessage, input.session.id, task.id)
     note("research-intent")
+
+    await InjectionPipeline.run(
+      [
+        ...scientificInjections({
+          designRe: DESIGN_RE,
+          statsRe: STATS_RE,
+          dataRe: DATA_RE,
+          litRe: LIT_RE,
+          causalRe: CAUSAL_RE,
+          metaRe: META_RE,
+          activeRe: ACTIVE_RE,
+          experimentDesign: (c) => injectExperimentDesign(c.userMessage),
+          statsCheck: (c) => injectStatsCheck(c.userMessage),
+          dataQuality: (c) => injectDataQuality(c.userMessage),
+          literatureCheck: (c) => injectLiteratureCheck(c.userMessage),
+          causalCheck: (c) => injectCausalCheck(c.userMessage),
+          metaAnalysis: (c) => injectMetaAnalysis(c.userMessage, c.session.id),
+          activeLearning: (c) => injectActiveLearning(c.userMessage),
+          crossValidate: (c) => injectCrossValidate(c.userMessage),
+        }),
+        ...advisoryInjections({
+          agentRouter: (c) => injectAgentRouter(c.userMessage, c.agent),
+          refineLoop: (c) => injectRefineLoop(c.userMessage),
+          coordinatorPlan: (c) => injectCoordinatorPlan(c.userMessage),
+          projectMemory: (c) => injectProjectMemory(c.userMessage),
+        }),
+      ],
+      ctx,
+      note,
+    )
   }
+
+  return ctx.contract
 }
 
 export async function injectTaskDecisions(
@@ -834,14 +860,17 @@ export function injectInteractionContract(userMessage: MessageV2.WithParts) {
   )
 }
 
-export function injectDataGate(messages: MessageV2.WithParts[], userMessage: MessageV2.WithParts) {
+export function injectDataGate(
+  messages: MessageV2.WithParts[],
+  userMessage: MessageV2.WithParts,
+  contract = InjectionPipeline.interpretTurn(messages, userMessage),
+) {
   const textParts = userMessage.parts.filter((p): p is MessageV2.TextPart => p.type === "text" && !p.hybio)
   const text = textParts.map((p) => p.text).join(" ")
   if (!text || text.length < 10) return
   const fileParts = userMessage.parts.filter((p): p is MessageV2.FilePart => p.type === "file")
   const hasFiles = fileParts.length > 0
 
-  const contract = interpretUserTurn(messages, userMessage)
   if (isDirectAnswer(contract)) return
 
   // Planning intent — user is asking for advice, not requesting analysis on data
@@ -902,9 +931,7 @@ export async function insertReminders(input: {
   const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
   if (!userMessage) return input.messages
 
-  await applyDynamicInjections(input, userMessage)
-
-  const contract = interpretUserTurn(input.messages, userMessage)
+  const contract = await applyDynamicInjections(input, userMessage)
   if (input.agent.gates?.includes("literature")) {
     await injectLiteratureGate(userMessage, contract)
   }

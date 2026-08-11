@@ -65,6 +65,8 @@ User request with agent name (e.g., "research")
 
 Routing logic: `src/session/system.ts` → `SystemPrompt.provider(model)`.
 
+Prompt injection uses `src/session/injection-pipeline.ts` (tiered scheduler) and `src/session/injection-registry.ts` (scientific/advisory catalog). `insertReminders()` in `prompt-inject.ts` builds one cached `AgentRouter.Contract` per turn.
+
 ### Agent prompts (`src/agent/prompt/`)
 
 | File                    | Agent(s)                                |
