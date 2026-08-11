@@ -204,7 +204,7 @@ export const KeysCommand = cmd({
   builder: (yargs) =>
     yargs
       .command(AuthLoginCommand)
-      .command(AuthCodexCommand)
+      .command(AuthChatGptSigninCommand)
       .command(AuthLogoutCommand)
       .command(AuthListCommand)
       .demandCommand(),
@@ -325,12 +325,12 @@ export const AuthLoginCommand = cmd({
           message: "Select provider",
           maxItems: 8,
           options: [
-            // Codex is its own synthesized provider (openai-codex), so it isn't in
+            // ChatGPT subscription is its own synthesized provider (openai-codex), so it isn't in
             // the models.dev list — surface it explicitly at the top so signing in
             // with a ChatGPT subscription is a first-class, discoverable choice.
             {
               value: "openai-codex",
-              label: "Sign in with ChatGPT (Codex)",
+              label: "Sign in with ChatGPT subscription",
               hint: "use your ChatGPT Plus/Pro/Business subscription — no API key",
             },
             ...pipe(
@@ -344,9 +344,9 @@ export const AuthLoginCommand = cmd({
                 label: x.name,
                 value: x.id,
                 hint: {
-                  hysci: "Atlas — recommended",
+                  hysci: "HYcloud — recommended",
                   anthropic: "Claude Max or API key",
-                  openai: "API key (to sign in with Codex/ChatGPT, use the option above)",
+                  openai: "API key (to sign in with ChatGPT subscription, use the option above)",
                 }[x.id],
               })),
             ),
@@ -426,15 +426,15 @@ export const AuthLoginCommand = cmd({
   },
 })
 
-/** Probe HYscience Cloud backend for whether the user's Codex OAuth is registered.
+/** Probe HYscience Cloud backend for whether the user's ChatGPT subscription OAuth is registered.
  *  Returns null when no HYscience Cloud session exists (caller treats it as unknown).
  *  Returns true|false when the backend gave a definitive answer.
  *
  *  The CLI's local Auth.get("openai-codex") and the HYscience Cloud backend can
- *  diverge — disconnecting Codex from the web UI doesn't notify the CLI.
+ *  diverge — disconnecting ChatGPT subscription from the web UI doesn't notify the CLI.
  *  We check both before showing the "Already signed in" prompt so the
  *  flow stays robust under that drift. */
-async function backendHasCodex(): Promise<boolean | null> {
+async function backendHasOpenaiSubscription(): Promise<boolean | null> {
   const session = await HYscience.getSession?.()
   const thkToken = session?.api_key
   if (!thkToken) return null
@@ -451,9 +451,9 @@ async function backendHasCodex(): Promise<boolean | null> {
   }
 }
 
-export const AuthCodexCommand = cmd({
-  command: ["signin", "codex"],
-  describe: "sign in with ChatGPT / Codex (Plus/Pro/Business subscription)",
+export const AuthChatGptSigninCommand = cmd({
+  command: ["signin", "chatgpt", "codex"],
+  describe: "sign in with ChatGPT subscription (Plus/Pro/Business)",
   async handler() {
     await Instance.provide({
       directory: process.cwd(),
@@ -466,7 +466,7 @@ export const AuthCodexCommand = cmd({
           // Local has tokens. Check the backend before assuming "already
           // signed in" — the user may have disconnected from the web UI
           // (which only clears the backend, not local CLI state).
-          const backend = await backendHasCodex()
+          const backend = await backendHasOpenaiSubscription()
 
           if (backend === false) {
             // Backend says disconnected (user clicked Disconnect on the
@@ -474,14 +474,14 @@ export const AuthCodexCommand = cmd({
             // through to a fresh OAuth flow. The user expects logging out
             // from the web to clear their CLI session too.
             await Auth.remove("openai-codex")
-            prompts.log.info("Codex was disconnected on the web — starting a fresh login.")
+            prompts.log.info("ChatGPT subscription was disconnected on the web — starting a fresh login.")
             // fall through to the OAuth flow below
           } else {
             // backend === true (or null/unknown — treat as connected).
             // Ask if the user wants a fresh OAuth despite already being
             // signed in.
             const again = await prompts.confirm({
-              message: "Already signed in to Codex. Sign in again?",
+              message: "Already signed in to ChatGPT subscription. Sign in again?",
               initialValue: false,
             })
             if (prompts.isCancel(again) || !again) {
@@ -492,7 +492,7 @@ export const AuthCodexCommand = cmd({
         }
         const plugin = await Plugin.list().then((x) => x.find((p) => p.auth?.provider === "openai-codex"))
         if (!plugin || !plugin.auth) {
-          prompts.log.error("Codex auth plugin not available")
+          prompts.log.error("ChatGPT subscription auth plugin not available")
           prompts.outro("Done")
           return
         }
@@ -525,23 +525,23 @@ export const AuthLogoutCommand = cmd({
     })
     if (prompts.isCancel(providerID)) throw new UI.CancelledError()
     await Auth.remove(providerID)
-    // Removing Codex must also revoke it on the HYscience Cloud backend and re-sync so
+    // Removing ChatGPT subscription must also revoke it on the HYscience Cloud backend and re-sync so
     // the provider list drops openai-codex/* immediately — otherwise the CLI
     // and backend drift (local removed, backend still connected).
     if (providerID === "openai-codex") {
-      await revokeCodexOnBackend()
+      await revokeOpenaiSubscriptionOnBackend()
       await HYscience.syncServices?.().catch(() => {})
     }
     prompts.outro("Logout successful")
   },
 })
 
-async function revokeCodexOnBackend(): Promise<void> {
+async function revokeOpenaiSubscriptionOnBackend(): Promise<void> {
   const thesisBase = managedApiBase()
   const session = await HYscience.getSession?.()
   const thkToken = session?.api_key
   if (!thkToken) {
-    log.warn("no atlas session; skipping backend codex revoke")
+    log.warn("no HYcloud session; skipping backend openai subscription revoke")
     return
   }
   try {
@@ -550,9 +550,9 @@ async function revokeCodexOnBackend(): Promise<void> {
       headers: { Authorization: `Bearer ${thkToken}` },
     })
     if (!res.ok && res.status !== 404) {
-      log.warn("backend codex revoke failed", { status: res.status })
+      log.warn("backend openai subscription revoke failed", { status: res.status })
     }
   } catch (e) {
-    log.warn("backend codex revoke errored", { error: String(e) })
+    log.warn("backend openai subscription revoke errored", { error: String(e) })
   }
 }

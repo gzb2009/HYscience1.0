@@ -40,7 +40,7 @@ const BYOK_URL = URLS.dashboard
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
-  "openai-codex": "OpenAI Codex",
+  "openai-codex": "ChatGPT subscription",
   google: "Google",
   "google-vertex": "Google Vertex",
   "github-copilot": "GitHub Copilot",
@@ -126,10 +126,9 @@ function rateFor(cost: ModelCostShape | undefined, over: boolean) {
 const REDUCE_MOTION =
   typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
 
-// A model is a "codex" model when it's served by the Codex OAuth provider or
-// its id carries the codex tag (gpt-5.x-codex). Surfaced as a badge so users
-// can tell which models route through Codex.
-const isCodexModel = (providerID: string, modelID: string) =>
+// A model routes through ChatGPT subscription OAuth when served by the
+// openai-codex provider or when its id carries OpenAI's codex tag.
+const isSubscriptionModel = (providerID: string, modelID: string) =>
   providerID === "openai-codex" || modelID.toLowerCase().includes("codex")
 
 const providerLabel = (id: string) => PROVIDER_LABEL[id] ?? id
@@ -1726,7 +1725,7 @@ export function Composer(): JSX.Element {
                                                 latest
                                               </span>
                                             </Show>
-                                            <Show when={isCodexModel(row.provider.id, row.id)}>
+                                            <Show when={isSubscriptionModel(row.provider.id, row.id)}>
                                               <span
                                                 style={{
                                                   "flex-shrink": 0,
@@ -1736,7 +1735,7 @@ export function Composer(): JSX.Element {
                                                   opacity: 0.85,
                                                 }}
                                               >
-                                                codex
+                                                subscription
                                               </span>
                                             </Show>
                                           </span>

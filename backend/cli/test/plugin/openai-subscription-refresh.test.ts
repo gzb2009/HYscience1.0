@@ -1,7 +1,7 @@
 import { test, expect, afterEach } from "bun:test"
-import { refreshAccessToken, CodexRefreshInvalidError } from "../../src/plugin/codex"
+import { refreshAccessToken, OpenaiSubscriptionRefreshInvalidError } from "../../src/plugin/openai-subscription-auth"
 
-// The refresh path decides whether a Codex user gets a transparent re-auth or a
+// The refresh path decides whether a ChatGPT subscription user gets a transparent re-auth or a
 // spurious "sign-in expired". It must NOT retry (and must say "reconnect") on a
 // real 4xx, but MUST retry a transient 5xx/network blip and recover.
 
@@ -10,13 +10,13 @@ afterEach(() => {
   globalThis.fetch = realFetch
 })
 
-test("a 4xx rejects with CodexRefreshInvalidError and does not retry", async () => {
+test("a 4xx rejects with OpenaiSubscriptionRefreshInvalidError and does not retry", async () => {
   let calls = 0
   globalThis.fetch = (async () => {
     calls++
     return new Response("invalid_grant", { status: 400 })
   }) as unknown as typeof fetch
-  await expect(refreshAccessToken("rt")).rejects.toBeInstanceOf(CodexRefreshInvalidError)
+  await expect(refreshAccessToken("rt")).rejects.toBeInstanceOf(OpenaiSubscriptionRefreshInvalidError)
   expect(calls).toBe(1)
 })
 

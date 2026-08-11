@@ -61,7 +61,7 @@ export namespace LLM {
       Provider.getProvider(input.model.providerID),
       Auth.get(input.model.providerID),
     ])
-    const isCodex = provider.id === "openai" && auth?.type === "oauth"
+    const isOpenaiOAuth = provider.id === "openai" && auth?.type === "oauth"
 
     const system = []
     system.push(
@@ -69,8 +69,8 @@ export namespace LLM {
         // agent.prompt (system role) is set for subagents like explore/critique.
         // Primary agents (research, biology, ...) leave it unset: their behavior
         // comes from promptText which insertReminders injects as a user message part.
-        // Codex: skip SystemPrompt.provider(), sent via options.instructions instead.
-        ...(input.agent.prompt ? [input.agent.prompt] : isCodex ? [] : SystemPrompt.provider(input.model)),
+        // OpenAI OAuth subscription: skip SystemPrompt.provider(), sent via options.instructions instead.
+        ...(input.agent.prompt ? [input.agent.prompt] : isOpenaiOAuth ? [] : SystemPrompt.provider(input.model)),
         // any custom prompt passed into this call
         ...input.system,
         // any custom prompt from last user message
@@ -123,7 +123,7 @@ export namespace LLM {
       mergeDeep(variant),
       mergeDeep(speed),
     )
-    if (isCodex) {
+    if (isOpenaiOAuth) {
       options.instructions = SystemPrompt.instructions()
     }
 
@@ -160,7 +160,7 @@ export namespace LLM {
       },
     )
 
-    const maxOutputTokens = isCodex
+    const maxOutputTokens = isOpenaiOAuth
       ? undefined
       : ProviderTransform.maxOutputTokens(
           input.model.api.npm,
@@ -244,7 +244,7 @@ export namespace LLM {
       },
       maxRetries: input.retries ?? 0,
       messages: [
-        ...(isCodex
+        ...(isOpenaiOAuth
           ? [
               {
                 role: "user",

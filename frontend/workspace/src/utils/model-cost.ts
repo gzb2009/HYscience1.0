@@ -79,7 +79,7 @@ export function resolveModelSource(input: SourceInput): ModelSource {
   const methods = input.authMethods ?? []
   const hasOauth = methods.some((m) => m.type === "oauth")
   const hasApi = methods.some((m) => m.type === "api")
-  // OAuth-only connected providers (Copilot, Codex, Claude Pro/Max) are signed-in.
+  // OAuth-only connected providers (Copilot, ChatGPT subscription, Claude Pro/Max) are signed-in.
   if (hasOauth && !hasApi) return "signed-in"
   return "byok"
 }

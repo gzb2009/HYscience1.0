@@ -1001,10 +1001,10 @@ export namespace Provider {
     }
 
     // Synthesize a virtual ``openai-codex`` provider for users who have
-    // attached Codex OAuth (Auth.set under id "openai-codex"). The
-    // models are a Codex-routable subset copied from openai's snapshot;
-    // routing is handled by CodexAuthPlugin. This keeps the real
-    // ``openai`` provider (BYOK api key) and the Codex OAuth provider
+    // attached ChatGPT subscription OAuth (Auth.set under id "openai-codex"). The
+    // models are a subscription-routable subset copied from openai's snapshot;
+    // routing is handled by OpenaiSubscriptionAuthPlugin. This keeps the real
+    // ``openai`` provider (BYOK api key) and the ChatGPT subscription OAuth provider
     // coexisting as separate registry entries. Matches backend's
     // ``openai-codex`` provider slug.
     if (database["openai"] && (await Auth.get("openai-codex"))) {
@@ -1038,7 +1038,7 @@ export namespace Provider {
       database["openai-codex"] = {
         ...baseOpenai,
         id: "openai-codex",
-        name: "OpenAI Codex (ChatGPT subscription)",
+        name: "ChatGPT subscription",
         env: [],
         options: {},
         models: codexModels,

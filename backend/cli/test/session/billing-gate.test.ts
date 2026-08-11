@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test"
 import {
-  isCodexOAuthProvider,
+  isOpenaiSubscriptionProvider,
   requiresWalletBalance,
   shouldReportUsage,
   type CredentialSource,
 } from "../../src/session/billing-gate"
 
 describe("billing-gate", () => {
-  describe("isCodexOAuthProvider", () => {
+  describe("isOpenaiSubscriptionProvider", () => {
     test("true for the synthesized openai-codex provider", () => {
-      expect(isCodexOAuthProvider("openai-codex")).toBe(true)
+      expect(isOpenaiSubscriptionProvider("openai-codex")).toBe(true)
     })
     test("false for the plain openai provider", () => {
-      expect(isCodexOAuthProvider("openai")).toBe(false)
+      expect(isOpenaiSubscriptionProvider("openai")).toBe(false)
     })
   })
 

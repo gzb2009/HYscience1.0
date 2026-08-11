@@ -5,10 +5,10 @@ import { Instance } from "../project/instance"
 import PROMPT_BASE from "./prompt/base-system.txt"
 import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
 import PROMPT_ANTHROPIC_WITHOUT_TODO from "./prompt/qwen.txt"
-import PROMPT_BEAST from "./prompt/beast.txt"
+import PROMPT_OPENAI_CHAT from "./prompt/openai-chat.txt"
 import PROMPT_GEMINI from "./prompt/gemini.txt"
 
-import PROMPT_CODEX from "./prompt/codex_header.txt"
+import PROMPT_GPT5 from "./prompt/gpt5.txt"
 import type { Provider } from "@/provider/provider"
 import { Config } from "../config/config"
 
@@ -43,13 +43,13 @@ export namespace SystemPrompt {
   }
 
   export function instructions() {
-    return [PROMPT_BASE, PROMPT_CODEX].join("\n\n").trim()
+    return [PROMPT_BASE, PROMPT_GPT5].join("\n\n").trim()
   }
 
   export function provider(model: Provider.Model) {
-    if (model.api.id.includes("gpt-5")) return [PROMPT_BASE, PROMPT_CODEX]
+    if (model.api.id.includes("gpt-5")) return [PROMPT_BASE, PROMPT_GPT5]
     if (model.api.id.includes("gpt-") || model.api.id.includes("o1") || model.api.id.includes("o3"))
-      return [PROMPT_BASE, PROMPT_BEAST]
+      return [PROMPT_BASE, PROMPT_OPENAI_CHAT]
     if (model.api.id.includes("gemini-")) return [PROMPT_BASE, PROMPT_GEMINI]
     if (model.api.id.includes("claude")) return [PROMPT_BASE, PROMPT_ANTHROPIC]
     return [PROMPT_BASE, PROMPT_ANTHROPIC_WITHOUT_TODO]
