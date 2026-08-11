@@ -9,7 +9,7 @@ import { EOL } from "os"
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
-  "openai-codex": "OpenAI Codex",
+  "openai-codex": "ChatGPT subscription",
   google: "Google",
   gemini: "Google Gemini",
   openrouter: "OpenRouter",
@@ -25,7 +25,7 @@ const PROVIDER_LABELS: Record<string, string> = {
  *  - anything else with a key → BYOK.
  */
 function routingLabel(providerID: string, provider: Provider.Info): string {
-  if (providerID === "openai-codex") return "Signed in with Codex"
+  if (providerID === "openai-codex") return "Signed in with ChatGPT subscription"
   const key = (provider.key ?? "").toLowerCase()
   if (key.startsWith("thk_")) return "managed"
   const baseURL = (provider.options?.baseURL as string | undefined) ?? ""

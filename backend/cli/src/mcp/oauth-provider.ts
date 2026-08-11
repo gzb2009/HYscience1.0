@@ -19,7 +19,7 @@ const log = Log.create({ service: "mcp.oauth" })
 // Single-flight token refresh per server. Servers that rotate the refresh
 // token invalidate the old one on every refresh, so two concurrent refreshes
 // in this process would leave one caller holding a revoked token. Mirrors the
-// codex recovery pattern in plugin/codex.ts.
+// openai-subscription recovery pattern in plugin/openai-subscription-auth.ts.
 const refreshing = new Map<string, Promise<McpAuth.Tokens | undefined>>()
 
 const OAUTH_CALLBACK_PORT = 19876

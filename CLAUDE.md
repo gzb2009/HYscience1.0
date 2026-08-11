@@ -56,8 +56,8 @@ User request with agent name (e.g., "research")
 | ---------------------------------------------------------- | ---------------- |
 | `base-system.txt`                                          | All models       |
 | `anthropic.txt`                                            | Claude models    |
-| `beast.txt`                                                | GPT-4o / o1 / o3 |
-| `codex_header.txt`                                         | GPT-5 / Codex    |
+| `openai-chat.txt`                                          | GPT-4o / o1 / o3 |
+| `gpt5.txt`                                                 | GPT-5            |
 | `gemini.txt`                                               | Gemini models    |
 | `qwen.txt`                                                 | Qwen / fallback  |
 | `plan.txt`, `plan-enter.txt`                               | Plan mode        |

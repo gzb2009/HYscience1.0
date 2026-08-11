@@ -1032,18 +1032,18 @@ export namespace Config {
             .nullable()
             .optional()
             .describe(
-              "How LLM inference is paid for. 'managed' routes through the Atlas wallet (metered credits); 'byok' uses your own provider API keys or first-party OAuth (ChatGPT/Claude Pro/Copilot) and is never billed. Unset or null = auto-detect from the resolved credential.",
+              "How LLM inference is paid for. 'managed' routes through the HYcloud wallet (metered credits); 'byok' uses your own provider API keys or first-party OAuth (ChatGPT/Claude Pro/Copilot) and is never billed. Unset or null = auto-detect from the resolved credential.",
             ),
           compute: z
             .enum(["managed", "byok"])
             .optional()
             .describe(
-              "How GPU/compute is paid for. 'managed' runs on Atlas-provisioned compute billed to your wallet (via the bundled atlas CLI); 'byok' uses your own connected GPU providers (Modal, Tinker, TensorPool, …). Unset = byok.",
+              "How GPU/compute is paid for. 'managed' runs on HYcloud-provisioned compute billed to your wallet; 'byok' uses your own connected GPU providers (Modal, Tinker, TensorPool, …). Unset = byok.",
             ),
         })
         .optional()
         .describe(
-          "Managed (Atlas wallet) vs bring-your-own-key spend, toggled independently for LLM inference and compute.",
+          "Managed (HYcloud wallet) vs bring-your-own-key spend, toggled independently for LLM inference and compute.",
         ),
       username: z
         .string()

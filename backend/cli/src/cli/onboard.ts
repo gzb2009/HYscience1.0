@@ -65,7 +65,7 @@ export async function needsOnboarding(): Promise<boolean> {
 
 async function onboardByok(): Promise<void> {
   prompts.log.info(
-    "Add a provider API key or sign in with a subscription (ChatGPT/Codex, Claude Max, Copilot). Keys stay on this machine.",
+    "Add a provider API key or sign in with a subscription (ChatGPT, Claude Max, Copilot). Keys stay on this machine.",
   )
   await AuthLoginCommand.handler({} as never)
 }

@@ -6,7 +6,7 @@ import { HYscience } from "../hyscience"
 import { managedApiBase } from "../endpoints"
 import os from "os"
 
-const log = Log.create({ service: "plugin.codex" })
+const log = Log.create({ service: "plugin.openai-subscription" })
 
 export async function pushTokensToBackend(
   thesisBaseUrl: string,
@@ -29,18 +29,18 @@ export async function pushTokensToBackend(
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
-      log.warn("codex backend push failed", { status: res.status })
+      log.warn("openai subscription backend push failed", { status: res.status })
       return
     }
-    log.info("codex tokens pushed to thesis backend")
+    log.info("openai subscription tokens pushed to thesis backend")
   } catch (e) {
-    log.warn("codex backend push errored", { error: String(e) })
+    log.warn("openai subscription backend push errored", { error: String(e) })
   }
 }
 
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 const ISSUER = "https://auth.openai.com"
-const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
+const OPENAI_SUBSCRIPTION_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
 // Refresh a bit BEFORE expiry so a request never races the token going stale.
@@ -53,7 +53,7 @@ const OAUTH_HTTP_TIMEOUT_MS = 20_000
 /** Thrown when a refresh is rejected with a 4xx — the refresh token itself is
  *  invalid (revoked or rotated away), so the user must reconnect. Distinct from a
  *  transient 5xx/network failure, which we retry and never surface as "expired". */
-export class CodexRefreshInvalidError extends Error {}
+export class OpenaiSubscriptionRefreshInvalidError extends Error {}
 
 interface PkceCodes {
   verifier: string
@@ -195,7 +195,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
     // 4xx = the refresh token is bad (revoked/rotated) — retrying won't help and
     // the user must reconnect. 5xx = transient — retry with backoff.
     if (response.status >= 400 && response.status < 500) {
-      throw new CodexRefreshInvalidError(`Token refresh rejected (HTTP ${response.status})`)
+      throw new OpenaiSubscriptionRefreshInvalidError(`Token refresh rejected (HTTP ${response.status})`)
     }
     lastError = new Error(`Token refresh failed: HTTP ${response.status}`)
     await Bun.sleep(500 * (attempt + 1))
@@ -206,7 +206,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
 const HTML_SUCCESS = `<!doctype html>
 <html>
   <head>
-    <title>HYscience - Codex Authorization Successful</title>
+    <title>HYscience - ChatGPT Authorization Successful</title>
     <style>
       body {
         font-family:
@@ -248,7 +248,7 @@ const HTML_SUCCESS = `<!doctype html>
 const HTML_ERROR = (error: string) => `<!doctype html>
 <html>
   <head>
-    <title>HYscience - Codex Authorization Failed</title>
+    <title>HYscience - ChatGPT Authorization Failed</title>
     <style>
       body {
         font-family:
@@ -384,7 +384,7 @@ async function startOAuthServer(): Promise<{ port: number; redirectUri: string }
     },
   })
 
-  log.info("codex oauth server started", { port: OAUTH_PORT })
+  log.info("openai subscription oauth server started", { port: OAUTH_PORT })
   return { port: OAUTH_PORT, redirectUri: `http://localhost:${OAUTH_PORT}/auth/callback` }
 }
 
@@ -392,7 +392,7 @@ function stopOAuthServer() {
   if (oauthServer) {
     oauthServer.stop()
     oauthServer = undefined
-    log.info("codex oauth server stopped")
+    log.info("openai subscription oauth server stopped")
   }
 }
 
@@ -423,7 +423,7 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
   })
 }
 
-export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
+export async function OpenaiSubscriptionAuthPlugin(input: PluginInput): Promise<Hooks> {
   return {
     auth: {
       provider: "openai-codex",
@@ -434,7 +434,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
         // Provider models + cost-zeroing are handled at database
         // synthesis time in provider/provider.ts. By the time the
         // loader runs, database["openai-codex"] already has the
-        // 5 Codex-routable models with zero cost.
+        // 5 subscription-routable models with zero cost.
 
         return {
           apiKey: OAUTH_DUMMY_KEY,
@@ -461,7 +461,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
             // Check if token needs refresh (proactively, before it actually
             // expires, so an in-flight request never races the token going stale).
             if (!currentAuth.access || currentAuth.expires < Date.now() + REFRESH_MARGIN_MS) {
-              log.info("refreshing codex access token")
+              log.info("refreshing openai subscription access token")
               let tokens: TokenResponse | undefined
               try {
                 tokens = await refreshAccessTokenSingleFlight(currentAuth.refresh)
@@ -483,11 +483,11 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                     tokens = await refreshAccessTokenSingleFlight(latest.refresh).catch(() => undefined)
                   }
                   if (!tokens) {
-                    log.warn("codex token refresh failed", { error: String(e) })
-                    if (e instanceof CodexRefreshInvalidError)
-                      throw new Error("Codex sign-in expired. Reconnect it with `hyscience keys signin`.")
+                    log.warn("openai subscription token refresh failed", { error: String(e) })
+                    if (e instanceof OpenaiSubscriptionRefreshInvalidError)
+                      throw new Error("ChatGPT sign-in expired. Reconnect it with `hyscience keys signin`.")
                     throw new Error(
-                      "Codex is temporarily unavailable (couldn't refresh the access token). Please retry in a moment.",
+                      "ChatGPT subscription is temporarily unavailable (couldn't refresh the access token). Please retry in a moment.",
                     )
                   }
                 }
@@ -533,21 +533,21 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
               headers.set("ChatGPT-Account-Id", authWithAccount.accountId)
             }
 
-            // Rewrite URL to Codex endpoint
+            // Rewrite URL to ChatGPT subscription endpoint
             const parsed =
               requestInput instanceof URL
                 ? requestInput
                 : new URL(typeof requestInput === "string" ? requestInput : requestInput.url)
-            const isCodexRoute =
+            const isSubscriptionRoute =
               parsed.pathname.includes("/v1/responses") || parsed.pathname.includes("/chat/completions")
-            const url = isCodexRoute ? new URL(CODEX_API_ENDPOINT) : parsed
+            const url = isSubscriptionRoute ? new URL(OPENAI_SUBSCRIPTION_API_ENDPOINT) : parsed
 
-            // The chatgpt.com Codex endpoint accepts a strict subset of the
+            // The chatgpt.com subscription endpoint accepts a strict subset of the
             // standard OpenAI Responses API: it requires `instructions` and
             // `store: false`, and rejects params like `max_output_tokens`.
             // Normalize the AI-SDK payload before forwarding.
             let bodyForRequest = init?.body
-            if (isCodexRoute && typeof bodyForRequest === "string") {
+            if (isSubscriptionRoute && typeof bodyForRequest === "string") {
               try {
                 const parsedBody = JSON.parse(bodyForRequest)
                 let mutated = false
@@ -559,7 +559,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                   parsedBody.store = false
                   mutated = true
                 }
-                // chatgpt.com Codex endpoint rejects these as unsupported.
+                // chatgpt.com subscription endpoint rejects these as unsupported.
                 for (const k of ["max_output_tokens", "max_tokens", "temperature", "top_p"]) {
                   if (k in parsedBody) {
                     delete parsedBody[k]
@@ -592,10 +592,10 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
               if (isQuotaExceeded) {
                 const sharedKey = process.env.OPENAI_API_KEY
                 if (sharedKey && sharedKey !== OAUTH_DUMMY_KEY && !sharedKey.startsWith("thk_")) {
-                  log.warn("codex oauth quota exceeded, falling back to shared key")
+                  log.warn("openai subscription oauth quota exceeded, falling back to shared key")
                   headers.set("authorization", `Bearer ${sharedKey}`)
                   headers.delete("ChatGPT-Account-Id")
-                  // Route to standard OpenAI API instead of Codex endpoint
+                  // Route to standard OpenAI API instead of the subscription endpoint
                   const fallbackUrl = new URL("https://api.openai.com/v1/responses")
                   return fetch(fallbackUrl, { ...init, headers })
                 }
@@ -608,7 +608,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
       },
       methods: [
         {
-          label: "Codex — Sign in with ChatGPT (browser)",
+          label: "ChatGPT subscription — Sign in (browser)",
           type: "oauth",
           authorize: async () => {
             let redirectUri: string
@@ -655,11 +655,11 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                       ? (parseJwtClaims(tokens.id_token) as Record<string, unknown> | undefined)
                       : undefined,
                   })
-                  // Re-sync after backend now knows about the new codex
+                  // Re-sync after backend now knows about the new subscription
                   // credential, so `openai-codex` shows up in the local
                   // provider list without a separate `hyscience connect sync`.
                   await HYscience.syncServices?.().catch((e: unknown) => {
-                    log.warn("post-codex-login sync failed", { error: String(e) })
+                    log.warn("post-chatgpt-login sync failed", { error: String(e) })
                   })
                 }
 
@@ -675,7 +675,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
           },
         },
         {
-          label: "Codex — Sign in with ChatGPT (device code)",
+          label: "ChatGPT subscription — Sign in (device code)",
           type: "oauth",
           authorize: async () => {
             const deviceResponse = await fetch(`${ISSUER}/api/accounts/deviceauth/usercode`, {
@@ -758,7 +758,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                           : undefined,
                       })
                       await HYscience.syncServices?.().catch((e: unknown) => {
-                        log.warn("post-codex-login sync failed", { error: String(e) })
+                        log.warn("post-chatgpt-login sync failed", { error: String(e) })
                       })
                     }
 

@@ -654,8 +654,8 @@ export default function Landing() {
             <Reveal delay={150}>
               <p className={`mt-5 max-w-[44ch] ${P_BIG}`}>
                 Install with npm or the script, then run <span className="text-foreground">hyscience</span>. A short
-                setup asks how you want to power the models — HYcloud managed models, your own provider keys, or the free
-                demo models — and the workspace opens in your browser.
+                setup asks how you want to power the models — HYcloud managed models, your own provider keys, or the
+                free demo models — and the workspace opens in your browser.
               </p>
             </Reveal>
           </div>

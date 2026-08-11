@@ -7,7 +7,7 @@ import { Server } from "../server/server"
 import { BunProc } from "../bun"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
-import { CodexAuthPlugin } from "./codex"
+import { OpenaiSubscriptionAuthPlugin } from "./openai-subscription-auth"
 import { Session } from "../session"
 import { NamedError } from "@hysci/util/error"
 import { CopilotAuthPlugin } from "./copilot"
@@ -18,7 +18,7 @@ export namespace Plugin {
   const BUILTIN = ["@hysci/anthropic-auth@0.0.13", "@gitlab/hyscience-gitlab-auth@1.3.2"]
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [OpenaiSubscriptionAuthPlugin, CopilotAuthPlugin]
 
   const state = Instance.state(async () => {
     const client = createHYscienceClient({
@@ -48,7 +48,7 @@ export namespace Plugin {
     }
 
     for (let plugin of plugins) {
-      // ignore old codex plugin since it is supported first party now
+      // ignore legacy external auth plugins now built in first-party
       if (
         ["hyscience-openai-codex-auth", "hyscience-copilot-auth", "hysci-openai-codex-auth", "hysci-copilot-auth"] // legacy config names still skipped
           .some((name) => plugin.includes(name))

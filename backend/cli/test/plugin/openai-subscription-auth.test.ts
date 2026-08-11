@@ -4,7 +4,7 @@ import {
   extractAccountIdFromClaims,
   extractAccountId,
   type IdTokenClaims,
-} from "../../src/plugin/codex"
+} from "../../src/plugin/openai-subscription-auth"
 
 function createTestJwt(payload: object): string {
   const header = Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url")
@@ -12,7 +12,7 @@ function createTestJwt(payload: object): string {
   return `${header}.${body}.sig`
 }
 
-describe("plugin.codex", () => {
+describe("plugin.openai-subscription-auth", () => {
   describe("parseJwtClaims", () => {
     test("parses valid JWT with claims", () => {
       const payload = { email: "test@example.com", chatgpt_account_id: "acc-123" }

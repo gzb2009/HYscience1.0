@@ -26,7 +26,7 @@ const OAUTH_FREE_PROVIDERS = new Set([
   "github-copilot-enterprise",
 ])
 
-export function isCodexOAuthProvider(providerID: string): boolean {
+export function isOpenaiSubscriptionProvider(providerID: string): boolean {
   return providerID === "openai-codex"
 }
 
