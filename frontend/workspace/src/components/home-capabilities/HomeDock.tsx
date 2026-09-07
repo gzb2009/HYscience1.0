@@ -26,7 +26,7 @@ export function HomeDock(props: {
   return (
     <>
       <Portal>
-        <div class="cs-home-dock" role="toolbar" aria-label={language.t("home.dock.label")}>
+        <div class="cs-home-dock" data-testid="home-dock" role="toolbar" aria-label={language.t("home.dock.label")}>
           <button
             type="button"
             class="cs-home-dock-btn"

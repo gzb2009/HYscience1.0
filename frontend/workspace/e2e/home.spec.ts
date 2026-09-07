@@ -6,8 +6,7 @@ test("home renders and shows core entrypoints", async ({ page }) => {
 
   await expect(page.getByTestId("domain-guide")).toBeVisible()
   await expect(page.locator(".cs-domain-card").first()).toBeVisible()
-  await expect(page.getByRole("button", { name: "skill" })).toBeVisible()
-  await expect(page.getByRole("button", { name: /computer/ })).toBeVisible()
+  await expect(page.getByTestId("home-dock")).toBeVisible()
 })
 
 test("server picker dialog opens from home", async ({ page }) => {
