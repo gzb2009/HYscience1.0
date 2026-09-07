@@ -12,6 +12,12 @@ type WorkerFixtures = {
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("hyscience.setup.dismissed", "1")
+    })
+    await use(page)
+  },
   directory: [
     async ({}, use) => {
       const directory = await getWorktree()

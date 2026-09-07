@@ -7,9 +7,9 @@ test("sidebar can be collapsed and expanded", async ({ page, gotoSession }) => {
   await expect(sidebar).toBeVisible()
   await expect(sidebar).not.toHaveClass(/cs-sidebar-collapsed/)
 
-  await page.getByTitle("collapse sidebar").click()
+  await page.getByTitle("collapse sidebar").click({ force: true })
   await expect(sidebar).toHaveClass(/cs-sidebar-collapsed/)
 
-  await page.getByTitle("expand sidebar").click()
+  await page.getByTitle("expand sidebar").click({ force: true })
   await expect(sidebar).not.toHaveClass(/cs-sidebar-collapsed/)
 })

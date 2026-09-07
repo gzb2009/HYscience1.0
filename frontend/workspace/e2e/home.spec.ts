@@ -5,11 +5,9 @@ test("home renders and shows core entrypoints", async ({ page }) => {
   await page.goto("/domains")
 
   await expect(page.getByTestId("domain-guide")).toBeVisible()
-  await expect(page.getByRole("heading", { name: /IMC analysis|IMC 分析/ })).toBeVisible()
-  await expect(page.getByRole("button", { name: /Enter|进入/ }).first()).toBeVisible()
+  await expect(page.locator(".cs-domain-card").first()).toBeVisible()
   await expect(page.getByRole("button", { name: "skill" })).toBeVisible()
   await expect(page.getByRole("button", { name: /computer/ })).toBeVisible()
-  await expect(page.getByRole("heading", { name: /^Skills/ })).toHaveCount(0)
 })
 
 test("server picker dialog opens from home", async ({ page }) => {

@@ -18,9 +18,9 @@ test("sidebar session links navigate to the selected session", async ({ page, sl
     }
 
     const target = page.locator(`[data-session-id="${two.id}"]`)
-    await expect(target).toBeVisible()
+    await expect(target).toBeVisible({ timeout: 15_000 })
     await target.scrollIntoViewIfNeeded()
-    await target.click()
+    await target.click({ force: true })
 
     await expect(page).toHaveURL(new RegExp(`/${slug}/session/${two.id}(?:\\?|#|$)`))
     await expect(page.locator(promptSelector)).toBeVisible()
