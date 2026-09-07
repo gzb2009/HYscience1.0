@@ -1,7 +1,9 @@
 import { base64Decode } from "@hysci/util/encode"
 
+const reserved = new Set(["domains", "domain"])
+
 export function decode64(value: string | undefined) {
-  if (value === undefined) return
+  if (value === undefined || reserved.has(value)) return
   try {
     return base64Decode(value)
   } catch {

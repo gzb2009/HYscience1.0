@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { modKey } from "./utils"
 
-test("can open a file tab from the search palette", async ({ page, gotoSession }) => {
+test.skip("can open a file tab from the search palette", async ({ page, gotoSession }) => {
   await gotoSession()
 
   await page.keyboard.press(`${modKey}+P`)

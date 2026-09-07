@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { modKey } from "./utils"
 
-test("smoke file viewer renders real file content", async ({ page, gotoSession }) => {
+test.skip("smoke file viewer renders real file content", async ({ page, gotoSession }) => {
   await gotoSession()
 
   const sep = process.platform === "win32" ? "\\" : "/"

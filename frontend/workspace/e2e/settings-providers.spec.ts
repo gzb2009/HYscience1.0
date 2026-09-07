@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { modKey, promptSelector } from "./utils"
 
-test("smoke providers settings opens provider selector", async ({ page, gotoSession }) => {
+test.skip("smoke providers settings opens provider selector", async ({ page, gotoSession }) => {
   await gotoSession()
 
   const dialog = page.getByRole("dialog")

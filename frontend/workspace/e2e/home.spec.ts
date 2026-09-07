@@ -4,9 +4,9 @@ import { serverName } from "./utils"
 test("home renders and shows core entrypoints", async ({ page }) => {
   await page.goto("/domains")
 
-  await expect(page.getByRole("heading", { name: "Choose an analysis domain" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "IMC analysis" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Enter" }).first()).toBeVisible()
+  await expect(page.getByTestId("domain-guide")).toBeVisible()
+  await expect(page.getByRole("heading", { name: /IMC analysis|IMC 分析/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Enter|进入/ }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "skill" })).toBeVisible()
   await expect(page.getByRole("button", { name: /computer/ })).toBeVisible()
   await expect(page.getByRole("heading", { name: /^Skills/ })).toHaveCount(0)

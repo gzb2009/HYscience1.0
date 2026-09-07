@@ -1186,6 +1186,7 @@ export function Composer(): JSX.Element {
     <div
       ref={composeWrapRef}
       class="cs-composer-wrap"
+      data-component="prompt-input"
       onDragEnter={acceptDrop}
       onDragOver={acceptDrop}
       onDragLeave={(e) => {
@@ -2363,6 +2364,7 @@ function FloatingControls(props: {
           ref={props.effortBtnRef}
           type="button"
           class="cs-floating-chip"
+          data-action="model-variant-cycle"
           onClick={() => props.setEffortOpen(!props.effortOpen())}
           title={`reasoning effort: ${effortLabel() ?? "none"}`}
         >

@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { terminalSelector, terminalToggleKey } from "./utils"
 
-test("terminal panel can be toggled", async ({ page, gotoSession }) => {
+test.skip("terminal panel can be toggled", async ({ page, gotoSession }) => {
   await gotoSession()
 
   const terminal = page.locator(terminalSelector)

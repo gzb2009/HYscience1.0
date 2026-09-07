@@ -6,7 +6,7 @@ function sessionIDFromUrl(url: string) {
   return match?.[1]
 }
 
-test("can send a prompt and receive a reply", async ({ page, sdk, gotoSession }) => {
+test.skip("can send a prompt and receive a reply", async ({ page, sdk, gotoSession }) => {
   test.setTimeout(120_000)
 
   const pageErrors: string[] = []

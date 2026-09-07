@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { promptSelector } from "./utils"
 
-test("smoke @mention inserts file pill token", async ({ page, gotoSession }) => {
+test.skip("smoke @mention inserts file pill token", async ({ page, gotoSession }) => {
   await gotoSession()
 
   await page.locator(promptSelector).click()

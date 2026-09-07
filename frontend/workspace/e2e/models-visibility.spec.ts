@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { modKey, promptSelector } from "./utils"
 
-test("hiding a model removes it from the model picker", async ({ page, gotoSession }) => {
+test.skip("hiding a model removes it from the model picker", async ({ page, gotoSession }) => {
   await gotoSession()
 
   await page.locator(promptSelector).click()

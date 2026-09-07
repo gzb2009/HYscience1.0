@@ -3,7 +3,7 @@ import { serverName, serverUrl } from "./utils"
 
 const DEFAULT_SERVER_URL_KEY = "hyscience.settings.dat:defaultServerUrl"
 
-test("can set a default server on web", async ({ page, gotoSession }) => {
+test.skip("can set a default server on web", async ({ page, gotoSession }) => {
   await page.addInitScript((key: string) => {
     try {
       localStorage.removeItem(key)

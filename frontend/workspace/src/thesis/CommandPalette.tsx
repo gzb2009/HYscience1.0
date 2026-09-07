@@ -161,6 +161,8 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
         <div class="thesis-overlay" onClick={props.onClose} />
         <div
           class="thesis-modal thesis-fade-in"
+          role="dialog"
+          aria-label="Command palette"
           style={{
             top: "12vh",
             left: "50%",

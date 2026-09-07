@@ -103,7 +103,7 @@ export default function DomainGuide(): JSX.Element {
             </div>
           </div>
 
-          <section class="cs-domain-guide">
+          <section class="cs-domain-guide" data-testid="domain-guide">
             <h2 class="cs-domain-guide-title">{language.t("domain.guide.title")}</h2>
             <div class="cs-domain-guide-grid">
               <For each={DOMAINS}>

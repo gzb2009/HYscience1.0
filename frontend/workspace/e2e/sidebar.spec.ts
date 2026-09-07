@@ -1,21 +1,15 @@
 import { test, expect } from "./fixtures"
-import { modKey } from "./utils"
 
 test("sidebar can be collapsed and expanded", async ({ page, gotoSession }) => {
   await gotoSession()
 
-  const main = page.locator("main")
-  const closedClass = /xl:border-l/
-  const isClosed = await main.evaluate((node) => node.className.includes("xl:border-l"))
+  const sidebar = page.locator(".cs-sidebar")
+  await expect(sidebar).toBeVisible()
+  await expect(sidebar).not.toHaveClass(/cs-sidebar-collapsed/)
 
-  if (isClosed) {
-    await page.keyboard.press(`${modKey}+B`)
-    await expect(main).not.toHaveClass(closedClass)
-  }
+  await page.getByTitle("collapse sidebar").click()
+  await expect(sidebar).toHaveClass(/cs-sidebar-collapsed/)
 
-  await page.keyboard.press(`${modKey}+B`)
-  await expect(main).toHaveClass(closedClass)
-
-  await page.keyboard.press(`${modKey}+B`)
-  await expect(main).not.toHaveClass(closedClass)
+  await page.getByTitle("expand sidebar").click()
+  await expect(sidebar).not.toHaveClass(/cs-sidebar-collapsed/)
 })

@@ -1178,6 +1178,7 @@ function SessionRow(props: {
     <div
       role="button"
       tabindex="0"
+      data-session-id={props.session.id}
       class={`cs-session-row${props.active ? " cs-session-row-active" : ""}`}
       title={fullTitle()}
       aria-label={`${displayTitle()}：${fullTitle()}`}

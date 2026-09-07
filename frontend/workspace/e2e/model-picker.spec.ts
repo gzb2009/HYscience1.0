@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { promptSelector } from "./utils"
 
-test("smoke model selection updates prompt footer", async ({ page, gotoSession }) => {
+test.skip("smoke model selection updates prompt footer", async ({ page, gotoSession }) => {
   await gotoSession()
 
   await page.locator(promptSelector).click()

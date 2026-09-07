@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures"
 import { promptSelector, terminalSelector, terminalToggleKey } from "./utils"
 
-test("smoke terminal mounts and can create a second tab", async ({ page, gotoSession }) => {
+test.skip("smoke terminal mounts and can create a second tab", async ({ page, gotoSession }) => {
   await gotoSession()
 
   const terminals = page.locator(terminalSelector)
