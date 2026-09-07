@@ -12,6 +12,8 @@ export namespace OutputClean {
     /^Reviewer\s*\(@reviewer\)\s*[—–-]\s*blind review[\s\S]*?(?=\n\n|\n(?:##|[A-Z][a-z]))/gim,
     /^>?\s*Reviewer\s*\(@reviewer\)[\s\S]*?(?=\n\n|\n(?:##|[A-Z][a-z]))/gim,
     /\[SELF-CHECK (?:PASSED|FAILED)\]\s*\(reviewer\)[\s\S]*?(?=\n\n)/gim,
+    /^\s*\[SELF-CHECK(?:\s+PASSED|\s+FAILED|: [^\]]*)\][^\n]*$/gim,
+    /\[SELF-CHECK(?:\s+PASSED|\s+FAILED|: [^\]]*)\][^\n]*/g,
     /\[REVIEWER (?:NOTE|FLAG|WARNING)\][\s\S]*?(?=\n\n|\n(?:##|[A-Z][a-z]))/gim,
   ]
 

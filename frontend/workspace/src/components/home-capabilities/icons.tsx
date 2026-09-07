@@ -30,16 +30,11 @@ export function IconSkillsStack(props: SvgProps): JSX.Element {
   )
 }
 
-export function IconComputeChip(props: SvgProps): JSX.Element {
+export function IconComputer(props: SvgProps): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" fill="none" {...base(props)}>
-      <rect x="7" y="7" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-      <path
-        d="M10 4v2M14 4v2M10 18v2M14 18v2M4 10h2M4 14h2M18 10h2M18 14h2"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="round"
-      />
+      <rect x="3.5" y="4.5" width="17" height="11.5" rx="1.8" stroke="currentColor" stroke-width="1.5" />
+      <path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
     </svg>
   )
 }

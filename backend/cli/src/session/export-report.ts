@@ -1,8 +1,6 @@
 /**
- * Session Report Generator — produces a self-contained Markdown research report
- * from a completed session, including structured sections for all research stages.
- *
- * Output saved to the project's result directory.
+ * Optional session wrap-up. Never writes into result/ — that folder is for
+ * analysis deliverables, not tool traces or thinking.
  */
 
 import path from "path"
@@ -20,80 +18,80 @@ export namespace ExportReport {
     content: string
   }
 
-  /**
-   * Build a structured Markdown report from a session's messages.
-   *
-   * Report structure:
-   *   # Research Report
-   *   ## Summary
-   *   ## Research Question
-   *   ## Methodology
-   *   ## Key Findings
-   *   ## Figures & Tables
-   *   ## Conclusion
-   *   ## Artifacts
-   */
+  export function stripLocale(text: string) {
+    return text.replace(/<ui-locale\b[^>]*>/gi, "").replace(/\s+\n/g, "\n").trim()
+  }
+
+  export function isJunkClaim(claim: string) {
+    const text = claim.replace(/[\s。．.，,：:；;！!？?·•\-—]/g, "")
+    return text.length < 8
+  }
+
+  export function isJunkArtifact(filepath: string) {
+    if (!filepath || filepath.includes("`") || filepath.includes("*")) return true
+    if (filepath.length < 5) return true
+    return /^(mtx|csv|tsv|png|json)$/i.test(filepath.split("/").pop() ?? "")
+  }
+
+  export function worthSaving(input: {
+    assistantText: string
+    conclusion: string
+    findings: number
+    artifacts: number
+  }) {
+    if (input.conclusion.trim().length >= 20) return true
+    if (input.findings > 0 || input.artifacts > 0) return true
+    return stripLocale(input.assistantText).length >= 80
+  }
+
   export async function generate(sessionID: string): Promise<string> {
     const messages = await Session.messages({ sessionID })
     if (!messages.length) return ""
 
-    const sections: Section[] = []
-
-    // Extract research question from first user message
     const firstUser = messages.find((m) => m.info.role === "user")
-    const question = firstUser
-      ? firstUser.parts
-          .filter((p): p is MessageV2.TextPart => p.type === "text" && !MessageV2.isHybio(p))
-          .map((p) => p.text)
-          .join("\n")
-      : ""
+    const question = stripLocale(
+      firstUser
+        ? firstUser.parts
+            .filter((p): p is MessageV2.TextPart => p.type === "text" && !MessageV2.isHybio(p))
+            .map((p) => p.text)
+            .join("\n")
+        : "",
+    )
 
-    // Extract all assistant text responses (non-hybio)
-    const allText = messages
+    const assistantText = messages
       .filter((m) => m.info.role === "assistant")
       .flatMap((m) =>
         m.parts.filter((p): p is MessageV2.TextPart => p.type === "text" && !MessageV2.isHybio(p)).map((p) => p.text),
       )
       .join("\n")
 
-    // Extract tool calls and their outputs
-    const toolCalls: { tool: string; input: string; output: string }[] = []
+    const toolCalls: { tool: string; input: string }[] = []
     for (const msg of messages) {
       if (msg.info.role !== "assistant") continue
       for (const part of msg.parts) {
         if (part.type !== "tool") continue
-        const st = part.state as { status: string; input?: Record<string, any>; output?: string; error?: string }
+        if (part.tool !== "bash" && part.tool !== "edit" && part.tool !== "write") continue
+        const st = part.state as { input?: Record<string, unknown> }
         toolCalls.push({
           tool: part.tool,
-          input: JSON.stringify(st.input ?? {}).slice(0, 200),
-          output:
-            st.status === "completed"
-              ? (st.output ?? "").slice(0, 300)
-              : st.status === "error"
-                ? `Error: ${st.error ?? ""}`
-                : "(running)",
+          input: JSON.stringify(st.input ?? {}).slice(0, 120),
         })
       }
     }
 
-    // Extract artifact paths from text
-    const artifacts = matchArtifacts(allText)
+    const artifacts = matchArtifacts(assistantText)
+    const findings = matchFindings(assistantText)
+    const conclusion = extractConclusion(assistantText)
+    if (!worthSaving({ assistantText, conclusion, findings: findings.length, artifacts: artifacts.length })) return ""
 
-    // Extract findings from text (hypothesis testing results)
-    const findings = matchFindings(allText)
+    const sections: Section[] = [{ heading: "Research Question", content: question || "(not specified)" }]
 
-    // Build sections
-    sections.push({ heading: "Research Question", content: question || "(not specified)" })
-
-    sections.push({
-      heading: "Methodology",
-      content: toolCalls.length
-        ? toolCalls
-            .filter((t) => t.tool === "bash" || t.tool === "edit" || t.tool === "write")
-            .map((t) => `- \`${t.tool}\`: ${t.input.slice(0, 120)}`)
-            .join("\n") || "_No code execution recorded_"
-        : "_No tool calls recorded_",
-    })
+    if (toolCalls.length > 0) {
+      sections.push({
+        heading: "Methodology",
+        content: `${toolCalls.length} code steps`,
+      })
+    }
 
     if (findings.length > 0) {
       sections.push({
@@ -110,44 +108,19 @@ export namespace ExportReport {
     if (artifacts.length > 0) {
       sections.push({
         heading: "Artifacts",
-        content: artifacts
-          .map((a) => {
-            const fpart = messages
-              .flatMap((m) => m.parts)
-              .find((p) => p.type === "file" && (p as any).filename === a.path.split("/").pop())
-            const url = fpart ? (fpart as any).url : ""
-            return url ? `- [${a.path.split("/").pop()}](${url}) (${a.type})` : `- ${a.path} (${a.type})`
-          })
-          .join("\n"),
+        content: artifacts.map((a) => `- ${a.path} (${a.type})`).join("\n"),
       })
     }
 
-    // Extract concluding paragraph
-    const conclusion = extractConclusion(allText)
-    if (conclusion) {
-      sections.push({ heading: "Conclusion", content: conclusion })
-    }
+    if (conclusion) sections.push({ heading: "Conclusion", content: conclusion })
 
-    // Assemble
     const lines: string[] = [
       `# Research Report`,
       `\n> Session: \`${sessionID}\` | Generated: ${new Date().toISOString()}`,
     ]
-
     for (const s of sections) {
       lines.push("", `## ${s.heading}`, "", s.content)
     }
-
-    // Appendix: raw tool calls
-    if (toolCalls.length > 0) {
-      lines.push("", "---", "", "## Appendix: Tool Calls", "")
-      lines.push("| Tool | Input | Output |")
-      lines.push("|------|-------|--------|")
-      for (const t of toolCalls.slice(0, 30)) {
-        lines.push(`| ${t.tool} | ${t.input.slice(0, 80)} | ${t.output.slice(0, 80)} |`)
-      }
-    }
-
     return lines.join("\n")
   }
 
@@ -158,10 +131,9 @@ export namespace ExportReport {
       /\b(\S+\.(?:png|jpg|jpeg|svg|webp|gif|csv|tsv|json|jsonl|h5ad|pdf|html|xlsx|parquet|npy|npz|h5|md|markdown|txt|py|r|sh|ipynb))\b/gi
     for (const m of text.matchAll(re)) {
       const fp = m[1]
-      if (!seen.has(fp)) {
-        seen.add(fp)
-        results.push({ path: fp, type: fp.split(".").pop()?.toUpperCase() ?? "FILE" })
-      }
+      if (isJunkArtifact(fp) || seen.has(fp)) continue
+      seen.add(fp)
+      results.push({ path: fp, type: fp.split(".").pop()?.toUpperCase() ?? "FILE" })
     }
     return results
   }
@@ -171,10 +143,13 @@ export namespace ExportReport {
     const re =
       /(?:finding|result|found|observed?|发现|结果)[:：]?\s*(.+?)(?:\(confidence[:：]?\s*(high|medium|low)\)|$)/gi
     for (const m of text.matchAll(re)) {
+      const claim = m[1]?.trim().slice(0, 200) ?? ""
+      if (isJunkClaim(claim)) continue
+      const confidence = m[2]?.toLowerCase()
       results.push({
-        claim: m[1]?.trim().slice(0, 200) ?? "",
+        claim,
         evidence: m[0].slice(0, 150),
-        confidence: (m[2]?.toLowerCase() as any) ?? "medium",
+        confidence: confidence === "high" || confidence === "low" || confidence === "medium" ? confidence : "medium",
       })
     }
     return results.slice(0, 10)
@@ -193,7 +168,7 @@ export namespace ExportReport {
   }
 
   export async function save(sessionID: string, report: string): Promise<string> {
-    const dir = path.join(Instance.worktree, "result")
+    const dir = path.join(Instance.directory, ".hyscience", "reports")
     await fs.mkdir(dir, { recursive: true })
     const name = `report-${sessionID.slice(0, 8)}.md`
     const filepath = path.join(dir, name)

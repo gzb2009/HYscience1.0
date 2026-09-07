@@ -43,6 +43,24 @@ describe("prompt-inject", () => {
     expect(text).toContain("≤ 20 lines")
   })
 
+  test("injectResultDelivery uses literature-report protocol for survey requests", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "写一份IMC的文献调研")
+    Inject.injectResultDelivery([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("literature-report-delivery-protocol")
+    expect(text).toContain("question tool")
+  })
+
+  test("injectResearchContract enables literature-report mode for surveys", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "写一份IMC的文献调研")
+    Inject.injectResearchContract([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("Literature-report mode")
+    expect(text).toContain("question tool")
+  })
+
   test("injectResultDelivery idempotent", () => {
     const msg = mkMsg("user")
     pushUserText(msg, "对单细胞 RNA-seq 数据做质控、归一化与聚类，并识别主要细胞类型")
@@ -59,11 +77,60 @@ describe("prompt-inject", () => {
     expect((hp[0] as any).text).toContain("Service Boundaries And Scientific Rigor")
   })
 
+  test("injectDisciplinePack loads the biology pack without harness copy", () => {
+    const msg = mkMsg("user")
+    Inject.injectDisciplinePack(msg, "biology")
+    const text = (msg.parts.find((p: any) => p.hybio) as any).text
+    expect(text).toContain("<biology-pack>")
+    expect(text).toContain("Self-check")
+    expect(text).not.toContain("grill-me")
+    expect(text).not.toContain("You are HYscience Biology")
+  })
+
+  test("injectDisciplinePack loads physics and ml packs", () => {
+    const physics = mkMsg("user")
+    Inject.injectDisciplinePack(physics, "physics")
+    expect((physics.parts.find((p: any) => p.hybio) as any).text).toContain("<physics-pack>")
+
+    const ml = mkMsg("user")
+    Inject.injectDisciplinePack(ml, "ml")
+    expect((ml.parts.find((p: any) => p.hybio) as any).text).toContain("<ml-pack>")
+  })
+
   test("injectBiologyServiceContract idempotent", () => {
     const msg = mkMsg("user")
     Inject.injectBiologyServiceContract(msg)
     Inject.injectBiologyServiceContract(msg)
     expect(msg.parts.filter((p: any) => p.hybio).length).toBe(1)
+  })
+
+  test("injectGrillMe skips ordinary questions", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const msg = mkMsg("user")
+        pushUserText(msg, "IMC 邻域分析用什么指标？")
+        await Inject.injectGrillMe(msg)
+        expect(msg.parts.filter((p: any) => p.hybio).length).toBe(0)
+      },
+    })
+  })
+
+  test("injectGrillMe loads on /grill or expensive runs", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const ask = mkMsg("user")
+        pushUserText(ask, "/grill 这个分割方案")
+        await Inject.injectGrillMe(ask)
+        expect((ask.parts.find((p: any) => p.hybio) as any).text).toContain("grill-me")
+
+        const run = mkMsg("user")
+        pushUserText(run, "准备在 GPU 上重跑全部样本分割")
+        await Inject.injectGrillMe(run)
+        expect((run.parts.find((p: any) => p.hybio) as any).text).toContain("grill-me")
+      },
+    })
   })
 
   test("injectCorrectionContext flags corrected assumptions", () => {
@@ -121,6 +188,29 @@ describe("prompt-inject", () => {
     Inject.injectDataGate([msg], msg)
     const text = (msg.parts.find((part: any) => part.hybio) as any).text
     expect(text).toContain("DATA GATE")
+  })
+
+  test("injectLiteratureGate uses inline report reminder for survey requests", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const msg = mkMsg("user")
+        pushUserText(msg, "写一份CODEX的文献调研")
+        await Inject.injectLiteratureGate(msg, {
+          intent: "literature_verification",
+          confidence: 0.75,
+          knownContext: [],
+          missingPremises: [],
+          mustClarify: false,
+          gates: ["literature"],
+          coordinate: false,
+          review: false,
+        })
+        const text = (msg.parts.find((part: any) => part.hybio) as any).text
+        expect(text).toContain("Literature-report mode")
+        expect(text).not.toContain("BLOCKING stage gate")
+      },
+    })
   })
 
   test("injectLiteratureGate skips direct-answer method questions", async () => {

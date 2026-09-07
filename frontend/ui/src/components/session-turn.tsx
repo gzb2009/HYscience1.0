@@ -34,6 +34,7 @@ import { DiffChanges } from "./diff-changes"
 import { Message, Part } from "./message-part"
 import { Markdown } from "./markdown"
 import { Accordion } from "./accordion"
+import { Collapsible } from "./collapsible"
 import { StickyAccordionHeader } from "./sticky-accordion-header"
 import { FileIcon } from "./file-icon"
 import { Icon } from "./icon"
@@ -49,6 +50,7 @@ import { createAutoScroll } from "../hooks"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import {
   collectResultFiles,
+  customerFacingResultFiles,
   formatSectionForDisplay,
   hasStructuredResult,
   splitResultSections,
@@ -366,6 +368,18 @@ export function SessionTurn(
 
   const error = createMemo(() => assistantMessages().find((m) => m.error)?.error)
 
+  const reasoningParts = createMemo(() => {
+    const out: { id: string; text: string }[] = []
+    for (const msg of assistantMessages()) {
+      for (const part of data.store.part[msg.id] ?? emptyParts) {
+        if (part?.type !== "reasoning") continue
+        const text = (part as ReasoningPart).text?.trim()
+        if (text) out.push({ id: part.id, text })
+      }
+    }
+    return out
+  })
+
   const lastTextPart = createMemo(() => {
     const msgs = assistantMessages()
     for (let mi = msgs.length - 1; mi >= 0; mi--) {
@@ -511,11 +525,13 @@ export function SessionTurn(
   const messageDiffs = createMemo(() => message()?.summary?.diffs ?? emptyDiffs)
   const hasDiffs = createMemo(() => messageDiffs().length > 0)
   const resultFiles = createMemo(() =>
-    collectResultFiles({
-      assistantMessages: assistantMessages(),
-      partsByMessage: data.store.part,
-      responseText: response() ?? "",
-    }),
+    customerFacingResultFiles(
+      collectResultFiles({
+        assistantMessages: assistantMessages(),
+        partsByMessage: data.store.part,
+        responseText: response() ?? "",
+      }),
+    ),
   )
   const structuredResult = createMemo(() => hasStructuredResult(resultSections(), resultFiles().length))
   const displaySections = createMemo(() => {
@@ -720,8 +736,8 @@ export function SessionTurn(
                         />
                       </div>
 
-                      {/* Trigger (sticky) — also visible while working so status + spinner stay on screen */}
-                      <Show when={working() || hasSteps()}>
+                      {/* Steps toggle — status while working lives in the center card below */}
+                      <Show when={hasSteps()}>
                         <div data-slot="session-turn-response-trigger">
                           <Button
                             data-expandable={assistantMessages().length > 0}
@@ -731,50 +747,22 @@ export function SessionTurn(
                             onClick={props.onStepsExpandedToggle ?? (() => {})}
                             aria-expanded={props.stepsExpanded}
                           >
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 10 10"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              data-slot="session-turn-trigger-icon"
+                            >
+                              <path
+                                d="M8.125 1.875H1.875L5 8.125L8.125 1.875Z"
+                                fill="currentColor"
+                                stroke="currentColor"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
                             <Switch>
-                              <Match when={working()}>
-                                <AgentStreamIcon />
-                              </Match>
-                              <Match when={true}>
-                                <svg
-                                  width="10"
-                                  height="10"
-                                  viewBox="0 0 10 10"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  data-slot="session-turn-trigger-icon"
-                                >
-                                  <path
-                                    d="M8.125 1.875H1.875L5 8.125L8.125 1.875Z"
-                                    fill="currentColor"
-                                    stroke="currentColor"
-                                    stroke-linejoin="round"
-                                  />
-                                </svg>
-                              </Match>
-                            </Switch>
-                            <Switch>
-                              <Match when={retry()}>
-                                <span data-slot="session-turn-retry-message">
-                                  {(() => {
-                                    const r = retry()
-                                    if (!r) return ""
-                                    return r.message.length > 60 ? r.message.slice(0, 60) + "..." : r.message
-                                  })()}
-                                </span>
-                                <span data-slot="session-turn-retry-seconds">
-                                  · {i18n.t("ui.sessionTurn.retry.retrying")}
-                                  {store.retrySeconds > 0
-                                    ? " " + i18n.t("ui.sessionTurn.retry.inSeconds", { seconds: store.retrySeconds })
-                                    : ""}
-                                </span>
-                                <span data-slot="session-turn-retry-attempt">(#{retry()?.attempt})</span>
-                              </Match>
-                              <Match when={working()}>
-                                <span data-slot="session-turn-status-text">
-                                  {store.status ?? i18n.t("ui.sessionTurn.status.consideringNextSteps")}
-                                </span>
-                              </Match>
                               <Match when={props.stepsExpanded}>
                                 <span data-slot="session-turn-status-text">{i18n.t("ui.sessionTurn.steps.hide")}</span>
                               </Match>
@@ -782,25 +770,46 @@ export function SessionTurn(
                                 <span data-slot="session-turn-status-text">{i18n.t("ui.sessionTurn.steps.show")}</span>
                               </Match>
                             </Switch>
-                            <span aria-hidden="true">·</span>
-                            <span aria-live="off">{store.duration}</span>
+                            <Show when={!working()}>
+                              <span aria-hidden="true">·</span>
+                              <span aria-live="off">{store.duration}</span>
+                            </Show>
                           </Button>
                         </div>
                       </Show>
                     </div>
-                    <Show when={working() && !response()}>
+                    <Show when={working() || retry()}>
                       <div data-slot="session-turn-working-card" role="status" aria-live="polite">
-                        <AgentStreamIcon />
+                        <Show when={working()}>
+                          <AgentStreamIcon />
+                        </Show>
                         <div data-slot="session-turn-working-copy">
-                          <span data-slot="session-turn-working-status">
-                            {store.status ?? i18n.t("ui.sessionTurn.status.consideringNextSteps")}
-                          </span>
-                          <span data-slot="session-turn-working-duration">{store.duration}</span>
+                          <Switch>
+                            <Match when={retry()}>
+                              <span data-slot="session-turn-working-status">
+                                {(() => {
+                                  const r = retry()
+                                  if (!r) return ""
+                                  const message = r.message.length > 60 ? r.message.slice(0, 60) + "..." : r.message
+                                  return `${message} · ${i18n.t("ui.sessionTurn.retry.retrying")}${store.retrySeconds > 0 ? " " + i18n.t("ui.sessionTurn.retry.inSeconds", { seconds: store.retrySeconds }) : ""} (#${r.attempt})`
+                                })()}
+                              </span>
+                            </Match>
+                            <Match when={true}>
+                              <span data-slot="session-turn-working-status">
+                                {store.status ?? i18n.t("ui.sessionTurn.status.consideringNextSteps")}
+                              </span>
+                              <Show when={store.duration}>
+                                <span aria-hidden="true">·</span>
+                                <span data-slot="session-turn-working-duration">{store.duration}</span>
+                              </Show>
+                            </Match>
+                          </Switch>
                         </div>
                       </div>
                     </Show>
                     {/* Response */}
-                    <Show when={(props.stepsExpanded || working()) && assistantMessages().length > 0}>
+                    <Show when={props.stepsExpanded && assistantMessages().length > 0}>
                       <div data-slot="session-turn-collapsible-content-inner" aria-live="off">
                         <For each={assistantMessages()}>
                           {(assistantMessage) => (
@@ -829,30 +838,44 @@ export function SessionTurn(
                     <div class="sr-only" aria-live="polite">
                       {!props.hideResponse && !working() && response() ? response() : ""}
                     </div>
-                    <Show when={!props.hideResponse && (response() || hasDiffs())}>
+                    <Show
+                      when={
+                        !props.hideResponse &&
+                        (response() || hasDiffs() || resultFiles().length > 0 || reasoningParts().length > 0)
+                      }
+                    >
                       <div
                         data-slot="session-turn-summary-section"
                         data-streaming={working() && !!response()}
                         data-structured={structuredResult() ? "true" : undefined}
                       >
                         <div data-slot="session-turn-summary-header">
-                          <Show when={working() && response()}>
-                            <div data-slot="session-turn-streaming-status" role="status" aria-live="polite">
-                              <AgentStreamIcon />
-                              <span data-slot="session-turn-streaming-status-text">
-                                {store.status ?? i18n.t("ui.sessionTurn.status.writingOutput")}
-                              </span>
-                              <span data-slot="session-turn-streaming-duration">{store.duration}</span>
-                            </div>
-                          </Show>
                           <h2 data-slot="session-turn-summary-title">{i18n.t("ui.sessionTurn.summary.response")}</h2>
-                          <Show when={resultFiles().length > 0}>
-                            <ResultFileCards
-                              files={resultFiles()}
-                              onOpenFile={props.onOpenFile}
-                              onPreviewFile={props.onPreviewFile}
-                              renderFilePreview={props.renderFilePreview}
-                            />
+                          <Show when={reasoningParts().length > 0}>
+                            <div data-slot="session-turn-reasoning">
+                              <For each={reasoningParts()}>
+                                {(item) => (
+                                  <div data-component="reasoning-part">
+                                    <Collapsible variant="ghost">
+                                      <Collapsible.Trigger>
+                                        <div data-slot="reasoning-part-trigger">
+                                          <Icon name="brain" size="small" />
+                                          <span data-slot="reasoning-part-label">
+                                            {i18n.t("ui.messagePart.reasoning.title")}
+                                          </span>
+                                          <Collapsible.Arrow />
+                                        </div>
+                                      </Collapsible.Trigger>
+                                      <Collapsible.Content>
+                                        <div data-slot="reasoning-part-body">
+                                          <Markdown text={item.text} cacheKey={item.id} />
+                                        </div>
+                                      </Collapsible.Content>
+                                    </Collapsible>
+                                  </div>
+                                )}
+                              </For>
+                            </div>
                           </Show>
                           <div data-slot="session-turn-response">
                             <For each={displaySections()}>
@@ -867,6 +890,14 @@ export function SessionTurn(
                                 </section>
                               )}
                             </For>
+                            <Show when={resultFiles().length > 0}>
+                              <ResultFileCards
+                                files={resultFiles()}
+                                onOpenFile={props.onOpenFile}
+                                onPreviewFile={props.onPreviewFile}
+                                renderFilePreview={props.renderFilePreview}
+                              />
+                            </Show>
                             <Show when={response()}>
                               <div data-slot="session-turn-response-copy-wrapper">
                                 <Tooltip

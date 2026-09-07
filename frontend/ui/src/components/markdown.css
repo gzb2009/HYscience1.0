@@ -5,7 +5,7 @@
   max-width: 100%;
   overflow-wrap: break-word;
   color: var(--text-base);
-  font-family: var(--font-family-reading, var(--font-family-serif));
+  font-family: var(--font-family-reading, var(--font-family-sans));
   font-size: max(var(--font-size-base), 14px);
   line-height: 1.75;
 
@@ -26,29 +26,23 @@
   h6 {
     color: var(--text-strong);
     font-family: var(--font-family-sans);
-    font-weight: var(--font-weight-semibold, 600);
+    font-weight: var(--font-weight-bold, 700);
     margin-top: 1.75rem;
     margin-bottom: 0.6rem;
     line-height: var(--line-height-large);
     text-wrap: pretty;
   }
-  /* Keep every level visibly above body copy without exaggerating dense replies. */
   h1 {
     font-size: 1.7em;
-    font-weight: var(--font-weight-bold, 700);
     margin-top: 2rem;
   }
   h2 {
     font-size: 1.4em;
-    font-weight: var(--font-weight-semibold, 600);
   }
   h3 {
     font-size: 1.16em;
-    font-weight: var(--font-weight-semibold, 600);
   }
-  h4 {
-    font-size: 1em;
-  }
+  h4,
   h5,
   h6 {
     font-size: 1em;
@@ -267,7 +261,7 @@
 
   th {
     color: var(--text-strong);
-    font-weight: var(--font-weight-semibold, 600);
+    font-weight: var(--font-weight-bold, 700);
     background: var(--surface-weak);
     white-space: nowrap;
   }

@@ -54,6 +54,8 @@ export const dict = {
   "ui.sessionTurn.status.synthesizingFindings": "Synthesizing findings",
   "ui.sessionTurn.status.writingOutput": "Writing output",
 
+  "ui.messagePart.reasoning.title": "Thought process",
+
   "ui.messagePart.diagnostic.error": "Error",
   "ui.messagePart.title.edit": "Edit",
   "ui.messagePart.title.write": "Write",

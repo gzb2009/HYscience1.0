@@ -65,6 +65,8 @@ import { TaskScope } from "./task-scope"
 import { Question } from "../question"
 import { ResearchContext } from "./research-context"
 import { SessionReview } from "./review"
+import { SessionLoop } from "./session-loop"
+import { SessionTrace } from "./session-trace"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -332,8 +334,6 @@ export namespace SessionPrompt {
     const session = await Session.get(sessionID)
     const config = await Config.get()
     while (true) {
-      SessionStatus.set(sessionID, { type: "busy" })
-      log.info("loop", { step, sessionID })
       if (abort.aborted) break
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
@@ -361,6 +361,7 @@ export namespace SessionPrompt {
         (!["tool-calls", "unknown"].includes(lastAssistant.finish) || bareMode) &&
         lastUser.id < lastAssistant.id
       ) {
+        SessionStatus.set(sessionID, SessionLoop.busy("finalizing", step))
         log.info("exiting loop", { sessionID, bareMode })
         await OutputClean.cleanFinalAnswer(sessionID, msgs)
         msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
@@ -390,6 +391,8 @@ export namespace SessionPrompt {
       }
 
       step++
+      SessionTrace.begin(sessionID, step)
+      log.info("loop", { step, sessionID })
       if (step === 1)
         ensureTitle({
           session,
@@ -438,19 +441,45 @@ export namespace SessionPrompt {
         break
       }
       const task = tasks.pop()
+      const shouldPrune =
+        !!lastFinished &&
+        lastFinished.summary !== true &&
+        (await SessionCompaction.shouldPrune({ tokens: lastFinished.tokens, model }))
+      const shouldCompact =
+        !!lastFinished &&
+        lastFinished.summary !== true &&
+        (await SessionCompaction.shouldCompact({ tokens: lastFinished.tokens, model }))
+      const decision = SessionLoop.resolve({
+        task,
+        shouldPrune,
+        shouldCompact,
+        compactionAttempts,
+      })
+      SessionStatus.set(sessionID, SessionLoop.busy(decision.phase, step))
 
-      // pending subtask
-      // TODO: centralize "invoke tool" logic
-      if (task?.type === "subtask") {
+      if (decision.action.type === "halt") {
+        log.warn("compaction: max attempts (3) reached, stopping loop", { sessionID })
+        SessionTrace.finish({
+          sessionID,
+          phase: decision.phase,
+          action: SessionLoop.actionName(decision.action),
+        })
+        break
+      }
+
+      if (decision.action.type === "run-subtask") {
+        const subtask = decision.action.task
         const taskTool = await TaskTool.init()
-        const taskModel = task.model ? await Provider.getModel(task.model.providerID, task.model.modelID) : model
+        const taskModel = subtask.model
+          ? await Provider.getModel(subtask.model.providerID, subtask.model.modelID)
+          : model
         const assistantMessage = (await Session.updateMessage({
           id: await MessageV2.nextMessageID(sessionID),
           role: "assistant",
           parentID: lastUser.id,
           sessionID,
-          mode: task.agent,
-          agent: task.agent,
+          mode: subtask.agent,
+          agent: subtask.agent,
           path: {
             cwd: Instance.directory,
             root: Instance.worktree,
@@ -478,10 +507,10 @@ export namespace SessionPrompt {
           state: {
             status: "running",
             input: {
-              prompt: task.prompt,
-              description: task.description,
-              subagent_type: task.agent,
-              command: task.command,
+              prompt: subtask.prompt,
+              description: subtask.description,
+              subagent_type: subtask.agent,
+              command: subtask.command,
             },
             time: {
               start: Date.now(),
@@ -489,10 +518,10 @@ export namespace SessionPrompt {
           },
         })) as MessageV2.ToolPart
         const taskArgs = {
-          prompt: task.prompt,
-          description: task.description,
-          subagent_type: task.agent,
-          command: task.command,
+          prompt: subtask.prompt,
+          description: subtask.description,
+          subagent_type: subtask.agent,
+          command: subtask.command,
         }
         await Plugin.trigger(
           "tool.execute.before",
@@ -504,9 +533,9 @@ export namespace SessionPrompt {
           { args: taskArgs },
         )
         let executionError: Error | undefined
-        const taskAgent = await Agent.get(task.agent)
+        const taskAgent = await Agent.get(subtask.agent)
         const taskCtx: Tool.Context = {
-          agent: task.agent,
+          agent: subtask.agent,
           messageID: assistantMessage.id,
           sessionID: sessionID,
           abort,
@@ -533,7 +562,7 @@ export namespace SessionPrompt {
         }
         const result = await taskTool.execute(taskArgs, taskCtx).catch((error) => {
           executionError = error
-          log.error("subtask execution failed", { error, agent: task.agent, description: task.description })
+          log.error("subtask execution failed", { error, agent: subtask.agent, description: subtask.description })
           return undefined
         })
         await Plugin.trigger(
@@ -581,7 +610,7 @@ export namespace SessionPrompt {
           } satisfies MessageV2.ToolPart)
         }
 
-        if (task.command) {
+        if (subtask.command) {
           // Add hybio user message to prevent certain reasoning models from erroring
           // If we create assistant messages w/ out user ones following mid loop thinking signatures
           // will be missing and it can cause errors for models like gemini for example
@@ -606,38 +635,54 @@ export namespace SessionPrompt {
           } satisfies MessageV2.TextPart)
         }
 
+        SessionTrace.finish({
+          sessionID,
+          phase: decision.phase,
+          action: SessionLoop.actionName(decision.action),
+        })
         continue
       }
 
-      // pending compaction
-      if (task?.type === "compaction") {
+      if (decision.action.type === "run-compaction") {
         const result = await SessionCompaction.process({
           messages: msgs,
           parentID: lastUser.id,
           abort,
           sessionID,
-          auto: task.auto,
+          auto: decision.action.task.auto,
+        })
+        SessionTrace.finish({
+          sessionID,
+          phase: decision.phase,
+          action: SessionLoop.actionName(decision.action),
         })
         if (result === "stop") break
         continue
       }
 
-      // context overflow, needs compaction
-      if (
-        lastFinished &&
-        lastFinished.summary !== true &&
-        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model }))
-      ) {
-        if (compactionAttempts >= 3) {
-          log.warn("compaction: max attempts (3) reached, stopping loop", { sessionID })
-          break
-        }
+      if (decision.action.type === "prune") {
+        await SessionCompaction.prune({ sessionID })
+        msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
+        SessionTrace.finish({
+          sessionID,
+          phase: decision.phase,
+          action: SessionLoop.actionName(decision.action),
+        })
+        continue
+      }
+
+      if (decision.action.type === "schedule-compaction") {
         compactionAttempts++
         await SessionCompaction.create({
           sessionID,
           agent: lastUser.agent,
           model: lastUser.model,
           auto: true,
+        })
+        SessionTrace.finish({
+          sessionID,
+          phase: decision.phase,
+          action: SessionLoop.actionName(decision.action),
         })
         continue
       }
@@ -793,6 +838,18 @@ export namespace SessionPrompt {
         ],
         tools: toolsAtStep(tools, isLastStep),
         model,
+      })
+      const tokens = processor.message.tokens
+      SessionTrace.finish({
+        sessionID,
+        phase: decision.phase,
+        action: isLastStep ? "step-limit" : result === "compact" ? "compact" : SessionLoop.actionName(decision.action),
+        tools: Object.keys(tools),
+        tokens: {
+          input: tokens.input,
+          output: tokens.output,
+          cache: tokens.cache.read,
+        },
       })
       if (isLastStep) {
         processor.message.finish = "step-limit"

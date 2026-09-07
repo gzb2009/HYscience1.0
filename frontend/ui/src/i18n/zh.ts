@@ -57,6 +57,8 @@ export const dict = {
   "ui.sessionTurn.status.synthesizingFindings": "整合发现",
   "ui.sessionTurn.status.writingOutput": "生成输出",
 
+  "ui.messagePart.reasoning.title": "思考过程",
+
   "ui.messagePart.diagnostic.error": "错误",
   "ui.messagePart.title.edit": "编辑",
   "ui.messagePart.title.write": "写入",

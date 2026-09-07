@@ -7,6 +7,9 @@ import { ConfigMarkdown } from "../config/markdown"
 import { PermissionNext } from "../permission/next"
 import { RSILifecycle } from "@/session/rsi/lifecycle"
 import { Global } from "@/global"
+import { Config } from "../config/config"
+import { Instance } from "../project/instance"
+import { domainSkillAllowed } from "../skill/domain-preset"
 
 // Lightweight fuzzy score: rewards substring containment + shared bigrams.
 // Returns 0..1. No external deps needed for a "did you mean?" hint.
@@ -30,15 +33,31 @@ function fuzzyScore(query: string, target: string): number {
 
 export const SkillTool = Tool.define("skill", async (ctx) => {
   const skills = await Skill.all()
+  const scoped = await (async () => {
+    try {
+      const cfg = await Config.get()
+      const subdomain = Instance.project.research?.subdomain
+      return {
+        subdomain,
+        overlay: (subdomain && cfg.domainSkill?.[subdomain]) || cfg.domainSkill?.general,
+      }
+    } catch {
+      return { subdomain: undefined, overlay: undefined }
+    }
+  })()
 
   // Filter skills by agent permissions if agent provided
   const agent = ctx?.agent
-  const accessibleSkills = agent
-    ? skills.filter((skill) => {
-        const rule = PermissionNext.evaluate("skill", skill.name, agent.permission)
-        return rule.action !== "deny"
-      })
-    : skills
+  const overlay = scoped.overlay
+  const accessibleSkills = skills.filter((skill) => {
+    const domain = overlay?.[skill.name]
+    if (domain === "deny") return false
+    if (domain === "allow") return true
+    if (!overlay && !domainSkillAllowed(scoped.subdomain, skill.name)) return false
+    if (!agent) return true
+    const rule = PermissionNext.evaluate("skill", skill.name, agent.permission)
+    return rule.action !== "deny"
+  })
 
   // Group skills by category for the description
   const categories: Record<string, Skill.Info[]> = {}
@@ -173,6 +192,10 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
       }
 
       const skill = await Skill.get(name)
+
+      if (skill && !accessibleSkills.some((item) => item.name === skill.name)) {
+        throw new Error(`Skill "${name}" is disabled for this analysis domain.`)
+      }
 
       if (!skill) {
         const names = await Skill.all().then((x) => x.map((s) => s.name))

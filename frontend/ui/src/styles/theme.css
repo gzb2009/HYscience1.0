@@ -1,7 +1,7 @@
 :root {
   /* HYscience-app typography — sans-serif UI, serif reading, JetBrains Mono (code).
      Keep in lockstep with FONT_* in frontend/workspace/src/styles/tokens.ts. */
-  --font-family-sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", "Inter", sans-serif;
+  --font-family-sans: Arial, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
   --font-family-sans--font-feature-settings: normal;
   --font-family-mono: "JetBrains Mono Nerd Font", "JetBrains Mono", Menlo, monospace;
   --font-family-mono--font-feature-settings: "liga" 0;

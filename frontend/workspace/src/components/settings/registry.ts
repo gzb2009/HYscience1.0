@@ -23,11 +23,9 @@ import type { IconProps } from "@hysci/ui/icon"
 export type SettingsSection = "capabilities" | "workspace"
 
 export type SettingsPanelId =
-  | "skills"
   | "connectors"
   | "specialists"
   | "memory"
-  | "compute"
   | "network"
   | "permissions"
   | "credentials"
@@ -50,7 +48,6 @@ export interface SettingsPanel {
 // Order here is the render order in the rail (top→bottom within each section).
 export const SETTINGS_PANELS: SettingsPanel[] = [
   // ── Capabilities ──
-  { id: "skills", title: "Skills", icon: "brain", section: "capabilities", component: lazy(() => import("./Skills")) },
   {
     id: "connectors",
     title: "Connectors",
@@ -71,13 +68,6 @@ export const SETTINGS_PANELS: SettingsPanel[] = [
     icon: "archive",
     section: "capabilities",
     component: lazy(() => import("./Memory")),
-  },
-  {
-    id: "compute",
-    title: "Compute",
-    icon: "server",
-    section: "capabilities",
-    component: lazy(() => import("./Compute")),
   },
   {
     id: "network",
@@ -120,4 +110,4 @@ export function findPanel(id: SettingsPanelId): SettingsPanel {
   return SETTINGS_PANELS.find((p) => p.id === id) ?? SETTINGS_PANELS[0]
 }
 
-export const DEFAULT_PANEL: SettingsPanelId = "skills"
+export const DEFAULT_PANEL: SettingsPanelId = "connectors"

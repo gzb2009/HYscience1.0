@@ -17,6 +17,11 @@ export namespace SessionStatus {
       }),
       z.object({
         type: z.literal("busy"),
+        phase: z
+          .enum(["processing", "subtask", "compacting", "pruning", "finalizing"])
+          .optional()
+          .describe("Current session loop phase"),
+        step: z.number().optional().describe("Current loop step"),
       }),
     ])
     .meta({

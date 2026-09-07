@@ -1143,6 +1143,10 @@ export namespace Config {
       instructions: z.array(z.string()).optional().describe("Additional instruction files or patterns to include"),
       layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
       permission: Permission.optional(),
+      domainSkill: z
+        .record(z.string(), z.record(z.string(), PermissionAction))
+        .optional()
+        .describe("Per-analysis-domain skill allow/deny overlay. Domain overlay wins over global permission.skill."),
       tools: z.record(z.string(), z.boolean()).optional(),
       enterprise: z
         .object({
@@ -1591,6 +1595,7 @@ export namespace Config {
   /** True when the patch only touches permission.skill (Home skill toggles). */
   function isSkillPermissionOnly(config: Info) {
     const keys = Object.keys(config).filter((key) => key !== "$schema")
+    if (keys.length === 1 && keys[0] === "domainSkill") return true
     if (keys.length !== 1 || keys[0] !== "permission") return false
     const perm = config.permission
     if (!perm || typeof perm === "string") return false

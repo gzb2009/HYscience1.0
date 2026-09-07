@@ -201,6 +201,29 @@ export namespace ResearchContext {
     await saveState(sessionID, await loadState(sessionID), taskID)
   }
 
+  export async function forget(sessionID: string, taskID: string, suggest: string) {
+    const state = await loadState(sessionID, taskID)
+    const current = state.constraints
+    const drop =
+      suggest === "single-cell"
+        ? ["scRNA", "scATAC", "CITE"]
+        : suggest === "spatial"
+          ? ["spatial"]
+          : suggest === "imc"
+            ? []
+            : []
+    const omicsTypes = current.omicsTypes.filter((name) => !drop.includes(name))
+    const platform =
+      suggest === "single-cell" && /10x|chromium|SMART/i.test(current.platform ?? "") ? undefined : current.platform
+    const researchAim =
+      suggest === "single-cell" && /cell-atlas|annotation|trajectory/i.test(current.researchAim ?? "")
+        ? undefined
+        : current.researchAim
+    const next = { ...current, omicsTypes, platform, researchAim, lastUpdate: Date.now() }
+    await saveState(sessionID, { ...state, constraints: next }, taskID)
+    return next
+  }
+
   export async function update(sessionID: string, taskID: string, text: string): Promise<Entities> {
     const state = await loadState(sessionID, taskID)
     const current = state.constraints

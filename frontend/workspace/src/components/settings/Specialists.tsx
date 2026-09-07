@@ -23,6 +23,8 @@ import {
 
 // System agents that are implementation details, not user-facing specialists.
 const SYSTEM_AGENTS = new Set(["title", "compaction"])
+// physics/ml/plan have no domain-guide entry; the session agent follows the project domain.
+const HIDDEN_NATIVE = new Set(["biology", "physics", "ml", "plan"])
 type Mode = "primary" | "subagent" | "all"
 
 export default function Specialists() {
@@ -36,7 +38,10 @@ export default function Specialists() {
     // subagents and hidden model-backends are excluded; custom agents are always shown so
     // they remain manageable here.
     return ((res.data ?? []) as Agent[]).filter(
-      (a) => !SYSTEM_AGENTS.has(a.name) && (!a.native || (a.mode !== "subagent" && !a.hidden)),
+      (a) =>
+        !SYSTEM_AGENTS.has(a.name) &&
+        !(a.native && HIDDEN_NATIVE.has(a.name)) &&
+        (!a.native || (a.mode !== "subagent" && !a.hidden)),
     )
   })
 
@@ -106,7 +111,7 @@ export default function Specialists() {
     <PanelScroll>
       <PanelHeader
         title="Specialists"
-        description="The specialist modes you can switch between while you work. Built-in specialists ship with HYscience; custom ones are defined in your config."
+        description="Sessions use the research harness. Direction packs (biology / physics / ML) attach from the project domain. Custom agents are defined in your config."
         toolbar={
           <Show when={!creating()}>
             <Toolbar>

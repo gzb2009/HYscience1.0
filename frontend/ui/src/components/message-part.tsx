@@ -35,6 +35,7 @@ import { useDialog } from "../context/dialog"
 import { useI18n } from "../context/i18n"
 import { BasicTool } from "./basic-tool"
 import { GenericTool } from "./basic-tool"
+import { Collapsible } from "./collapsible"
 import { Button } from "./button"
 import { Card } from "./card"
 import { Icon } from "./icon"
@@ -761,14 +762,37 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
 }
 
 PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
+  const i18n = useI18n()
   const part = props.part as ReasoningPart
   const text = () => part.text.trim()
   const throttledText = createThrottledValue(text)
+  const streaming = () => part.time.end === undefined
+  const [open, setOpen] = createSignal(props.defaultOpen ?? false)
+
+  const label = createMemo(() => {
+    const match = text().trimStart().match(/^\*\*(.+?)\*\*/)
+    if (match) return i18n.t("ui.sessionTurn.status.thinkingWithTopic", { topic: match[1].trim() })
+    if (streaming()) return i18n.t("ui.sessionTurn.status.thinking")
+    return i18n.t("ui.messagePart.reasoning.title")
+  })
 
   return (
     <Show when={throttledText()}>
-      <div data-component="reasoning-part">
-        <Markdown text={throttledText()} cacheKey={part.id} />
+      <div data-component="reasoning-part" data-streaming={streaming() ? "true" : undefined}>
+        <Collapsible variant="ghost" open={open()} onOpenChange={setOpen}>
+          <Collapsible.Trigger>
+            <div data-slot="reasoning-part-trigger">
+              <Icon name="brain" size="small" />
+              <span data-slot="reasoning-part-label">{label()}</span>
+              <Collapsible.Arrow />
+            </div>
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <div data-slot="reasoning-part-body">
+              <Markdown text={throttledText()} cacheKey={part.id} />
+            </div>
+          </Collapsible.Content>
+        </Collapsible>
       </div>
     </Show>
   )

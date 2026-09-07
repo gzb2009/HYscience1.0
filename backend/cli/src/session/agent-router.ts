@@ -78,6 +78,7 @@ export namespace AgentRouter {
         pattern: /\b(literature\s*review|systematic\s*review|prisma|meta.analysis|survey|state\s*of\s*the\s*art)\b/i,
         weight: 3,
       },
+      { pattern: /(?:文献调研|调研报告|撰写.*文献)/i, weight: 3 },
       {
         pattern: /\b(find\s*(papers?|references?|articles?|literature)|summarize\s*(the\s*)?literature)\b/i,
         weight: 2,
@@ -447,10 +448,13 @@ export namespace AgentRouter {
     ].join("\n")
   }
 
+  const PRIMARY = new Set(["research", "biology", "physics", "ml"])
+
   /** Should we recommend switching from the current agent? */
   export function shouldSwitch(current: string, rec: Recommendation): boolean {
     if (rec.agent === current) return false
     if (current === "plan") return false
+    if (PRIMARY.has(current) && PRIMARY.has(rec.agent)) return false
     return rec.agent !== ""
   }
 }

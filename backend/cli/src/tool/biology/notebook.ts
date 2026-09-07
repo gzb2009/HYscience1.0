@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from "child_process"
 import path from "path"
 import os from "os"
 import { Instance } from "@/project/instance"
+import { DomainScope } from "@/session/domain-scope"
 import { ProcessEnvironment } from "@/process/environment"
 
 const KERNEL_SCRIPT = `
@@ -252,6 +253,8 @@ export const NotebookTool = Tool.define("notebook", {
     timeout: z.number().default(120_000).describe("Execution timeout in ms (default: 120s, max: 600s)"),
   }),
   async execute(params, ctx) {
+    const off = DomainScope.blocked(ctx.sessionID)
+    if (off) throw new Error(DomainScope.refuse(off))
     const timeout = Math.min(Math.max(params.timeout, 5_000), 600_000)
 
     // Same permission as bash — this executes arbitrary code

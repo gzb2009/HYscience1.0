@@ -25,6 +25,8 @@ import { usePlatform } from "@/context/platform"
 import { useLayout } from "@/context/layout"
 import { Composer } from "@/thesis/Composer"
 import { RightPane } from "@/thesis/RightPane"
+import { ColumnHandle } from "@/thesis/ColumnHandle"
+import { SIDEBAR_COL, rightReserved } from "@/thesis/column-width"
 import { FileExplorer } from "@/thesis/FileExplorer"
 import { FileView } from "@/thesis/FilePreview"
 import { centerTabs } from "@/thesis/store/centerTabs"
@@ -61,6 +63,8 @@ import { useLanguage } from "@/context/language"
 import { projectPrefs } from "@/thesis/store/projectPrefs"
 import { SessionStatusLight } from "@/thesis/shared/SessionStatusLight"
 import { ReviewStatusCard } from "@/components/session/review-status-card"
+import { DomainSwitchCard } from "@/domain/DomainSwitchCard"
+import { switchFromParts } from "@/domain/switch"
 import { reviewForTurn, reviewState } from "@/utils/review"
 import { InlineRename } from "@/thesis/shared/InlineRename"
 import { decode64 } from "@/utils/base64"
@@ -77,7 +81,7 @@ import {
   collectRecentTurnFileNames,
   collectResultFiles,
   collectTaskFileNames,
-  organizeResultFiles,
+  customerFacingResultFiles,
   type ResultFile,
 } from "@hysci/ui/session-result"
 import {
@@ -88,16 +92,15 @@ import {
 } from "@/utils/projectResult"
 import { firstUserMessageText, getSessionDisplayTitle } from "@/utils/sessionDisplayTitle"
 import { projectMetaLocal } from "@/thesis/store/projectMetaLocal"
+import { projectDomainId } from "@/domain/registry"
+import { lastSelectedDomain } from "@/domain/store"
 import { sessionTitleLocal } from "@/thesis/store/sessionTitleLocal"
 import { toast } from "@/thesis/Toast"
 import { artifactImageUrl, artifactTable, type ArtifactData } from "@/utils/artifactPreview"
 
 type SyncSession = ReturnType<typeof useSync>["data"]["session"][number]
 /**
- * Session page — new visual identity (HYscience wordmark + sessions
- * sidebar + chat + canvas/agents/skills/files right pane) wrapping the
- * unchanged hyscience backend chat (SessionTurn rendering, PromptInput, real
- * SSE streaming, sub-task delegation, tool calls, TODOs, diff cards).
+ * Session page — sidebar + chat/files center + inspector rail (terminal/review).
  */
 export default function Page(): JSX.Element {
   const params = useParams()
@@ -380,7 +383,7 @@ export default function Page(): JSX.Element {
     const id = params.id
     if (!id) return [] as ResultFile[]
     const msgs = sync.data.message[id] ?? []
-    return organizeResultFiles(
+    return customerFacingResultFiles(
       collectResultFiles({
         assistantMessages: msgs.filter(
           (message) => message.role === "assistant",
@@ -388,19 +391,19 @@ export default function Page(): JSX.Element {
         partsByMessage: sync.data.part,
         responseText: "",
       }),
-    ).deliverables
+    )
   })
   const recentResultFiles = createMemo(() => {
     const id = params.id
     if (!id) return [] as ResultFile[]
     const msgs = sync.data.message[id] ?? []
-    return organizeResultFiles(
+    return customerFacingResultFiles(
       collectResultFiles({
         assistantMessages: assistantMessagesForLastTurn(msgs) as import("@hysci/sdk/v2/client").AssistantMessage[],
         partsByMessage: sync.data.part,
         responseText: "",
       }),
-    ).deliverables
+    )
   })
   const lastUserMessage = createMemo(() => {
     const ms = messages()
@@ -460,17 +463,17 @@ export default function Page(): JSX.Element {
   const [stepsExpanded, setStepsExpanded] = createSignal<Record<string, boolean>>({})
   const toggleSteps = (id: string) => setStepsExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
 
-  // While the agent is running, auto-expand steps so tool/reasoning progress stays visible.
-  createEffect(() => {
-    const sessionID = params.id
-    const user = lastUserMessage()
-    if (!sessionID || !user) return
-    const busy = sync.data.session_status[sessionID]?.type !== "idle"
-    if (!busy) return
-    setStepsExpanded((prev) => ({ ...prev, [user.id]: true }))
-  })
-
   const [sidebarOpen, setSidebarOpen] = createSignal(true)
+
+  onMount(() => {
+    const fit = () => {
+      uiStore.setSidebarWidth(uiStore.sidebarWidth())
+      uiStore.setRightPaneWidth(uiStore.rightPaneWidth())
+    }
+    fit()
+    window.addEventListener("resize", fit)
+    onCleanup(() => window.removeEventListener("resize", fit))
+  })
 
   useGlobalKeys({ onNew: () => void newSession() })
 
@@ -562,6 +565,23 @@ export default function Page(): JSX.Element {
   )
 
   createEffect(() => {
+    const id = params.id
+    if (!id) return
+    let size = messages().length
+    for (const message of messages()) {
+      const parts = sync.data.part[message.id] ?? []
+      size += parts.length
+      for (const part of parts) {
+        if (part.type === "text" || part.type === "reasoning") size += part.text?.length ?? 0
+      }
+    }
+    if (!size || !scrollRef || !pinnedToBottom) return
+    requestAnimationFrame(() => {
+      if (scrollRef && pinnedToBottom) stickToBottom()
+    })
+  })
+
+  createEffect(() => {
     const worktree = projectWorktree()
     if (projectRecord() && worktree) layout.projects.open(worktree)
   })
@@ -609,7 +629,7 @@ export default function Page(): JSX.Element {
           creating={creating()}
           filesActive={centerTabs.filesOpen() && centerTabs.active() === "files"}
           onToggle={() => setSidebarOpen((v) => !v)}
-          onBack={() => navigate("/")}
+          onBack={() => navigate(`/domain/${projectDomainId(projectRecord()) || lastSelectedDomain() || "general"}`)}
           onNew={() => {
             centerTabs.showChat()
             void newSession()
@@ -755,6 +775,9 @@ export default function Page(): JSX.Element {
                                 container: "w-full min-w-0",
                               }}
                             />
+                            <Show when={message.role === "user" && switchFromParts(sync.data.part[message.id] ?? [])}>
+                              {(hit) => <DomainSwitchCard hit={hit()} />}
+                            </Show>
                             <Show when={review()}>
                               {(record) => (
                                 <ReviewStatusCard
@@ -774,7 +797,7 @@ export default function Page(): JSX.Element {
                   </div>
                 </Match>
                 <Match when={true}>
-                  <ChatWelcome />
+                  <ChatWelcome domain={projectDomainId(projectRecord())} />
                 </Match>
               </Switch>
 
@@ -979,7 +1002,14 @@ function SessionsSidebar(props: {
   })
 
   return (
-    <aside class={`cs-sidebar thesis-scroll${props.open ? "" : " cs-sidebar-collapsed"}`}>
+    <aside
+      class={`cs-sidebar thesis-scroll${props.open ? "" : " cs-sidebar-collapsed"}`}
+      style={
+        props.open
+          ? { "--cs-sidebar-width": `${uiStore.sidebarWidth()}px` }
+          : undefined
+      }
+    >
       <Show
         when={props.open}
         fallback={
@@ -1115,6 +1145,18 @@ function SessionsSidebar(props: {
             <span class="cs-sidebar-files-title">{language.t("sidebar.files")}</span>
           </button>
         </div>
+        <ColumnHandle
+          edge="end"
+          value={uiStore.sidebarWidth()}
+          min={SIDEBAR_COL.min}
+          max={SIDEBAR_COL.max}
+          reserved={rightReserved}
+          label={language.t("layout.resizeSidebar")}
+          hint={language.t("layout.resizeHint")}
+          onInput={uiStore.setSidebarWidth}
+          onCommit={uiStore.commitSidebarWidth}
+          onReset={uiStore.resetSidebarWidth}
+        />
       </Show>
     </aside>
   )
@@ -1177,16 +1219,19 @@ function SessionRow(props: {
   )
 }
 
-function ChatWelcome(): JSX.Element {
+function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX.Element {
   const models = useModels()
   const dialog = useDialog()
   const language = useLanguage()
   const noModel = () => models.list().length === 0
-  const prompts = createMemo(() => [
-    language.t("chat.welcome.prompt1"),
-    language.t("chat.welcome.prompt2"),
-    language.t("chat.welcome.prompt3"),
-  ])
+  const prompts = createMemo(() => {
+    const id = props.domain
+    return [
+      language.t(`chat.welcome.${id}.1`),
+      language.t(`chat.welcome.${id}.2`),
+      language.t(`chat.welcome.${id}.3`),
+    ]
+  })
   return (
     <div class="thesis-fade-in cs-chat-welcome">
       <div class="cs-chat-welcome-hero">

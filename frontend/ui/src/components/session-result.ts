@@ -368,7 +368,19 @@ export function filterLatestFileNodes<T extends { name: string }>(
 const INTERNAL_SECTION =
   /critique|methodology|literature.?(review|search)|reasoning|research.state|script.manifest|reviewer|compaction/i
 const INTERNAL_NAME =
-  /^(literature-review|reasoning|methodology|research-state)\.(md|markdown)$|^_script_manifest\.jsonl$/i
+  /^(?:[\w-]+-)?(?:literature-review|reasoning|methodology|research-state|critique|reviewer|compaction)\.(md|markdown)$|^_script_manifest\.jsonl$/i
+export function isWorkflowArtifact(name: string): boolean {
+  const base = name.split("/").pop() || name
+  if (INTERNAL_NAME.test(base)) return true
+  const stem = base.includes(".") ? base.slice(0, base.lastIndexOf(".")) : base
+  return INTERNAL_SECTION.test(stem)
+}
+
+/** Artifacts safe to surface in the customer-facing chat result pane. */
+export function customerFacingResultFiles(files: ResultFile[]): ResultFile[] {
+  return organizeResultFiles(files.filter((file) => !isWorkflowArtifact(file.name))).deliverables
+}
+
 const DELIVERABLE_PREFIX =
   /^(?:模板已生成|已生成|文件已写入|已保存|已写入|已创建|wrote|saved|created|generated)\s*[:：]/i
 const INLINE_SECTION =

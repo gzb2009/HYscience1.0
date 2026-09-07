@@ -27,6 +27,12 @@ describe("BiologyProfile.detect", () => {
   test("detects from keywords", () => {
     expect(BiologyProfile.detect({ text: "annotate cell types from UMAP clusters" })).toBe("single-cell")
     expect(BiologyProfile.detect({ text: "对这些亚群进行重新注释" })).toBe("single-cell")
+    expect(BiologyProfile.detect({ text: "IMC imaging mass cytometry panel" })).toBe("imc")
+    expect(BiologyProfile.detect({ text: "Visium spatial transcriptomics neighborhood" })).toBe("spatial")
+  })
+
+  test("detects imc from mcd filename", () => {
+    expect(BiologyProfile.detect({ filenames: ["sample.mcd"] })).toBe("imc")
   })
 
   test("returns undefined when no signal", () => {

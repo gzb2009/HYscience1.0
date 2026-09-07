@@ -21,6 +21,7 @@ import { Plugin } from "@/plugin"
 import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { Auth } from "@/auth"
+import { ContextBudget } from "./context-budget"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -166,7 +167,7 @@ export namespace LLM {
           input.model.api.npm,
           params.options,
           input.model.limit.output,
-          OUTPUT_TOKEN_MAX,
+          ContextBudget.outputMax(input.model),
         )
 
     const tools = input.tools

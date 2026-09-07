@@ -53,6 +53,8 @@ export const dict = {
   "ui.sessionTurn.status.gatheringThoughts": "Recopilando pensamientos",
   "ui.sessionTurn.status.consideringNextSteps": "Considerando siguientes pasos",
 
+  "ui.messagePart.reasoning.title": "Proceso de pensamiento",
+
   "ui.messagePart.diagnostic.error": "Error",
   "ui.messagePart.title.edit": "Editar",
   "ui.messagePart.title.write": "Escribir",

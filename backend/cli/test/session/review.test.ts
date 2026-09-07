@@ -37,6 +37,7 @@ describe("SessionReview.shouldReview", () => {
 describe("SessionReview.reviewerFor", () => {
   test("maps each domain to its sharpest reviewer", () => {
     expect(SessionReview.reviewerFor("physics")).toBe("physics-critique")
+    expect(SessionReview.reviewerFor("research", "physics")).toBe("physics-critique")
     expect(SessionReview.reviewerFor("research")).toBe("reviewer")
     expect(SessionReview.reviewerFor("biology")).toBe("reviewer")
     expect(SessionReview.reviewerFor("ml")).toBe("reviewer")
@@ -108,6 +109,7 @@ describe("SessionReview policy", () => {
 
   test("defaults research agents to annotate and honors explicit policy", () => {
     expect(SessionReview.modeFor("research")).toBe("annotate")
+    expect(SessionReview.modeFor("research", undefined, "physics")).toBe("annotate")
     expect(SessionReview.modeFor("physics")).toBe("off")
     expect(SessionReview.modeFor("research", "enforce")).toBe("enforce")
     expect(SessionReview.modeFor("research", "off")).toBe("off")

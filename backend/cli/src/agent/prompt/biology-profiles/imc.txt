@@ -1,0 +1,13 @@
+<biology-task-profile name="imc">
+Focus: Imaging Mass Cytometry — segmentation, phenotyping, neighborhood, region composition.
+
+Load skills first: `imc-analysis`, `pcf-analysis`, `bioimage-analysis`, `squidpy`.
+Prefer the IMC pipeline over generic single-cell scripts when inputs are MCD/TIFF/OME-TIFF.
+
+BLOCKING before COMPUTE:
+1. Confirm panel / channel metadata and segmentation method
+2. Write methodology citing literature-review.md
+3. Record provenance_record on masks, cell tables, and neighborhood outputs
+
+Do not treat IMC protein images as scRNA-seq. Use spatial-neighborhood and protein co-expression tools.
+</biology-task-profile>

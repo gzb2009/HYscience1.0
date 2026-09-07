@@ -5,6 +5,7 @@ import path from "path"
 import os from "os"
 import { unlinkSync } from "fs"
 import { Instance } from "@/project/instance"
+import { DomainScope } from "@/session/domain-scope"
 import { ProcessEnvironment } from "@/process/environment"
 import type {
   Kernel,
@@ -435,6 +436,8 @@ export const NotebookTool = Tool.define("notebook", {
     timeout: z.number().default(120_000).describe("Execution timeout in ms (default: 120s, max: 600s)"),
   }),
   async execute(params, ctx) {
+    const off = DomainScope.blocked(ctx.sessionID)
+    if (off) throw new Error(DomainScope.refuse(off))
     // Executes arbitrary code — same permission gate as bash.
     await ctx.ask({
       permission: "bash",

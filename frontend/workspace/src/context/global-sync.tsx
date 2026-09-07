@@ -486,8 +486,8 @@ function createGlobalSync() {
         const children = store.session.filter((s) => !!s.parentID)
         const sessions = trimSessions([...nonArchived, ...children], { limit, permission: store.permission })
 
-        // Store total session count (used for "load more" pagination)
-        setStore("sessionTotal", nonArchived.length)
+        // Root sessions only — matches sidebar / home list, and session.created/deleted
+        setStore("sessionTotal", nonArchived.filter((s) => !s.parentID).length)
         setStore("session", reconcile(sessions, { key: "id" }))
         sessionMeta.set(directory, { limit })
       })

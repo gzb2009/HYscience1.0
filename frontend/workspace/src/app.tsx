@@ -38,6 +38,8 @@ import { Suspense } from "solid-js"
 import { AgentIcon } from "@/thesis/shared/AgentIcon"
 
 const Home = lazy(() => import("@/pages/home"))
+const DomainGuide = lazy(() => import("@/pages/domain-guide"))
+const HomeEntry = lazy(() => import("@/pages/home-entry"))
 const Session = lazy(() => import("@/pages/session"))
 const Loading = () => (
   <div class="size-full" style={{ display: "flex", "align-items": "center", "justify-content": "center" }}>
@@ -141,6 +143,22 @@ export function AppInterface(props: { defaultUrl?: string }) {
             >
               <Route
                 path="/"
+                component={() => (
+                  <Suspense fallback={<Loading />}>
+                    <HomeEntry />
+                  </Suspense>
+                )}
+              />
+              <Route
+                path="/domains"
+                component={() => (
+                  <Suspense fallback={<Loading />}>
+                    <DomainGuide />
+                  </Suspense>
+                )}
+              />
+              <Route
+                path="/domain/:id"
                 component={() => (
                   <Suspense fallback={<Loading />}>
                     <Home />

@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test"
 import type { AssistantMessage, Part as PartType } from "@hysci/sdk/v2/client"
 import {
   collectResultFiles,
+  customerFacingResultFiles,
   formatResultMarkdown,
   formatSectionForDisplay,
+  isWorkflowArtifact,
   organizeResultFiles,
   filterLatestFileNodes,
   assistantMessagesForLastTurn,
@@ -84,6 +86,32 @@ describe("formatSectionForDisplay", () => {
       text: "- 补充样本信息",
     })
     expect(text).toBe("### 下一步\n\n- 补充样本信息")
+  })
+})
+
+describe("customerFacingResultFiles", () => {
+  test("hides internal workflow artifacts like literature-review.md", () => {
+    const files = [
+      {
+        path: "result/literature-review.md",
+        name: "literature-review.md",
+        kind: "md" as const,
+        role: "supporting" as const,
+        verified: true,
+      },
+      {
+        path: "result/pdac_annotation.xlsx",
+        name: "pdac_annotation.xlsx",
+        kind: "xlsx" as const,
+        role: "primary" as const,
+        verified: true,
+      },
+    ]
+    expect(isWorkflowArtifact("literature-review.md")).toBe(true)
+    expect(isWorkflowArtifact("codex-literature-review.md")).toBe(true)
+    expect(isWorkflowArtifact("imc-literature-review.md")).toBe(true)
+    expect(isWorkflowArtifact("pdac_annotation.xlsx")).toBe(false)
+    expect(customerFacingResultFiles(files).map((file) => file.name)).toEqual(["pdac_annotation.xlsx"])
   })
 })
 
