@@ -77,11 +77,60 @@ describe("prompt-inject", () => {
     expect((hp[0] as any).text).toContain("Service Boundaries And Scientific Rigor")
   })
 
+  test("injectDisciplinePack loads the biology pack without harness copy", () => {
+    const msg = mkMsg("user")
+    Inject.injectDisciplinePack(msg, "biology")
+    const text = (msg.parts.find((p: any) => p.hybio) as any).text
+    expect(text).toContain("<biology-pack>")
+    expect(text).toContain("Self-check")
+    expect(text).not.toContain("grill-me")
+    expect(text).not.toContain("You are HYscience Biology")
+  })
+
+  test("injectDisciplinePack loads physics and ml packs", () => {
+    const physics = mkMsg("user")
+    Inject.injectDisciplinePack(physics, "physics")
+    expect((physics.parts.find((p: any) => p.hybio) as any).text).toContain("<physics-pack>")
+
+    const ml = mkMsg("user")
+    Inject.injectDisciplinePack(ml, "ml")
+    expect((ml.parts.find((p: any) => p.hybio) as any).text).toContain("<ml-pack>")
+  })
+
   test("injectBiologyServiceContract idempotent", () => {
     const msg = mkMsg("user")
     Inject.injectBiologyServiceContract(msg)
     Inject.injectBiologyServiceContract(msg)
     expect(msg.parts.filter((p: any) => p.hybio).length).toBe(1)
+  })
+
+  test("injectGrillMe skips ordinary questions", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const msg = mkMsg("user")
+        pushUserText(msg, "IMC 邻域分析用什么指标？")
+        await Inject.injectGrillMe(msg)
+        expect(msg.parts.filter((p: any) => p.hybio).length).toBe(0)
+      },
+    })
+  })
+
+  test("injectGrillMe loads on /grill or expensive runs", async () => {
+    await Instance.provide({
+      directory: path.join(__dirname, "../.."),
+      fn: async () => {
+        const ask = mkMsg("user")
+        pushUserText(ask, "/grill 这个分割方案")
+        await Inject.injectGrillMe(ask)
+        expect((ask.parts.find((p: any) => p.hybio) as any).text).toContain("grill-me")
+
+        const run = mkMsg("user")
+        pushUserText(run, "准备在 GPU 上重跑全部样本分割")
+        await Inject.injectGrillMe(run)
+        expect((run.parts.find((p: any) => p.hybio) as any).text).toContain("grill-me")
+      },
+    })
   })
 
   test("injectCorrectionContext flags corrected assumptions", () => {

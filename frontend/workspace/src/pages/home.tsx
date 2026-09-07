@@ -1,5 +1,5 @@
-import { createEffect, createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js"
-import { useNavigate } from "@solidjs/router"
+import { createEffect, createMemo, createSignal, For, Show, type JSX } from "solid-js"
+import { useNavigate, useParams } from "@solidjs/router"
 import { base64Encode } from "@hysci/util/encode"
 import type { Project, Session } from "@hysci/sdk/v2/client"
 import { DropdownMenu } from "@hysci/ui/dropdown-menu"
@@ -16,7 +16,7 @@ import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { ToastContainer } from "@/thesis/Toast"
 import { toast } from "@/thesis/Toast"
 import { DialogSettings } from "@/components/dialog-settings"
-import { HomeCapabilities } from "@/components/home-capabilities/HomeCapabilities"
+import { HomeUserMenu } from "@/components/home-user-menu"
 import { DisconnectedPanel } from "@/thesis/DisconnectedPanel"
 import { uiStore } from "@/thesis/store/ui"
 import { useGlobalKeys } from "@/thesis/useGlobalKeys"
@@ -33,17 +33,18 @@ import { sessionTitleLocal } from "@/thesis/store/sessionTitleLocal"
 import { resolveProjectWorkingDir } from "@/utils/projectWorkspace"
 import { isResultDirectory, normalizeResultFolderName, resultFolderName } from "@/utils/projectResult"
 import { runningSessionCount } from "@/thesis/project-session-status"
+import { domainById, isDomainId, projectDomainId } from "@/domain/registry"
+import { provisionDomainWorkspace, resolveDomainWorkspace } from "@/utils/domainWorkspace"
+import { rememberDomain } from "@/domain/store"
 import {
   IconCircle,
   IconClock,
   IconFolder,
-  IconLogOut,
   IconMoreH,
   IconPlus,
   IconSettings,
   IconStarFilled,
   IconTrash,
-  IconUser,
 } from "@/thesis/shared/Icon"
 
 function sessionUpdatedAt(session: Session): number {
@@ -75,9 +76,16 @@ export default function Home(): JSX.Element {
   const platform = usePlatform()
   const dialog = useDialog()
   const navigate = useNavigate()
+  const params = useParams()
   const server = useServer()
   const language = useLanguage()
   const fetchFn = () => platform.fetch ?? fetch
+  const domain = createMemo(() => domainById(params.id))
+
+  createEffect(() => {
+    const id = domain()?.id
+    if (id) rememberDomain(id)
+  })
 
   const projects = createMemo(() => {
     projectMetaLocal.all()
@@ -102,7 +110,12 @@ export default function Home(): JSX.Element {
       if (!worktree || hide.has(worktree) || hide.has(norm(worktree)) || byWorktree.has(worktree)) continue
       if (isResultDirectory(worktree)) continue
       // Skip if a sync project already covers this path (same folder / git root).
-      if ([...byWorktree.keys()].some((root) => worktree === root || worktree.startsWith(root + "/"))) continue
+      const nested = worktree.split("/").filter(Boolean).at(-1) ?? ""
+      if (
+        !isDomainId(nested) &&
+        [...byWorktree.keys()].some((root) => worktree === root || worktree.startsWith(root + "/"))
+      )
+        continue
       const now = Date.now()
       byWorktree.set(worktree, {
         id: worktree,
@@ -113,12 +126,15 @@ export default function Home(): JSX.Element {
     }
     // Stable order: favorites first, then worktree path. Avoid sorting by
     // time.updated — config/session refreshes mutate timestamps and reshuffle the list.
-    return Array.from(byWorktree.values()).sort((a, b) => {
+    const all = Array.from(byWorktree.values()).sort((a, b) => {
       const af = fav.has(a.worktree) ? 1 : 0
       const bf = fav.has(b.worktree) ? 1 : 0
       if (af !== bf) return bf - af
       return a.worktree.localeCompare(b.worktree)
     })
+    const id = domain()?.id
+    if (!id) return all
+    return all.filter((project) => projectDomainId(project) === id)
   })
 
   const projectRows = createMemo(() => {
@@ -265,12 +281,34 @@ export default function Home(): JSX.Element {
   async function finalizeCreate(values: ProjectFormValues) {
     const directory = values.directory
     if (!directory) return
+    const domain = projectDomainId({
+      research: { domain: values.researchDomain, subdomain: values.researchSubdomain },
+    })
+    const workspace = resolveDomainWorkspace({
+      picked: directory,
+      domain,
+      projects: sync.data.project,
+    })
     try {
-      const result = await applyProjectMeta(directory, {
+      await provisionDomainWorkspace({
+        baseUrl: sdk.url,
+        fetchFn: fetchFn(),
+        picked: directory,
+        workspace,
+        domain,
+      })
+      const current = await sdk.client.project.current({ directory: workspace }).catch(() => undefined)
+      const bound = current?.data?.worktree?.replace(/\/$/, "")
+      if (bound && bound !== workspace.replace(/\/$/, "")) {
+        toast.error(language.t("dialog.project.new.isolateFailed"))
+        return
+      }
+      const result = await applyProjectMeta(workspace, {
         ...values,
+        directory: workspace,
         resultFolderName: normalizeResultFolderName(
           values.name ? (values.resultFolderName ?? values.name) : "",
-          directory,
+          workspace,
         ),
       })
       projectPrefs.unhide(result.root)
@@ -283,7 +321,17 @@ export default function Home(): JSX.Element {
   }
 
   function openNewProjectDialog() {
-    dialog.show(() => <DialogProjectForm mode="create" onCreate={(values) => void finalizeCreate(values)} />)
+    const item = domain()
+    dialog.show(() => (
+      <DialogProjectForm
+        mode="create"
+        initial={{
+          researchDomain: item?.researchDomain ?? "general",
+          researchSubdomain: item?.subdomain,
+        }}
+        onCreate={(values) => void finalizeCreate(values)}
+      />
+    ))
   }
 
   function openProjectSettings(project: Project) {
@@ -338,8 +386,7 @@ export default function Home(): JSX.Element {
 
       <main class="thesis-scroll cs-home-main">
         <HomeParticles />
-        <Show when={projects().length > 0} fallback={<EmptyHero onChoose={openNewProjectDialog} />}>
-          <div class="cs-workbench-inner">
+        <div class="cs-workbench-inner">
             <div class="cs-workbench-header">
               <div class="cs-workbench-brand-block">
                 <AgentIcon
@@ -351,15 +398,29 @@ export default function Home(): JSX.Element {
                   }}
                 />
                 <div class="cs-workbench-copy">
-                  <h1 class="cs-workbench-brand">HYscience</h1>
+                  <h1 class="cs-workbench-brand">
+                    {domain() ? language.t(`domain.${domain()!.id}.title`) : "HYscience"}
+                  </h1>
                   <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
                 </div>
               </div>
               <div class="cs-workbench-actions">
+                <button type="button" class="cs-btn-ghost" onClick={() => navigate("/domains")}>
+                  {language.t("domain.guide.switch")}
+                </button>
                 <HomeUserMenu onSettings={openSettings} />
               </div>
             </div>
 
+            <Show
+              when={projects().length > 0}
+              fallback={
+                <EmptyHero
+                  onChoose={openNewProjectDialog}
+                  title={domain() ? language.t("domain.guide.empty") : undefined}
+                />
+              }
+            >
             <div class="cs-dashboard">
               <section>
                 <div class="cs-section-head-row">
@@ -432,80 +493,11 @@ export default function Home(): JSX.Element {
                 </div>
               </section>
             </div>
+            </Show>
 
-            <HomeCapabilities />
           </div>
-        </Show>
       </main>
     </div>
-  )
-}
-
-function HomeUserMenu(props: { onSettings: () => void }): JSX.Element {
-  const sdk = useGlobalSDK()
-  const server = useServer()
-  const language = useLanguage()
-  const [open, setOpen] = createSignal(false)
-  const [email, setEmail] = createSignal("")
-
-  onMount(() => {
-    void sdk.client.account
-      .get()
-      .then((res) => {
-        const data = ((res as { data?: { user?: { email?: string } } }).data ?? res) as {
-          user?: { email?: string }
-        }
-        setEmail(data.user?.email ?? "")
-      })
-      .catch(() => undefined)
-  })
-
-  const displayEmail = () => email() || `local@${server.name || "hyscience"}`
-
-  async function signOut() {
-    if (!window.confirm(language.t("home.user.signOutConfirm"))) return
-    try {
-      const res = await sdk.client.account.logout()
-      if (res.error) throw new Error(String(res.error))
-      setEmail("")
-      toast.info(language.t("home.user.signOut"))
-    } catch (err) {
-      toast.error(language.t("home.user.signOut"), err instanceof Error ? err.message : String(err))
-    } finally {
-      setOpen(false)
-    }
-  }
-
-  return (
-    <DropdownMenu open={open()} onOpenChange={setOpen} modal={false}>
-      <DropdownMenu.Trigger class="cs-workbench-icon-btn" data-expanded={open() ? "true" : "false"}>
-        <IconUser size={64} strokeWidth={1.5} />
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content class="cs-user-menu mt-2">
-          <span class="cs-user-menu-email">{displayEmail()}</span>
-          <DropdownMenu.Item
-            class="cs-user-menu-item"
-            onSelect={() => {
-              setOpen(false)
-              props.onSettings()
-            }}
-          >
-            <IconSettings size={15} strokeWidth={1.5} />
-            {language.t("sidebar.settings")}
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            class="cs-user-menu-item"
-            onSelect={() => {
-              void signOut()
-            }}
-          >
-            <IconLogOut size={15} strokeWidth={1.5} />
-            {language.t("home.user.signOut")}
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu>
   )
 }
 
@@ -639,13 +631,13 @@ function ProjectSessionStatus(props: {
   )
 }
 
-function EmptyHero(props: { onChoose: () => void }): JSX.Element {
+function EmptyHero(props: { onChoose: () => void; title?: string }): JSX.Element {
   const language = useLanguage()
 
   return (
     <div class="cs-empty-hero thesis-fade-in">
       <Wordmark size="lg" textOnly showBeta />
-      <p class="cs-empty-hero-desc">{language.t("home.empty.description")}</p>
+      <p class="cs-empty-hero-desc">{props.title ?? language.t("home.empty.description")}</p>
       <button type="button" class="cs-btn-primary" onClick={props.onChoose} style={{ "margin-top": "8px" }}>
         <IconFolder size={14} strokeWidth={1.5} />
         {language.t("home.openFolder")}

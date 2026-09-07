@@ -115,7 +115,7 @@ jobs:
       - name: Run hyscience server
         if: matrix.settings.name != 'windows'
         working-directory: backend/cli
-        run: bun dev -- --print-logs --log-level WARN serve --port 4096 --hostname 127.0.0.1 &
+        run: bun run --conditions=browser ./src/index.ts --print-logs --log-level WARN serve --port 4096 &
         env:
           HYSCIENCE_DISABLE_SHARE: "true"
           HYSCIENCE_DISABLE_LSP_DOWNLOAD: "true"

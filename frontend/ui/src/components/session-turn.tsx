@@ -34,6 +34,7 @@ import { DiffChanges } from "./diff-changes"
 import { Message, Part } from "./message-part"
 import { Markdown } from "./markdown"
 import { Accordion } from "./accordion"
+import { Collapsible } from "./collapsible"
 import { StickyAccordionHeader } from "./sticky-accordion-header"
 import { FileIcon } from "./file-icon"
 import { Icon } from "./icon"
@@ -366,6 +367,18 @@ export function SessionTurn(
   const lastAssistantMessage = createMemo(() => assistantMessages().at(-1))
 
   const error = createMemo(() => assistantMessages().find((m) => m.error)?.error)
+
+  const reasoningParts = createMemo(() => {
+    const out: { id: string; text: string }[] = []
+    for (const msg of assistantMessages()) {
+      for (const part of data.store.part[msg.id] ?? emptyParts) {
+        if (part?.type !== "reasoning") continue
+        const text = (part as ReasoningPart).text?.trim()
+        if (text) out.push({ id: part.id, text })
+      }
+    }
+    return out
+  })
 
   const lastTextPart = createMemo(() => {
     const msgs = assistantMessages()
@@ -825,7 +838,12 @@ export function SessionTurn(
                     <div class="sr-only" aria-live="polite">
                       {!props.hideResponse && !working() && response() ? response() : ""}
                     </div>
-                    <Show when={!props.hideResponse && (response() || hasDiffs())}>
+                    <Show
+                      when={
+                        !props.hideResponse &&
+                        (response() || hasDiffs() || resultFiles().length > 0 || reasoningParts().length > 0)
+                      }
+                    >
                       <div
                         data-slot="session-turn-summary-section"
                         data-streaming={working() && !!response()}
@@ -833,13 +851,31 @@ export function SessionTurn(
                       >
                         <div data-slot="session-turn-summary-header">
                           <h2 data-slot="session-turn-summary-title">{i18n.t("ui.sessionTurn.summary.response")}</h2>
-                          <Show when={resultFiles().length > 0}>
-                            <ResultFileCards
-                              files={resultFiles()}
-                              onOpenFile={props.onOpenFile}
-                              onPreviewFile={props.onPreviewFile}
-                              renderFilePreview={props.renderFilePreview}
-                            />
+                          <Show when={reasoningParts().length > 0}>
+                            <div data-slot="session-turn-reasoning">
+                              <For each={reasoningParts()}>
+                                {(item) => (
+                                  <div data-component="reasoning-part">
+                                    <Collapsible variant="ghost">
+                                      <Collapsible.Trigger>
+                                        <div data-slot="reasoning-part-trigger">
+                                          <Icon name="brain" size="small" />
+                                          <span data-slot="reasoning-part-label">
+                                            {i18n.t("ui.messagePart.reasoning.title")}
+                                          </span>
+                                          <Collapsible.Arrow />
+                                        </div>
+                                      </Collapsible.Trigger>
+                                      <Collapsible.Content>
+                                        <div data-slot="reasoning-part-body">
+                                          <Markdown text={item.text} cacheKey={item.id} />
+                                        </div>
+                                      </Collapsible.Content>
+                                    </Collapsible>
+                                  </div>
+                                )}
+                              </For>
+                            </div>
                           </Show>
                           <div data-slot="session-turn-response">
                             <For each={displaySections()}>
@@ -854,6 +890,14 @@ export function SessionTurn(
                                 </section>
                               )}
                             </For>
+                            <Show when={resultFiles().length > 0}>
+                              <ResultFileCards
+                                files={resultFiles()}
+                                onOpenFile={props.onOpenFile}
+                                onPreviewFile={props.onPreviewFile}
+                                renderFilePreview={props.renderFilePreview}
+                              />
+                            </Show>
                             <Show when={response()}>
                               <div data-slot="session-turn-response-copy-wrapper">
                                 <Tooltip

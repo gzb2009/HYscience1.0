@@ -5,10 +5,11 @@ import ML_EVALUATION from "../agent/prompt/ml-profiles/evaluation.txt"
 import ML_INFERENCE from "../agent/prompt/ml-profiles/inference.txt"
 import ML_TRAINING from "../agent/prompt/ml-profiles/training.txt"
 import { BiologyProfile, type BiologyProfile as BiologySubdomain } from "./biology-profile"
+import { DomainScope } from "./domain-scope"
 import type { Project } from "../project/project"
 
 export const SUBDOMAINS = {
-  biology: ["genomics", "single-cell", "proteomics", "structure", "chemo"],
+  biology: ["imc", "single-cell", "spatial", "genomics", "proteomics", "structure", "chemo"],
   physics: ["simulation", "theory", "experiment"],
   ml: ["training", "evaluation", "inference"],
   general: [],
@@ -28,10 +29,21 @@ const FRAGMENTS = {
 }
 
 export namespace TaskProfile {
-  export function agent(research: Project.Research | undefined) {
-    return research?.domain === "biology" || research?.domain === "physics" || research?.domain === "ml"
-      ? research.domain
-      : "research"
+  export function agent(_research: Project.Research | undefined) {
+    return "research"
+  }
+
+  export function pack(research: Project.Research | undefined) {
+    if (research?.domain === "biology" || research?.domain === "physics" || research?.domain === "ml") {
+      return research.domain
+    }
+    return undefined
+  }
+
+  export function packFile(name: "biology" | "physics" | "ml") {
+    if (name === "biology") return "biology-core-v2.txt"
+    if (name === "physics") return "physics.txt"
+    return "ml.txt"
   }
 
   export function fragment(research: Project.Research | undefined, input: { text: string; filenames: string[] }) {
@@ -51,6 +63,11 @@ export namespace TaskProfile {
 
   export function context(research: Project.Research | undefined) {
     if (!research) return undefined
+    const lock = DomainScope.lock(research.subdomain)
+    if (lock) {
+      const notes = research.notes?.trim()
+      return notes ? `${lock}\n${notes}` : lock
+    }
     const lines = [
       `<project-research domain="${research.domain}"${research.subdomain ? ` subdomain="${research.subdomain}"` : ""}>`,
       "This project configuration is authoritative for strategy selection. Adapt subsequent responses to it unless the user explicitly changes the project settings.",

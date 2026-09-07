@@ -43,8 +43,9 @@ describe("AgentRouter v2 regex fallback", () => {
     expect(AgentRouter.shouldSwitch("research", { agent: "research", reason: "no change" })).toBe(false)
   })
 
-  test("shouldSwitch true when different agent", () => {
-    expect(AgentRouter.shouldSwitch("research", { agent: "biology", reason: "bio task" })).toBe(true)
+  test("shouldSwitch false between primary harness agents", () => {
+    expect(AgentRouter.shouldSwitch("research", { agent: "biology", reason: "bio task" })).toBe(false)
+    expect(AgentRouter.shouldSwitch("research", { agent: "ml", reason: "train" })).toBe(false)
   })
 
   test("shouldSwitch false for plan agent", () => {

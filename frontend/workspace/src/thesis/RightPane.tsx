@@ -1,48 +1,58 @@
-import { createSignal, Show, type JSX } from "solid-js"
-import { uiStore } from "@/thesis/store/ui"
-import { TerminalTab } from "@/thesis/RightPane/TerminalTab"
-import { ReviewInspector } from "@/thesis/RightPane/ReviewInspector"
-import { IconBrain, IconChevronLeft, IconChevronRight, IconTerminal } from "@/thesis/shared/Icon"
+import { createMemo, For, Show, type JSX } from "solid-js"
+import { useParams } from "@solidjs/router"
+import { useSync } from "@/context/sync"
+import { useLanguage } from "@/context/language"
+import { uiStore, type RightPaneTab } from "@/thesis/store/ui"
+import { ColumnHandle } from "@/thesis/ColumnHandle"
+import { RIGHT_COL, leftReserved } from "@/thesis/column-width"
+import { NowTab } from "@/thesis/RightPane/NowTab"
+import { EvidenceTab } from "@/thesis/RightPane/EvidenceTab"
+import { RunTab } from "@/thesis/RightPane/RunTab"
+import { AgentsTab } from "@/thesis/RightPane/AgentsTab"
+import {
+  IconActivity,
+  IconBookOpen,
+  IconChevronLeft,
+  IconChevronRight,
+  IconGitBranch,
+  IconTerminal,
+} from "@/thesis/shared/Icon"
 
-const WIDTH_KEY = "thesis-right-pane-width-v1"
-const MIN_WIDTH = 256
-const MAX_WIDTH = 480
 const RAIL_WIDTH = 32
 
-function savedWidth() {
-  try {
-    const value = Number(localStorage.getItem(WIDTH_KEY))
-    if (Number.isFinite(value) && value >= MIN_WIDTH && value <= MAX_WIDTH) return value
-  } catch {}
-  return 320
-}
-
 export function RightPane(props: { sessionID?: string }): JSX.Element {
-  const [width, setWidth] = createSignal(savedWidth())
-  let drag: { x: number; width: number } | undefined
+  const params = useParams()
+  const sync = useSync()
+  const language = useLanguage()
+  const sessionID = () => props.sessionID ?? params.id
+  const hasAgents = createMemo(() => {
+    const id = sessionID()
+    if (!id) return false
+    const nested = (parentID: string | undefined): boolean => {
+      if (!parentID) return false
+      if (parentID === id) return true
+      return nested(sync.data.session.find((row) => row.id === parentID)?.parentID)
+    }
+    return sync.data.session.some((item) => nested(item.parentID))
+  })
 
-  function pointerDown(event: PointerEvent) {
-    drag = { x: event.clientX, width: width() }
-    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-    document.body.style.cursor = "ew-resize"
-  }
+  const tabs = createMemo(() => {
+    const list: { id: RightPaneTab; label: string; icon: JSX.Element }[] = [
+      { id: "now", label: language.t("rightpane.tab.now"), icon: <IconActivity size={13} strokeWidth={1.6} /> },
+      { id: "evidence", label: language.t("rightpane.tab.evidence"), icon: <IconBookOpen size={13} strokeWidth={1.6} /> },
+      { id: "run", label: language.t("rightpane.tab.run"), icon: <IconTerminal size={13} strokeWidth={1.6} /> },
+    ]
+    if (hasAgents()) {
+      list.push({
+        id: "agents",
+        label: language.t("rightpane.tab.agents"),
+        icon: <IconGitBranch size={13} strokeWidth={1.6} />,
+      })
+    }
+    return list
+  })
 
-  function pointerMove(event: PointerEvent) {
-    if (!drag) return
-    setWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, drag.width + drag.x - event.clientX)))
-  }
-
-  function pointerUp(event: PointerEvent) {
-    if (!drag) return
-    drag = undefined
-    ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
-    document.body.style.cursor = ""
-    try {
-      localStorage.setItem(WIDTH_KEY, String(width()))
-    } catch {}
-  }
-
-  function open(tab: "terminal" | "review") {
+  function open(tab: RightPaneTab) {
     uiStore.setRightPaneTab(tab)
     uiStore.setRightPaneOpen(true)
   }
@@ -51,71 +61,65 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
     <Show
       when={uiStore.rightPaneOpen()}
       fallback={
-        <aside class="cs-rightpane-rail" aria-label="Inspector" style={rail()}>
+        <aside class="cs-rightpane-rail" aria-label={language.t("rightpane.label")} style={rail()}>
           <button
             type="button"
-            title="展开终端"
-            aria-label="展开终端"
+            title={language.t("rightpane.expand")}
+            aria-label={language.t("rightpane.expand")}
             onClick={() => uiStore.setRightPaneOpen(true)}
             style={railButton()}
           >
             <IconChevronLeft size={15} strokeWidth={1.5} />
           </button>
-          <button
-            type="button"
-            title="终端"
-            aria-label="打开终端"
-            onClick={() => open("terminal")}
-            style={railButton()}
-            data-active={uiStore.rightPaneTab() === "terminal" ? "true" : undefined}
-          >
-            <IconTerminal size={15} strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
-            title="Review"
-            aria-label="Open review inspector"
-            onClick={() => open("review")}
-            style={railButton()}
-            data-active={uiStore.rightPaneTab() === "review" ? "true" : undefined}
-          >
-            <IconBrain size={15} strokeWidth={1.5} />
-          </button>
+          <For each={tabs()}>
+            {(tab) => (
+              <button
+                type="button"
+                title={tab.label}
+                aria-label={tab.label}
+                onClick={() => open(tab.id)}
+                style={railButton()}
+                data-active={uiStore.rightPaneTab() === tab.id ? "true" : undefined}
+              >
+                {tab.icon}
+              </button>
+            )}
+          </For>
         </aside>
       }
     >
-      <aside class="cs-rightpane-fixed" aria-label="Inspector" style={pane(width())}>
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          onPointerDown={pointerDown}
-          onPointerMove={pointerMove}
-          onPointerUp={pointerUp}
-          style={resizeHandle()}
+      <aside class="cs-rightpane-fixed" aria-label={language.t("rightpane.label")} style={pane(uiStore.rightPaneWidth())}>
+        <ColumnHandle
+          edge="start"
+          value={uiStore.rightPaneWidth()}
+          min={RIGHT_COL.min}
+          max={RIGHT_COL.max}
+          reserved={leftReserved}
+          label={language.t("layout.resizeInspector")}
+          hint={language.t("layout.resizeHint")}
+          onInput={uiStore.setRightPaneWidth}
+          onCommit={uiStore.commitRightPaneWidth}
+          onReset={uiStore.resetRightPaneWidth}
         />
         <header style={header()}>
-          <nav class="cs-rightpane-tabs" aria-label="Inspector views">
-            <button
-              type="button"
-              data-active={uiStore.rightPaneTab() === "terminal" ? "true" : undefined}
-              onClick={() => uiStore.setRightPaneTab("terminal")}
-            >
-              <IconTerminal size={13} strokeWidth={1.6} />
-              Terminal
-            </button>
-            <button
-              type="button"
-              data-active={uiStore.rightPaneTab() === "review" ? "true" : undefined}
-              onClick={() => uiStore.setRightPaneTab("review")}
-            >
-              <IconBrain size={13} strokeWidth={1.6} />
-              Review
-            </button>
+          <nav class="cs-rightpane-tabs" aria-label={language.t("rightpane.label")}>
+            <For each={tabs()}>
+              {(tab) => (
+                <button
+                  type="button"
+                  data-active={uiStore.rightPaneTab() === tab.id ? "true" : undefined}
+                  onClick={() => uiStore.setRightPaneTab(tab.id)}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              )}
+            </For>
           </nav>
           <button
             type="button"
-            title="收起"
-            aria-label="收起终端"
+            title={language.t("rightpane.collapse")}
+            aria-label={language.t("rightpane.collapse")}
             onClick={() => uiStore.setRightPaneOpen(false)}
             style={railButton()}
           >
@@ -123,11 +127,17 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
           </button>
         </header>
         <div style={{ flex: 1, "min-height": 0, display: "flex" }}>
-          <Show when={uiStore.rightPaneTab() === "terminal"}>
-            <TerminalTab />
+          <Show when={uiStore.rightPaneTab() === "now"}>
+            <NowTab />
           </Show>
-          <Show when={uiStore.rightPaneTab() === "review"}>
-            <ReviewInspector sessionID={props.sessionID} />
+          <Show when={uiStore.rightPaneTab() === "evidence"}>
+            <EvidenceTab sessionID={sessionID()} />
+          </Show>
+          <Show when={uiStore.rightPaneTab() === "run"}>
+            <RunTab />
+          </Show>
+          <Show when={uiStore.rightPaneTab() === "agents" && hasAgents()}>
+            <AgentsTab />
           </Show>
         </div>
       </aside>
@@ -142,7 +152,7 @@ function pane(width: number): JSX.CSSProperties {
     display: "flex",
     "flex-direction": "column",
     position: "relative",
-    "min-width": `${MIN_WIDTH}px`,
+    "min-width": `${RIGHT_COL.min}px`,
     "border-left": "1px solid var(--color-border)",
     background: "var(--color-bg-subtle)",
   }
@@ -159,19 +169,6 @@ function rail(): JSX.CSSProperties {
     padding: "10px 0",
     "border-left": "1px solid var(--color-border)",
     background: "var(--color-bg-subtle)",
-  }
-}
-
-function resizeHandle(): JSX.CSSProperties {
-  return {
-    position: "absolute",
-    left: "0",
-    top: 0,
-    width: "4px",
-    height: "100%",
-    cursor: "ew-resize",
-    "z-index": 2,
-    "touch-action": "none",
   }
 }
 

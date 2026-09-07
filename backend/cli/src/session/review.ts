@@ -3,6 +3,7 @@ import { Log } from "../util/log"
 import { Identifier } from "../id/id"
 import type { MessageV2 } from "./message-v2"
 import { ReviewRecord } from "./review-record"
+import { Instance } from "../project/instance"
 import z from "zod"
 
 export namespace SessionReview {
@@ -24,14 +25,19 @@ export namespace SessionReview {
       }
     })
 
-  export function reviewerFor(agent: string): string {
-    if (agent === "physics") return "physics-critique"
-    if (agent === "research" || agent === "biology" || agent === "ml") return "reviewer"
+  export function reviewerFor(agent: string, domain?: string): string {
+    if (agent === "physics" || domain === "physics") return "physics-critique"
+    if (agent === "research" || agent === "biology" || agent === "ml" || domain === "biology" || domain === "ml") {
+      return "reviewer"
+    }
     return "critique"
   }
 
-  export function modeFor(agent: string | undefined, configured?: "off" | "annotate" | "enforce") {
-    return configured ?? (agent === "research" || agent === "biology" || agent === "ml" ? "annotate" : "off")
+  export function modeFor(agent: string | undefined, configured?: "off" | "annotate" | "enforce", domain?: string) {
+    if (configured) return configured
+    if (agent === "research" || agent === "biology" || agent === "ml") return "annotate"
+    if (domain === "biology" || domain === "ml" || domain === "physics") return "annotate"
+    return "off"
   }
 
   export function shouldReview(input: { agent?: string; text: string }): boolean {
@@ -94,7 +100,14 @@ export namespace SessionReview {
     model: { providerID: string; modelID: string }
   }): Promise<ReviewRecord.Info | undefined> {
     const config = await Config.get()
-    const mode = modeFor(input.agent, config.experimental?.reviewGate)
+    const domain = (() => {
+      try {
+        return Instance.project.research?.domain
+      } catch {
+        return undefined
+      }
+    })()
+    const mode = modeFor(input.agent, config.experimental?.reviewGate, domain)
     if (mode === "off" || !input.agent) return
 
     const { Session } = await import("./index")
@@ -114,7 +127,7 @@ export namespace SessionReview {
     if (existing) return decide(existing)
 
     const started = Date.now()
-    const reviewer = reviewerFor(input.agent)
+    const reviewer = reviewerFor(input.agent, domain)
     const base = {
       id: Identifier.ascending("review"),
       sessionID: input.sessionID,

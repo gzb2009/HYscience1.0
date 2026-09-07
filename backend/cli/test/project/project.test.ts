@@ -163,6 +163,54 @@ describe("Project.fromDirectory with worktrees", () => {
   })
 })
 
+describe("Project direction workspace isolation", () => {
+  test("workspace marker inside a git repo keeps its own project id", async () => {
+    await using tmp = await tmpdir({ git: true })
+    const child = path.join(tmp.path, "single-cell")
+    await Bun.write(path.join(child, ".hyscience", "workspace.json"), JSON.stringify({ domain: "single-cell" }))
+
+    const parent = await Project.fromDirectory(tmp.path)
+    const isolated = await Project.fromDirectory(child)
+
+    expect(isolated.project.worktree).toBe(child)
+    expect(isolated.project.id).not.toBe(parent.project.id)
+    expect(isolated.sandbox).toBe(child)
+  })
+
+  test("result folder under a marked workspace binds to that workspace", async () => {
+    await using tmp = await tmpdir({ git: true })
+    const child = path.join(tmp.path, "imc")
+    await Bun.write(path.join(child, ".hyscience", "workspace.json"), JSON.stringify({ domain: "imc" }))
+    const result = path.join(child, "result")
+    await Bun.write(path.join(result, ".keep"), "")
+
+    const isolated = await Project.fromDirectory(result)
+    expect(isolated.project.worktree).toBe(child)
+    expect(isolated.sandbox).toBe(result)
+  })
+
+  test("opening the parent does not adopt a nested workspace session", async () => {
+    await using tmp = await tmpdir()
+    const child = path.join(tmp.path, "single-cell")
+    await Bun.write(path.join(child, ".hyscience", "workspace.json"), JSON.stringify({ domain: "single-cell" }))
+
+    const parent = await Project.fromDirectory(tmp.path)
+    const isolated = await Project.fromDirectory(child)
+    const sid = "ses_nested"
+    await Storage.write(["session", isolated.project.id, sid], {
+      id: sid,
+      projectID: isolated.project.id,
+      directory: child,
+      time: { created: 1, updated: 1 },
+    })
+
+    await Project.fromDirectory(tmp.path)
+
+    expect(await Storage.read(["session", isolated.project.id, sid]).catch(() => null)).not.toBeNull()
+    expect(await Storage.read(["session", parent.project.id, sid]).catch(() => null)).toBeNull()
+  })
+})
+
 describe("Project.discover", () => {
   test("should discover favicon.png in root", async () => {
     await using tmp = await tmpdir({ git: true })

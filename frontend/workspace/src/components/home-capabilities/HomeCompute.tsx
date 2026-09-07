@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/language"
 import { showToast } from "@hysci/ui/toast"
 import { IconSettings, IconX } from "@/thesis/shared/Icon"
 import { settingsApi } from "@/components/settings/api"
-import { computeGraphs, type ComputeKind } from "./icons"
+import { IconComputer, computeGraphs, type ComputeKind } from "./icons"
 
 interface SshHost {
   id: string
@@ -421,71 +421,108 @@ export function HomeComputeDrawer(props: {
   )
 }
 
-export function HomeComputeOverlay(props: {
-  open: boolean
-  compute: HomeComputeStore
-  onClose: () => void
-  onSettings: (kind: ComputeKind) => void
-}): JSX.Element {
+export function HomeComputeDock(): JSX.Element {
   const language = useLanguage()
-
-  const tierTitle = (kind: ComputeKind) => {
-    if (kind === "local") return language.t("home.capabilities.compute.localTitle")
-    if (kind === "ssh") return language.t("home.capabilities.compute.sshTitle")
-    return language.t("home.capabilities.compute.cloudTitle")
-  }
+  const compute = useHomeCompute()
+  const [open, setOpen] = createSignal(false)
+  const [drawerKind, setDrawerKind] = createSignal<ComputeKind>()
+  let root: HTMLDivElement | undefined
 
   onMount(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && props.open) props.onClose()
+    const onDoc = (event: MouseEvent) => {
+      if (!open() || drawerKind()) return
+      if (root?.contains(event.target as Node)) return
+      setOpen(false)
     }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && open() && !drawerKind()) setOpen(false)
+    }
+    document.addEventListener("mousedown", onDoc)
     window.addEventListener("keydown", onKey)
-    onCleanup(() => window.removeEventListener("keydown", onKey))
+    onCleanup(() => {
+      document.removeEventListener("mousedown", onDoc)
+      window.removeEventListener("keydown", onKey)
+    })
   })
 
+  const active = () => compute.info()?.execution ?? "local"
+  const activeTitle = () =>
+    active() === "local"
+      ? language.t("home.capabilities.compute.localTitle")
+      : active() === "ssh"
+        ? language.t("home.capabilities.compute.sshTitle")
+        : language.t("home.capabilities.compute.cloudTitle")
+
   return (
-    <Show when={props.open}>
-      <Portal>
-        <div class="thesis-overlay" onClick={props.onClose} />
-        <div class="cs-cap-fullscreen cs-cap-fullscreen-narrow" onClick={(e) => e.stopPropagation()}>
-          <header class="cs-cap-fullscreen-head">
-            <h1>{language.t("home.capabilities.compute.titleAll")}</h1>
-            <button
-              type="button"
-              class="cs-cap-icon-btn"
-              onClick={props.onClose}
-              aria-label={language.t("common.close")}
-            >
-              <IconX size={16} strokeWidth={1.5} />
-            </button>
-          </header>
-          <div class="cs-cap-fullscreen-body">
-            <div class="cs-cap-compute-stack">
-              <For each={tiers}>
-                {(kind) => (
-                  <HomeComputeItem
-                    kind={kind}
-                    title={tierTitle(kind)}
-                    scene={
-                      kind === "local"
-                        ? language.t("home.capabilities.compute.localScene")
-                        : kind === "ssh"
-                          ? language.t("home.capabilities.compute.sshScene")
-                          : language.t("home.capabilities.compute.cloudScene")
-                    }
-                    subtitle={computeSubtitle(kind, props.compute.info(), language.t)}
-                    active={(props.compute.info()?.execution ?? "local") === kind}
-                    onSelect={() => void props.compute.setExecution(kind)}
-                    onSettings={() => props.onSettings(kind)}
-                  />
-                )}
-              </For>
+    <>
+      <div class="cs-home-dock-slot" ref={root}>
+          <Show when={open()}>
+            <div class="cs-compute-dock-pop" role="dialog" aria-label={language.t("home.capabilities.compute.title")}>
+              <header class="cs-compute-dock-head">
+                <div>
+                  <h2>{language.t("home.capabilities.compute.title")}</h2>
+                  <p>{language.t("home.capabilities.compute.dockLead")}</p>
+                </div>
+                <span class="cs-compute-dock-tier">{activeTitle()}</span>
+              </header>
+              <Show
+                when={!compute.info.loading}
+                fallback={<div class="cs-cap-empty">{language.t("home.capabilities.compute.loading")}</div>}
+              >
+                <div class="cs-cap-compute-stack">
+                  <For each={tiers}>
+                    {(kind) => (
+                      <HomeComputeItem
+                        kind={kind}
+                        title={
+                          kind === "local"
+                            ? language.t("home.capabilities.compute.localTitle")
+                            : kind === "ssh"
+                              ? language.t("home.capabilities.compute.sshTitle")
+                              : language.t("home.capabilities.compute.cloudTitle")
+                        }
+                        scene={
+                          kind === "local"
+                            ? language.t("home.capabilities.compute.localScene")
+                            : kind === "ssh"
+                              ? language.t("home.capabilities.compute.sshScene")
+                              : language.t("home.capabilities.compute.cloudScene")
+                        }
+                        subtitle={computeSubtitle(kind, compute.info(), language.t)}
+                        active={active() === kind}
+                        onSelect={() => void compute.setExecution(kind)}
+                        onSettings={() => {
+                          setOpen(false)
+                          setDrawerKind(kind)
+                        }}
+                      />
+                    )}
+                  </For>
+                </div>
+              </Show>
             </div>
-          </div>
+          </Show>
+          <button
+            type="button"
+            class="cs-home-dock-btn"
+            data-open={open() ? "true" : undefined}
+            data-tier={active()}
+            aria-expanded={open()}
+            aria-label={`${language.t("home.dock.computer")} · ${activeTitle()}`}
+            title={`${language.t("home.dock.computer")} · ${activeTitle()}`}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <IconComputer size={20} />
+            <span>{language.t("home.dock.computer")}</span>
+            <span class="cs-compute-dock-dot" data-tier={active()} />
+          </button>
         </div>
-      </Portal>
-    </Show>
+      <HomeComputeDrawer
+        open={!!drawerKind()}
+        kind={drawerKind()}
+        compute={compute}
+        onClose={() => setDrawerKind(undefined)}
+      />
+    </>
   )
 }
-
-export { tiers as computeTiers }

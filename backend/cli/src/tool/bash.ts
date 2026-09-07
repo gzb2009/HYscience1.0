@@ -16,6 +16,7 @@ import { Shell } from "@/shell/shell"
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 import { HYscience } from "@/hyscience"
+import { DomainScope } from "@/session/domain-scope"
 import { ProcessEnvironment } from "@/process/environment"
 
 const MAX_METADATA_LENGTH = 30_000
@@ -75,6 +76,8 @@ export const BashTool = Tool.define("bash", async () => {
         ),
     }),
     async execute(params, ctx) {
+      const off = DomainScope.blocked(ctx.sessionID)
+      if (off) throw new Error(DomainScope.refuse(off))
       const cwd = params.workdir || Instance.directory
       try {
         const { existsSync, mkdirSync } = await import("fs")

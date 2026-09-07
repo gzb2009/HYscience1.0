@@ -1,0 +1,5 @@
+Load the `grill-me` skill immediately, then 拷问 the current analysis plan.
+
+Focus on assumptions, controls, data-method fit, and the most expensive irreversible step. At most 5 questions. Stay inside the current project domain.
+
+$ARGUMENTS

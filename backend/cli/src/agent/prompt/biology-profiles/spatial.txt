@@ -1,0 +1,13 @@
+<biology-task-profile name="spatial">
+Focus: spatial transcriptomics — Visium / Stereo-seq / MERFISH, neighborhoods, ligand–receptor, deconvolution.
+
+Load skills first: `squidpy`, `spatial-deconv`, `scanpy`, `anndata`, `cellchat`.
+If a scRNA-seq reference is present, deconvolve spots before claiming cell-type maps.
+
+BLOCKING before COMPUTE:
+1. Confirm platform, coordinate system, and whether spots are single-cell or mixed
+2. Write methodology citing literature-review.md
+3. Record provenance_record on h5ad, spatial figures, and deconvolution tables
+
+Do not ignore spatial coordinates or treat the object as a regular AnnData without spatial keys.
+</biology-task-profile>

@@ -282,10 +282,18 @@ export const dict = {
   "dialog.project.new.title": "New project",
   "dialog.project.new.namePlaceholder": "Project name",
   "dialog.project.new.directory": "Project folder",
-  "dialog.project.new.directoryHint": "Choose a local folder as the project root.",
+  "dialog.project.new.directoryHint":
+    "Choose the parent folder for your data. Each direction gets its own workspace folder; results go in that folder's result/ directory.",
   "dialog.project.new.directoryPlaceholder": "Click browse to choose a folder",
   "dialog.project.new.directoryRequired": "Choose a project folder",
   "dialog.project.new.browse": "Browse",
+  "dialog.project.new.workspacePreview": "Direction workspace",
+  "dialog.project.new.resultPreview": "Result folder",
+  "dialog.project.new.resultHint": "Outputs stay in result/ inside this direction workspace.",
+  "dialog.project.new.isolateFailed": "Could not isolate this direction from the parent folder. Try a different folder.",
+  "dialog.project.research.label": "Analysis direction",
+  "dialog.project.research.hint": "Set on the domain page and locked here. Switch domain first if you need another direction.",
+  "dialog.project.research.notes": "Research notes, constraints, or preferred methods",
   "dialog.project.new.description": "Description",
   "dialog.project.new.descriptionHint":
     "Shown in the project list for your reference — not included in the agent's prompt.",
@@ -296,8 +304,7 @@ export const dict = {
   "dialog.project.new.agentContextPlaceholder":
     "e.g., This project studies the effects of compound X on gene Y in cell line Z. Always use GRCh38 for genome references…",
   "dialog.project.new.create": "Create",
-  "dialog.project.new.updatedExisting":
-    "This folder is already a project — details were updated (one project per folder)",
+  "dialog.project.new.updatedExisting": "This direction workspace already exists — details were updated.",
   "home.menu.pin": "Pin project",
   "home.menu.unpin": "Unpin project",
   "home.menu.settings": "Settings",
@@ -465,9 +472,6 @@ export const dict = {
   "home.empty.description": "get started by opening a local project",
   "home.empty.hint": "⌘K command palette · ? help",
 
-  "home.capabilities.label": "Skills and compute",
-  "home.capabilities.viewAll": "View all",
-  "home.capabilities.manage": "Manage in settings",
   "home.capabilities.remove": "Remove",
   "home.capabilities.skills.title": "Skills",
   "home.capabilities.skills.count": "· {{total}}",
@@ -522,10 +526,12 @@ export const dict = {
   "home.capabilities.skills.readFailed": "Could not read skill content",
   "home.capabilities.skills.loading": "Loading skills…",
   "home.capabilities.skills.empty": "No skills yet",
-  "home.capabilities.skill.on": "On",
-  "home.capabilities.skill.off": "Off",
+  "home.dock.label": "Workspace tools",
+  "home.dock.skill": "skill",
+  "home.dock.skillHint": "Manage all skills",
+  "home.dock.computer": "computer",
+  "home.capabilities.compute.dockLead": "Choose where jobs run. Use the gear to set up SSH or Cloud.",
   "home.capabilities.compute.title": "Compute",
-  "home.capabilities.compute.titleAll": "Compute · all environments",
   "home.capabilities.compute.loading": "Loading compute…",
   "home.capabilities.compute.localTitle": "Local",
   "home.capabilities.compute.sshTitle": "SSH",
@@ -653,6 +659,9 @@ export const dict = {
   "sidebar.newSubTask": "New sub-task",
   "sidebar.files": "Files",
   "sidebar.filesDesc": "Browse project files",
+  "layout.resizeSidebar": "Resize sidebar",
+  "layout.resizeInspector": "Resize inspector",
+  "layout.resizeHint": "Drag to resize. Double-click to reset.",
 
   "chat.welcome.title": "What are we working on?",
   "chat.welcome.lead": "Describe your research question, or start from a suggestion below.",
@@ -663,6 +672,34 @@ export const dict = {
   "chat.welcome.prompt2":
     "Analyze IMC / CODEX spatial proteomics data and compare cell composition and neighborhoods across tissue regions.",
   "chat.welcome.prompt3":
+    "Draft a next-step experiment plan from the current results, with hypotheses, metrics, and controls.",
+  "chat.welcome.imc.1":
+    "Analyze IMC / CODEX spatial proteomics data and compare cell composition and neighborhoods across tissue regions.",
+  "chat.welcome.imc.2":
+    "Plan IMC segmentation and phenotyping: confirm the panel and channels, pick a segmentation method, and compare region composition.",
+  "chat.welcome.imc.3":
+    "Draft a next-step experiment plan from current IMC neighborhood results, with hypotheses, metrics, and controls.",
+  "chat.welcome.single-cell.1":
+    "Run QC, normalization, and clustering on a scRNA-seq dataset, then identify major cell types.",
+  "chat.welcome.single-cell.2":
+    "Integrate multiple scRNA samples, correct batch effects, and compare cell composition across samples.",
+  "chat.welcome.single-cell.3":
+    "Draft a next-step experiment plan from current clustering and annotation, with hypotheses, metrics, and controls.",
+  "chat.welcome.spatial.1":
+    "Analyze Visium / Stereo-seq spatial transcriptomics for neighborhood structure and ligand–receptor inference.",
+  "chat.welcome.spatial.2":
+    "Deconvolve spatial spots with a single-cell reference and compare cell composition across regions.",
+  "chat.welcome.spatial.3":
+    "Draft a next-step experiment plan from current spatial results, with hypotheses, metrics, and controls.",
+  "chat.welcome.genomics.1": "Align WGS / WES data, call variants, and annotate pathogenicity.",
+  "chat.welcome.genomics.2": "Run differential expression and pathway enrichment, then summarize significant genes.",
+  "chat.welcome.genomics.3":
+    "Draft a next-step experiment plan from current variant or expression results, with hypotheses, metrics, and controls.",
+  "chat.welcome.general.1":
+    "Run QC, normalization, and clustering on a scRNA-seq dataset, then identify major cell types.",
+  "chat.welcome.general.2":
+    "Analyze IMC / CODEX spatial proteomics data and compare cell composition and neighborhoods across tissue regions.",
+  "chat.welcome.general.3":
     "Draft a next-step experiment plan from the current results, with hypotheses, metrics, and controls.",
 
   "app.name.desktop": "HYscience Desktop",
@@ -884,4 +921,60 @@ export const dict = {
   "workspace.reset.archived.one": "1 session will be archived.",
   "workspace.reset.archived.many": "{{count}} sessions will be archived.",
   "workspace.reset.note": "this will reset the workspace to match the default branch.",
+
+  "domain.guide.title": "Choose an analysis domain",
+  "domain.guide.lead": "Pick a research direction, then open its projects",
+  "domain.guide.enter": "Enter",
+  "domain.guide.skills": "Configure skills",
+  "domain.guide.skillsTitle": "Skills · {{domain}}",
+  "domain.guide.skillsHint": "Enabled skills belong to this domain. Disabled skills stay visible and can be turned on.",
+  "domain.guide.skillsPick": "Choose Configure skills on a domain card first.",
+  "domain.guide.switch": "Switch domain",
+  "domain.drift.execute": "This project is {{current}}, so {{suggest}} cannot be executed here. Switch domain, then run the analysis there.",
+  "domain.drift.ask": "This project is {{current}}. You can discuss {{suggest}} methods and literature in detail, but it cannot be run here. Switch domain to execute.",
+  "domain.drift.switch": "Switch domain",
+  "domain.drift.stay": "Stay here to keep discussing methods",
+  "domain.guide.empty": "No projects in this domain yet. Create one to start.",
+  "domain.imc.title": "IMC analysis",
+  "domain.imc.point1": "Imaging mass cytometry segmentation and phenotyping",
+  "domain.imc.point2": "Neighborhood and spatial interaction",
+  "domain.imc.point3": "Region composition comparison",
+  "domain.single-cell.title": "Single-cell analysis",
+  "domain.single-cell.point1": "QC, normalization, and clustering",
+  "domain.single-cell.point2": "Marker annotation and differential genes",
+  "domain.single-cell.point3": "Batch integration",
+  "domain.spatial.title": "Spatial transcriptomics",
+  "domain.spatial.point1": "Visium, Stereo-seq, and related platforms",
+  "domain.spatial.point2": "Spatial neighborhoods and ligand–receptor",
+  "domain.spatial.point3": "Integration with single-cell data",
+  "domain.genomics.title": "Genomics",
+  "domain.genomics.point1": "Alignment and variant analysis",
+  "domain.genomics.point2": "Gene annotation and enrichment",
+  "domain.genomics.point3": "Expression quantification",
+  "domain.general.title": "General research",
+  "domain.general.point1": "Cross-domain research questions",
+  "domain.general.point2": "Literature and experiment design",
+  "domain.general.point3": "Not limited to a single omics workflow",
+
+  "rightpane.label": "Run inspector",
+  "rightpane.expand": "Expand inspector",
+  "rightpane.collapse": "Collapse inspector",
+  "rightpane.tab.now": "Now",
+  "rightpane.tab.evidence": "Evidence",
+  "rightpane.tab.run": "Run",
+  "rightpane.tab.agents": "Agents",
+  "rightpane.now.locked": "theme locked",
+  "rightpane.now.open": "no theme lock",
+  "rightpane.now.switchHint": "Switch domain from the domain guide to change direction.",
+  "rightpane.now.stage": "Stage",
+  "rightpane.now.doing": "Doing",
+  "rightpane.now.idle": "Waiting for the next turn",
+  "rightpane.now.stageLit": "Literature",
+  "rightpane.now.stageCompute": "Compute",
+  "rightpane.now.stageWrite": "Write",
+  "rightpane.now.stageTalk": "Conversation",
+  "rightpane.now.files": "This turn",
+  "rightpane.now.filesEmpty": "No files written this turn yet.",
+  "rightpane.evidence.files": "Artifacts",
+  "rightpane.evidence.filesEmpty": "No artifacts from the latest turn.",
 }

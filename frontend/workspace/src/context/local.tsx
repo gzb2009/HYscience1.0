@@ -37,7 +37,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
     const RESEARCH_AGENTS = ["research"] as const
     const BIOLOGY_AGENTS = ["biology"] as const
-    const ALL_CYCLABLE = ["research", "biology", "physics", "ml"] as const
+    const ALL_CYCLABLE = ["research"] as const
 
     const agent = (() => {
       const list = createMemo(() => sync.data.agent.filter((x) => x.mode !== "subagent" && !x.hidden))

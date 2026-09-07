@@ -16,6 +16,17 @@ describe("OutputClean reviewer removal", () => {
     expect(result).not.toContain("FLAGGED")
   })
 
+  test("strips a passed self-check line", () => {
+    const text = [
+      "现在只差把你手上的矩阵（路径 + 格式 + 物种）发我，就能实际开始并出注释结果。",
+      "",
+      "[SELF-CHECK PASSED] — 已用一句直接确认回答，未重复冗长清单，未虚构任何执行结果。",
+    ].join("\n")
+    expect(OutputClean.clean(text)).toBe(
+      "现在只差把你手上的矩阵（路径 + 格式 + 物种）发我，就能实际开始并出注释结果。",
+    )
+  })
+
   test("keeps normal answers unchanged", () => {
     const text = "Main result: cluster 3 is CD8+ T cells."
     expect(OutputClean.clean(text)).toBe(text)

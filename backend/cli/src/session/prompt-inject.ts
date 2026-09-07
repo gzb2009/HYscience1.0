@@ -14,6 +14,8 @@ import { CausalInference } from "./causal"
 import { ActiveLearn } from "./active-learn"
 import { DataQuality } from "./data-quality"
 import { TaskProfile } from "./task-profile"
+import { PromptLoader } from "../agent/prompt-loader"
+import { DomainScope } from "./domain-scope"
 import { Coordinator } from "./coordinator"
 import { ProjectMemory } from "./project-memory"
 import { ResearchContext } from "./research-context"
@@ -26,6 +28,8 @@ import { Flag } from "../flag/flag"
 import { InjectionPipeline } from "./injection-pipeline"
 import { advisoryInjections, scientificInjections } from "./injection-registry"
 import { SessionTrace } from "./session-trace"
+import { LiteratureGate } from "./literature-gate"
+import { Skill } from "../skill"
 import { Log } from "../util/log"
 import PROMPT_PLAN from "../session/prompt/plan.txt"
 import PROMPT_PLAN_ENTER from "../session/prompt/plan-enter.txt"
@@ -36,6 +40,7 @@ import LITERATURE_REPORT_DELIVERY from "../session/prompt/literature-report-deli
 import BIOLOGY_SERVICE_CONTRACT from "../agent/prompt/biology-service-contract.txt"
 
 const log = Log.create({ service: "prompt-inject" })
+const HARNESS_AGENTS = new Set(["research", "biology", "physics", "ml"])
 
 function isDirectAnswer(contract: AgentRouter.Contract) {
   return contract.intent === "direct_answer" && !contract.mustClarify
@@ -49,9 +54,10 @@ const DESIGN_RE =
   /\b(experiment design|study design|control group|treatment group|randomization|blocking|replicate|confounding|sample size|power analysis|comparison group|分组|对照|重复|样本量)\b/i
 const LIT_RE =
   /\b(literature|literature review|paper|publication|citation|pubmed|research-lookup|related work|prior art|review)\b/i
-const LITERATURE_REPORT_RE =
-  /(?:文献调研|文献综述|调研报告|撰写.*(?:文献|报告|调研)|写一份.*(?:文献|调研|报告)|(?:做|进行|完成).{0,12}(?:文献)?调研|literature\s+survey|literature\s+review\s+report|systematic\s+literature)/i
 const CAUSAL_RE = /\b(cause|causal|effect of|leads to|due to|because|increases|decreases|mediat|confound)\b/i
+const GRILL_ASK = /(?:^|\s)\/grill(?:-me)?\b|拷问|挑战方案|压测|挑刺|\bgrill\b/i
+const GRILL_EXPENSIVE =
+  /(?:重跑|换参考基因组|参考基因组|sbatch|slurm|\bgpu\b|cuda|fine-?tun|不可逆|launch\s+(?:a\s+)?(?:job|run|training)|overwrite\s+all)/i
 const META_RE = /\b(meta.?analysis|pooled effect|heterogeneity|i\^2|tau\^2|forest plot|systematic review)\b/i
 const ACTIVE_RE =
   /\b(active learning|uncertainty sampling|entropy sampling|unlabeled|prediction confidence|low.confidence|labels? to select|采样|主动学习)\b/i
@@ -84,9 +90,7 @@ export function injectBiologyServiceContract(userMessage: MessageV2.WithParts) {
 }
 
 function isLiteratureReportRequest(text: string, contract: AgentRouter.Contract) {
-  if (LITERATURE_REPORT_RE.test(text)) return true
-  if (contract.intent === "literature_verification" && /(?:调研|综述|survey|review report)/i.test(text)) return true
-  return false
+  return LiteratureGate.isReport(text, contract)
 }
 
 export function injectResultDelivery(
@@ -351,9 +355,8 @@ export function injectRefineLoop(userMessage: MessageV2.WithParts) {
     "   - Logical gaps (conclusions not supported by the data)",
     "   - Biological sense (do results contradict known biology? Check databases)",
     "2. **Run one correction pass** if you find issues. Do NOT restart from scratch.",
-    "3. **Mark your self-check** with: `[SELF-CHECK PASSED]` or `[SELF-CHECK: fixed N issues]`",
-    "",
-    "This is NOT optional. Every answer must include a self-check notation.",
+    "3. If nothing is wrong, deliver the answer as-is. Do not write `[SELF-CHECK PASSED]` or any self-check notation.",
+    "4. If you find issues, fix them in place. Do not announce the checklist unless a remaining problem still affects the result.",
     "</system-reminder>",
   ].join("\n")
   userMessage.parts.push({
@@ -417,6 +420,29 @@ export function injectProjectResearch(userMessage: MessageV2.WithParts) {
     text: context,
     hybio: true,
   })
+}
+
+export function injectDomainDrift(userMessage: MessageV2.WithParts) {
+  const text = userMessage.parts
+    .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.hybio)
+    .map((part) => part.text)
+    .join("\n")
+  const filenames = userMessage.parts
+    .filter((part): part is MessageV2.FilePart => part.type === "file")
+    .map((part) => part.filename || "")
+    .filter(Boolean)
+  const hit = DomainScope.drift(Instance.project.research?.subdomain, { text, filenames })
+  DomainScope.hold(userMessage.info.sessionID, hit)
+  if (!hit) return undefined
+  const reminder = DomainScope.alert(hit)
+  if (!userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === reminder)) {
+    pushHybioText(userMessage, reminder)
+  }
+  const card = DomainScope.card(hit)
+  if (!userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === card)) {
+    pushHybioText(userMessage, card)
+  }
+  return hit
 }
 
 export async function injectLocale(userMessage: MessageV2.WithParts, locale: string) {
@@ -490,7 +516,7 @@ export async function injectLiteratureGate(userMessage: MessageV2.WithParts, con
     type: "text",
     text: hit
       ? `<system-reminder>Stage gate: literature-review.md found at \`${hit}\`. You may proceed past LITERATURE. Still call provenance_record for new figures/tables/datasets.</system-reminder>`
-      : `<system-reminder>BLOCKING stage gate: \`literature-review.md\` is missing in the working directory. Before REASON / METHODOLOGY / COMPUTE: spawn parallel literature-review sub-agents, synthesize, and write \`literature-review.md\`. Only skip if the user explicitly waived literature.</system-reminder>`,
+      : `<system-reminder>Advisory: \`literature-review.md\` is not in the working directory. For a literature survey, write the report in chat. For analysis you may proceed; survey first if a claim needs published support. Compute tools stay available unless this turn is a literature survey.</system-reminder>`,
     hybio: true,
   })
 }
@@ -504,6 +530,33 @@ export async function injectComputeTier(userMessage: MessageV2.WithParts) {
       : tier === "cloud"
         ? `<system-reminder>Compute execution tier: Cloud. Prefer Modal / TensorPool / Lambda / Tinker skills for GPU work. Get cost approval before spend. Local bash/notebook for light prep only. Use \`remote\`/Slurm only if the user points at a cluster.</system-reminder>`
         : `<system-reminder>Compute execution tier: Local. Prefer bash, notebook, and rkernel on this machine for analysis. For heavy GPU or institutional HPC, ask the user to switch Settings → Compute execution to Cloud or SSH/Slurm (or use those tools if they explicitly request).</system-reminder>`
+  userMessage.parts.push({
+    id: Identifier.ascending("part"),
+    messageID: userMessage.info.id,
+    sessionID: userMessage.info.sessionID,
+    type: "text",
+    text,
+    hybio: true,
+  })
+}
+
+function researchContext() {
+  try {
+    return Instance.project.research
+  } catch {
+    return undefined
+  }
+}
+
+function disciplinePack(agentName: string) {
+  return TaskProfile.pack(researchContext()) ?? (agentName === "biology" || agentName === "physics" || agentName === "ml" ? agentName : undefined)
+}
+
+export function injectDisciplinePack(userMessage: MessageV2.WithParts, agentName = "research") {
+  const name = disciplinePack(agentName)
+  if (!name) return
+  const text = PromptLoader.load(TaskProfile.packFile(name))
+  if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text === text)) return
   userMessage.parts.push({
     id: Identifier.ascending("part"),
     messageID: userMessage.info.id,
@@ -734,7 +787,25 @@ async function applyDynamicInjections(
     SessionTrace.injection(input.session.id, name)
   }
 
-  if (input.agent.promptText) {
+  const drift = injectDomainDrift(userMessage)
+  const drifted = drift?.kind === "execute"
+  if (drift) note(drift.kind === "execute" ? "domain-drift" : "domain-ask")
+  if (HARNESS_AGENTS.has(input.agent.name)) {
+    const core = PromptLoader.load("research-core-v2.txt")
+    userMessage.parts.push({
+      id: Identifier.ascending("part"),
+      messageID: userMessage.info.id,
+      sessionID: userMessage.info.sessionID,
+      type: "text",
+      text: core,
+      hybio: true,
+    })
+    note("agent-prompt")
+    if (!drifted) {
+      injectDisciplinePack(userMessage, input.agent.name)
+      if (disciplinePack(input.agent.name)) note("discipline-pack")
+    }
+  } else if (input.agent.promptText) {
     userMessage.parts.push({
       id: Identifier.ascending("part"),
       messageID: userMessage.info.id,
@@ -782,7 +853,7 @@ async function applyDynamicInjections(
     await injectComputeTier(userMessage)
     note("compute-tier")
   }
-  if (input.agent.gates?.includes("task_profile")) {
+  if (input.agent.gates?.includes("task_profile") && !drifted) {
     await injectTaskProfile(userMessage)
     note("task-profile")
   }
@@ -801,22 +872,36 @@ async function applyDynamicInjections(
   note("multi-question")
   injectErrorRecovery(messages, userMessage)
   note("error-recovery")
-  const researchAgents = ["research", "biology", "physics", "ml"]
-  if (researchAgents.includes(input.agent.name)) {
-    injectInteractionContract(userMessage)
-    note("interaction-contract")
-    injectResultDelivery(messages, userMessage, ctx.contract)
-    injectResearchContract(messages, userMessage, ctx.contract)
-    if (input.agent.name === "biology") {
-      injectDataGate(messages, userMessage, ctx.contract)
-      note("data-gate")
+  if (HARNESS_AGENTS.has(input.agent.name)) {
+    injectProjectResearch(userMessage)
+    note("project-research")
+    if (!drifted) {
+      injectInteractionContract(userMessage)
+      note("interaction-contract")
+      if (disciplinePack(input.agent.name) === "biology") {
+        injectBiologyServiceContract(userMessage)
+        note("biology-service-contract")
+      }
+      await injectGrillMe(userMessage)
+      note("grill-me")
+      injectResultDelivery(messages, userMessage, ctx.contract)
+      injectResearchContract(messages, userMessage, ctx.contract)
+      if (disciplinePack(input.agent.name) === "biology") {
+        injectDataGate(messages, userMessage, ctx.contract)
+        note("data-gate")
+      }
     }
-    if (task) await injectResearchContext(userMessage, input.session.id, task.id)
+    if (task && drifted && drift) {
+      await ResearchContext.forget(input.session.id, task.id, drift.suggest)
+    }
+    if (task && !drifted) await injectResearchContext(userMessage, input.session.id, task.id)
     note("research-intent")
 
     await InjectionPipeline.run(
       [
-        ...scientificInjections({
+        ...(drifted
+          ? []
+          : scientificInjections({
           designRe: DESIGN_RE,
           statsRe: STATS_RE,
           dataRe: DATA_RE,
@@ -832,7 +917,7 @@ async function applyDynamicInjections(
           metaAnalysis: (c) => injectMetaAnalysis(c.userMessage, c.session.id),
           activeLearning: (c) => injectActiveLearning(c.userMessage),
           crossValidate: (c) => injectCrossValidate(c.userMessage),
-        }),
+        })),
         ...advisoryInjections({
           agentRouter: (c) => injectAgentRouter(c.userMessage, c.agent),
           refineLoop: (c) => injectRefineLoop(c.userMessage),
@@ -893,12 +978,33 @@ export async function injectResearchContext(userMessage: MessageV2.WithParts, se
   })
 }
 
+export async function injectGrillMe(userMessage: MessageV2.WithParts) {
+  const key = 'id="grill-me"'
+  if (userMessage.parts.some((part) => part.type === "text" && part.hybio && part.text.includes(key))) return
+  const text = InjectionPipeline.plainUserText(userMessage)
+  if (!GRILL_ASK.test(text) && !GRILL_EXPENSIVE.test(text)) return
+  const skill = await Skill.read("grill-me").catch(() => undefined)
+  const body = skill?.content?.trim()
+  pushHybioText(
+    userMessage,
+    [
+      '<system-reminder id="grill-me">',
+      body || "Load the grill-me skill and 拷问 the current plan. At most 5 questions. Stay in the current domain.",
+      "</system-reminder>",
+    ].join("\n"),
+  )
+}
+
 export function injectInteractionContract(userMessage: MessageV2.WithParts) {
   pushHybioText(
     userMessage,
     [
       '<system-reminder id="interaction-contract">',
       "## User-visible progress and interaction",
+      "Talk like a colleague. No template dump, no stage-gate narration.",
+      "Simple factual or method questions: answer directly in a few sentences. Do not load skills, spawn sub-agents, or outline a pipeline unless asked.",
+      "Analysis or compute tasks: first say in 2–4 short lines what you will do next, matching the user's request, then start. Do not announce tool names.",
+      "When the user asks to 拷问 / grill / challenge a plan, or before an expensive irreversible run, load the `grill-me` skill. Do not grill ordinary Q&A.",
       "When extended thinking/reasoning is available, start each major segment with a bold one-line label (e.g. **检查数据文件**) so the UI can show live status.",
       "When execution needs missing files/parameters, an irreversible method choice, or high-impact confirmation, use the question tool (max 1-2 questions per turn) — not only prose asking the user to reply in chat.",
       "Answer what you can first, then ask. Do not block on a checklist when a partial answer is possible.",

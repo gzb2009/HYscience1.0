@@ -448,10 +448,13 @@ export namespace AgentRouter {
     ].join("\n")
   }
 
+  const PRIMARY = new Set(["research", "biology", "physics", "ml"])
+
   /** Should we recommend switching from the current agent? */
   export function shouldSwitch(current: string, rec: Recommendation): boolean {
     if (rec.agent === current) return false
     if (current === "plan") return false
+    if (PRIMARY.has(current) && PRIMARY.has(rec.agent)) return false
     return rec.agent !== ""
   }
 }

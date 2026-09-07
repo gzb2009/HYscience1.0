@@ -5,6 +5,7 @@ import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
+import { useLocal } from "@/context/local"
 import { useModels, type ModelKey } from "@/context/models"
 import { FONT_MONO, FONT_SANS } from "@/styles/tokens"
 import {
@@ -140,7 +141,7 @@ function formatTokens(value: number | undefined): string {
   return String(value)
 }
 
-type AgentName = "research" | "biology" | "physics" | "ml"
+type AgentName = "research"
 
 interface Attachment {
   id: string
@@ -232,13 +233,12 @@ export function Composer(): JSX.Element {
   const globalSync = useGlobalSync()
   const dialog = useDialog()
   const language = useLanguage()
+  const local = useLocal()
 
   const [text, setText] = createSignal("")
   const [model, setModel] = createSignal<ModelKey | undefined>(undefined)
-  const agent = (): AgentName => {
-    const domain = sync.project?.research?.domain
-    return domain === "biology" || domain === "physics" || domain === "ml" ? domain : "research"
-  }
+  const agent = (): AgentName => "research"
+  createEffect(() => local.agent.set(agent()))
   const [modelOpen, setModelOpen] = createSignal(false)
   const [modelQuery, setModelQuery] = createSignal("")
   // Provider groups the user has expanded to reveal folded (older) models.
@@ -870,6 +870,15 @@ export function Composer(): JSX.Element {
   const slashItems = createMemo<SkillRow[]>(() => {
     const q = (slashQuery() ?? "").toLowerCase()
     const all = ((sync.data.skill ?? []) as SkillRow[]).filter((s) => s.entry !== false)
+    const alias: SkillRow = {
+      name: "grill",
+      description: "拷问当前方案（grill-me）",
+      location: "alias:grill-me",
+      entry: true,
+    }
+    if (!all.some((s) => s.name === "grill") && (!q || "grill".startsWith(q) || alias.description.includes(q))) {
+      all.unshift(alias)
+    }
     if (!q) {
       return all
         .slice()
@@ -911,7 +920,7 @@ export function Composer(): JSX.Element {
     // and keep everything after it intact (insert-at-cursor, no clobber).
     const tokenStart = c - (q.length + 1)
     const start = tokenStart >= 0 ? tokenStart : 0
-    const insert = `/${s.name} `
+    const insert = s.location === "alias:grill-me" ? "/grill-me " : `/${s.name} `
     const next = t.slice(0, start) + insert + t.slice(c)
     const nextCaret = start + insert.length
     setText(next)
@@ -1385,11 +1394,7 @@ export function Composer(): JSX.Element {
               // Delay blur so popover clicks register before the popover unmounts.
               onBlur={() => setTimeout(() => setFocused(false), 120)}
               onPaste={onPaste}
-              placeholder={
-                agent() === "research"
-                  ? "ask a research question · / for skills"
-                  : "Ask anything — @ for artifacts, # for sessions, / for skills, ⌘K to search…"
-              }
+              placeholder="ask a research question · / for skills"
               style={{
                 all: "unset",
                 "font-family": FONT_SANS,

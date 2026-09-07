@@ -32,6 +32,8 @@ import {
   IconX,
 } from "@/thesis/shared/Icon"
 import { SkillCardArt } from "./icons"
+import { buildDomainOverlay, domainAllows, type DomainId } from "@/domain/registry"
+import { invalidateSkillCatalog, loadSkillCatalog } from "@/utils/skillCatalog"
 
 export interface Skill {
   name: string
@@ -104,17 +106,21 @@ async function installFromGit(
   return res.json() as Promise<{ installed: unknown[]; rejected: unknown[] }>
 }
 
-export function useHomeSkills() {
+type DomainSkillMap = Record<string, Record<string, "allow" | "deny">>
+
+export function useHomeSkills(opts?: { domainId?: () => string | undefined; requireDomain?: boolean }) {
   const sdk = useGlobalSDK()
   const sync = useGlobalSync()
   const platform = usePlatform()
   const language = useLanguage()
   const dialog = useDialog()
 
-  const [skills, skillsCtl] = createResource(async () => {
-    const res = await sdk.client.app.skills()
-    return ((res.data ?? []) as Skill[]).slice().sort((a, b) => a.name.localeCompare(b.name))
-  })
+  const [skills, skillsCtl] = createResource(() => loadSkillCatalog(sdk) as Promise<Skill[]>)
+
+  async function refresh() {
+    invalidateSkillCatalog()
+    await skillsCtl.refetch()
+  }
 
   const [overrides, setOverrides] = createSignal<Record<string, "allow" | "deny">>({})
   const [busy, setBusy] = createSignal(false)
@@ -127,22 +133,65 @@ export function useHomeSkills() {
     return skill as Record<string, "allow" | "deny">
   })
 
+  const domainMap = createMemo<DomainSkillMap>(() => {
+    return ((sync.data.config as { domainSkill?: DomainSkillMap }).domainSkill ?? {}) as DomainSkillMap
+  })
+
+  createEffect(() => {
+    opts?.domainId?.()
+    setOverrides({})
+  })
+
   const enabled = (name: string) => {
     const local = overrides()[name]
     if (local) return local === "allow"
+    const id = opts?.domainId?.()
+    if (id) {
+      const configured = domainMap()[id]
+      if (configured && Object.keys(configured).length > 0) {
+        const overlay = configured[name]
+        if (overlay === "deny") return false
+        if (overlay === "allow") return true
+        return skillPerm()[name] !== "deny"
+      }
+      return domainAllows(id as DomainId, name)
+    }
     return skillPerm()[name] !== "deny"
   }
 
   async function toggle(name: string, next: boolean) {
-    const prev = skillPerm()
-    const map: Record<string, "allow" | "deny"> = { ...prev, ...overrides(), [name]: next ? "allow" : "deny" }
-    setOverrides((cur) => ({ ...cur, [name]: next ? "allow" : "deny" }))
+    const id = opts?.domainId?.()
+    if (opts?.requireDomain && !id) {
+      showToast({
+        variant: "error",
+        title: language.t("domain.guide.skillsPick"),
+      })
+      return
+    }
+    const value = next ? ("allow" as const) : ("deny" as const)
+    setOverrides((cur) => ({ ...cur, [name]: value }))
     try {
-      const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } })
-      if (res.error) throw new Error(String(res.error))
-      const perm = sync.data.config.permission
-      const base = perm && typeof perm === "object" ? perm : {}
-      sync.set("config", "permission", { ...base, skill: map })
+      if (id) {
+        const current = domainMap()[id]
+        const base =
+          current && Object.keys(current).length > 0
+            ? current
+            : buildDomainOverlay(
+                id as DomainId,
+                (skills() ?? []).map((item) => item.name),
+              )
+        const nextAll = { ...domainMap(), [id]: { ...base, [name]: value } }
+        const res = await sdk.client.global.config.update({ config: { domainSkill: nextAll } as never })
+        if (res.error) throw new Error(String(res.error))
+        sync.set("config", "domainSkill" as never, nextAll)
+      } else {
+        const map: Record<string, "allow" | "deny"> = { ...skillPerm(), ...overrides(), [name]: value }
+        const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } })
+        if (res.error) throw new Error(String(res.error))
+        const perm = sync.data.config.permission
+        const base = perm && typeof perm === "object" ? perm : {}
+        sync.set("config", "permission", { ...base, skill: map })
+      }
       setOverrides((cur) => {
         const copy = { ...cur }
         delete copy[name]
@@ -173,7 +222,7 @@ export function useHomeSkills() {
     try {
       const res = await sdk.client.app.skill.delete({ name })
       if (res.error) throw new Error(String(res.error))
-      await skillsCtl.refetch()
+      await refresh()
       showToast({ variant: "success", title: language.t("home.capabilities.skills.deleted", { name }) })
       return true
     } catch (err) {
@@ -191,7 +240,7 @@ export function useHomeSkills() {
     try {
       const content = `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`
       await sdk.client.app.skill.write({ name, content })
-      await skillsCtl.refetch()
+      await refresh()
       showToast({ variant: "success", title: language.t("home.capabilities.skills.created", { name }) })
       return true
     } catch (err) {
@@ -215,7 +264,7 @@ export function useHomeSkills() {
         throw new Error(language.t("home.capabilities.skills.uploadInvalid"))
       }
       await sdk.client.app.skill.write({ name, content })
-      await skillsCtl.refetch()
+      await refresh()
       showToast({ variant: "success", title: language.t("home.capabilities.skills.uploaded", { name }) })
       return true
     } catch (err) {
@@ -234,7 +283,7 @@ export function useHomeSkills() {
     setBusy(true)
     try {
       const res = await installFromGit(platform.fetch ?? fetch, sdk.url, currentDirectory(), url)
-      await skillsCtl.refetch()
+      await refresh()
       const n = res.installed.length
       const r = res.rejected.length
       showToast({
@@ -619,11 +668,14 @@ export function HomeSkillsOverlay(props: {
   onCategory: (value: string) => void
   focusSearch?: boolean
   initialView?: SkillView
+  title?: string
+  recommend?: string[]
 }): JSX.Element {
   const language = useLanguage()
   const [view, setView] = createSignal<SkillView>("list")
   const [categoryOpen, setCategoryOpen] = createSignal(false)
   const [selected, setSelected] = createSignal<Skill | null>(null)
+  const [mounted, setMounted] = createSignal(false)
   let searchRef: HTMLInputElement | undefined
   let fileInput: HTMLInputElement | undefined
 
@@ -638,8 +690,19 @@ export function HomeSkillsOverlay(props: {
 
   const filtered = createMemo(() => {
     const q = props.search.trim().toLowerCase()
-    const base = skillsInCategory(props.store.skills() ?? [], props.category)
-    return base.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q))
+    const base = skillsInCategory(props.store.skills() ?? [], props.category).filter(
+      (s) => !q || s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q),
+    )
+    const rec = props.recommend ?? []
+    return [...base].sort((a, b) => {
+      const ea = props.store.enabled(a.name) ? 1 : 0
+      const eb = props.store.enabled(b.name) ? 1 : 0
+      if (ea !== eb) return eb - ea
+      const ra = rec.includes(a.name) ? 1 : 0
+      const rb = rec.includes(b.name) ? 1 : 0
+      if (ra !== rb) return rb - ra
+      return a.name.localeCompare(b.name)
+    })
   })
 
   createEffect(() => {
@@ -647,6 +710,7 @@ export function HomeSkillsOverlay(props: {
       setSelected(null)
       return
     }
+    setMounted(true)
     setView(props.initialView ?? "list")
   })
 
@@ -673,12 +737,22 @@ export function HomeSkillsOverlay(props: {
   })
 
   return (
-    <Show when={props.open}>
+    <Show when={mounted()}>
       <Portal>
-        <div class="thesis-overlay" onClick={props.onClose} />
-        <div class="cs-cap-fullscreen cs-cap-fullscreen-skills" onClick={(e) => e.stopPropagation()}>
+        <div
+          class="thesis-overlay"
+          data-closed={props.open ? undefined : ""}
+          aria-hidden={!props.open}
+          onClick={props.onClose}
+        />
+        <div
+          class="cs-cap-fullscreen cs-cap-fullscreen-skills"
+          data-closed={props.open ? undefined : ""}
+          aria-hidden={!props.open}
+          onClick={(e) => e.stopPropagation()}
+        >
           <header class="cs-cap-fullscreen-head">
-            <h1>{language.t("home.capabilities.skills.title")}</h1>
+            <h1>{props.title ?? language.t("home.capabilities.skills.title")}</h1>
             <button
               type="button"
               class="cs-cap-icon-btn"

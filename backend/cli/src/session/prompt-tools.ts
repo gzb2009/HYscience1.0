@@ -17,8 +17,18 @@ import { Truncate } from "@/tool/truncation"
 import { Log } from "../util/log"
 import { SessionArtifact } from "./artifact"
 import { DecisionGate } from "./decision-gate"
+import { LiteratureGate } from "./literature-gate"
 
 const log = Log.create({ service: "session.prompt-tools" })
+
+function lastUserText(messages: MessageV2.WithParts[]) {
+  const user = messages.findLast((msg) => msg.info.role === "user")
+  if (!user) return ""
+  return user.parts
+    .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.hybio)
+    .map((part) => part.text)
+    .join(" ")
+}
 
 export async function resolveTools(input: {
   agent: Agent.Info
@@ -67,10 +77,12 @@ export async function resolveTools(input: {
     },
   })
 
+  const survey = lastUserText(input.messages)
   for (const item of await ToolRegistry.tools(
     { modelID: input.model.api.id, providerID: input.model.providerID },
     input.agent,
   )) {
+    if (LiteratureGate.blocksCompute(item.id) && LiteratureGate.isReport(survey)) continue
     const schema = ProviderTransform.schema(input.model, z.toJSONSchema(item.parameters))
     tools[item.id] = tool({
       id: item.id as any,
@@ -79,6 +91,7 @@ export async function resolveTools(input: {
       async execute(args, options) {
         const ctx = context(args, options)
         await DecisionGate.assert({ session: input.session, tool: item.id })
+        LiteratureGate.assert({ tool: item.id, text: survey })
         await Plugin.trigger(
           "tool.execute.before",
           {
@@ -129,6 +142,7 @@ export async function resolveTools(input: {
     item.execute = async (args, opts) => {
       const ctx = context(args, opts)
       await DecisionGate.assert({ session: input.session, tool: key })
+      LiteratureGate.assert({ tool: key, text: survey })
 
       await Plugin.trigger(
         "tool.execute.before",

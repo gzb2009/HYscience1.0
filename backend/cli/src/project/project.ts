@@ -77,6 +77,8 @@ export namespace Project {
     return crypto.createHash("sha256").update(worktree).digest("hex").slice(0, 40)
   }
 
+  const WORKSPACE_MARKER = path.join(".hyscience", "workspace.json")
+
   function resultRootFor(input: string) {
     let current = input
     while (/^[A-Za-z0-9][A-Za-z0-9_]*_Result$/.test(path.basename(current))) {
@@ -85,6 +87,14 @@ export namespace Project {
       current = parent
     }
     return current
+  }
+
+  async function markedWorkspace(directory: string) {
+    const matches = Filesystem.up({ targets: [WORKSPACE_MARKER], start: directory })
+    const found = await matches.next().then((x) => x.value)
+    await matches.return()
+    if (!found) return undefined
+    return canonicalize(path.dirname(path.dirname(found)))
   }
 
   function contains(root: string, directory: string) {
@@ -110,7 +120,7 @@ export namespace Project {
     )
     return roots
       .filter((root): root is string => !!root && contains(root, directory))
-      .sort((a, b) => a.length - b.length)[0]
+      .sort((a, b) => b.length - a.length)[0]
   }
 
   export async function fromDirectory(input: string) {
@@ -118,6 +128,16 @@ export namespace Project {
     log.info("fromDirectory", { directory })
 
     const { sandbox, worktree, vcs } = await iife(async () => {
+      const isolated = await markedWorkspace(directory)
+      if (isolated) {
+        const git = existsSync(path.join(isolated, ".git"))
+        return {
+          sandbox: directory,
+          worktree: isolated,
+          vcs: git ? ("git" as const) : Info.shape.vcs.parse(Flag.HYSCIENCE_FAKE_VCS),
+        }
+      }
+
       const matches = Filesystem.up({ targets: [".git"], start: directory })
       const git = await matches.next().then((x) => x.value)
       await matches.return()
@@ -271,7 +291,7 @@ export namespace Project {
       const projectID = key[key.length - 1]
       if (projectID === newProjectID || projectID === "global") continue
       const record = await Storage.read<Info>(key).catch(() => undefined)
-      if (!record?.worktree || !contains(worktree, canonicalize(record.worktree))) continue
+      if (!record?.worktree || canonicalize(record.worktree) !== worktree) continue
       const moved = await moveSessions(projectID, newProjectID, () => true)
       if (moved > 0) await Storage.remove(["project", projectID]).catch(() => undefined)
     }
@@ -282,7 +302,7 @@ export namespace Project {
       const moved = await moveSessions(
         projectID,
         newProjectID,
-        (session) => !!session.directory && contains(worktree, canonicalize(session.directory)),
+        (session) => !!session.directory && canonicalize(session.directory) === worktree,
       )
       if (moved > 0) await Storage.remove(["project", projectID]).catch(() => undefined)
     }

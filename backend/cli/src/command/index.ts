@@ -6,6 +6,7 @@ import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_LEARN from "./template/learn.txt"
+import PROMPT_GRILL from "./template/grill.txt"
 import { MCP } from "../mcp"
 
 export namespace Command {
@@ -55,6 +56,7 @@ export namespace Command {
     INIT: "init",
     REVIEW: "review",
     LEARN: "learn",
+    GRILL: "grill",
   } as const
 
   const state = Instance.state(async () => {
@@ -85,6 +87,14 @@ export namespace Command {
           return PROMPT_LEARN
         },
         hints: hints(PROMPT_LEARN),
+      },
+      [Default.GRILL]: {
+        name: Default.GRILL,
+        description: "拷问 / grill the current analysis plan",
+        get template() {
+          return PROMPT_GRILL
+        },
+        hints: hints(PROMPT_GRILL),
       },
     }
 

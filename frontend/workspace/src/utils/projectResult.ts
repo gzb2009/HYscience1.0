@@ -70,6 +70,24 @@ export function ensureDirectory(baseUrl: string, fetchFn: typeof fetch, director
   return postJSON<{ path: string }>(url, fetchFn, { path })
 }
 
+export async function writeTextFile(
+  baseUrl: string,
+  fetchFn: typeof fetch,
+  directory: string,
+  path: string,
+  content: string,
+) {
+  const url = `${baseUrl.replace(/\/$/, "")}/file/content?directory=${encodeURIComponent(directory)}`
+  const res = await fetchFn(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, content }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.error ?? data?.message ?? `request failed: ${res.status}`)
+  return data
+}
+
 export function migrateResultDirectory(
   baseUrl: string,
   fetchFn: typeof fetch,

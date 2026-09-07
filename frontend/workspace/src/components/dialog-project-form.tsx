@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onMount, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, onMount, Show, type JSX } from "solid-js"
 import { Dialog } from "@hysci/ui/dialog"
 import { useDialog } from "@hysci/ui/context/dialog"
 import { showToast } from "@hysci/ui/toast"
@@ -10,6 +10,7 @@ import type { Project } from "@hysci/sdk/v2/client"
 import { projectMetaLocal } from "@/thesis/store/projectMetaLocal"
 import { loadProjectAgentContext, saveProjectAgentContext } from "@/utils/projectMemory"
 import { formatWorkingDirLabel } from "@/utils/projectWorkspace"
+import { domainResultDir, resolveDomainWorkspace } from "@/utils/domainWorkspace"
 import {
   isResultFolderName,
   migrateResultDirectory,
@@ -18,6 +19,7 @@ import {
 } from "@/utils/projectResult"
 import { FolderPicker } from "@/thesis/FolderPicker"
 import { IconX } from "@/thesis/shared/Icon"
+import { projectDomainId, toResearch, type DomainId } from "@/domain/registry"
 
 export type ProjectFormValues = {
   name: string
@@ -31,12 +33,6 @@ export type ProjectFormValues = {
 }
 
 type Mode = "create" | "edit"
-const SUBDOMAINS = {
-  general: [],
-  biology: ["single-cell", "genomics", "proteomics", "structure", "chemo"],
-  physics: ["simulation", "theory", "experiment"],
-  ml: ["training", "evaluation", "inference"],
-} as const
 
 export function DialogProjectForm(props: {
   mode: Mode
@@ -58,10 +54,14 @@ export function DialogProjectForm(props: {
   const [resultName, setResultName] = createSignal(props.initial?.resultFolderName ?? "")
   const [resultTouched, setResultTouched] = createSignal(!!props.initial?.resultFolderName)
   const [agentContext, setAgentContext] = createSignal(props.initial?.agentContext ?? "")
-  const [domain, setDomain] = createSignal<ProjectFormValues["researchDomain"]>(
-    props.initial?.researchDomain ?? "general",
+  const [direction, setDirection] = createSignal<DomainId>(
+    projectDomainId({
+      research: {
+        domain: props.initial?.researchDomain,
+        subdomain: props.initial?.researchSubdomain,
+      },
+    }),
   )
-  const [subdomain, setSubdomain] = createSignal(props.initial?.researchSubdomain ?? "")
   const [researchNotes, setResearchNotes] = createSignal(props.initial?.researchNotes ?? "")
   const [saving, setSaving] = createSignal(false)
   const [loading, setLoading] = createSignal(props.mode === "edit")
@@ -77,8 +77,7 @@ export function DialogProjectForm(props: {
         props.project.resultFolder ??
           (local.resultFolderName?.trim() || resultFolderName(props.project.worktree, props.project.name)),
       )
-      setDomain(props.project.research?.domain ?? "general")
-      setSubdomain(props.project.research?.subdomain ?? "")
+      setDirection(projectDomainId(props.project))
       setResearchNotes(props.project.research?.notes ?? "")
     }
     if (props.initial?.agentContext !== undefined) {
@@ -94,6 +93,17 @@ export function DialogProjectForm(props: {
       setLoading(false)
     }
   })
+
+  const workspace = () => {
+    const picked = directory().trim()
+    if (props.mode === "edit") return props.project?.worktree ?? ""
+    if (!picked) return ""
+    return resolveDomainWorkspace({
+      picked,
+      domain: direction(),
+      projects: sync.data.project,
+    })
+  }
 
   createEffect(() => {
     if (resultTouched()) return
@@ -124,8 +134,7 @@ export function DialogProjectForm(props: {
           description: description().trim() || undefined,
           resultFolder: nextResultName,
           research: {
-            domain: domain(),
-            subdomain: subdomain().trim() || undefined,
+            ...toResearch(direction()),
             notes: researchNotes().trim() || undefined,
           },
         } as any)
@@ -152,14 +161,15 @@ export function DialogProjectForm(props: {
       })
       return
     }
+    const packed = toResearch(direction())
     const values: ProjectFormValues = {
       name: name().trim(),
       description: description().trim(),
       agentContext: agentContext().trim(),
       directory: directory().trim() || undefined,
       resultFolderName: normalizeResultFolderName(resultName(), name().trim() || props.project?.worktree || "Project"),
-      researchDomain: domain(),
-      researchSubdomain: subdomain().trim() || undefined,
+      researchDomain: packed.domain,
+      researchSubdomain: packed.subdomain,
       researchNotes: researchNotes().trim(),
     }
     if (props.mode === "create") {
@@ -231,44 +241,32 @@ export function DialogProjectForm(props: {
                   <Show when={directory()}>
                     <span class="cs-field-hint">{formatWorkingDirLabel(directory())}</span>
                   </Show>
+                  <Show when={workspace()}>
+                    <span class="cs-field-hint">
+                      {language.t("dialog.project.new.workspacePreview")}: {formatWorkingDirLabel(workspace())}
+                    </span>
+                    <span class="cs-field-hint">
+                      {language.t("dialog.project.new.resultPreview")}: {formatWorkingDirLabel(domainResultDir(workspace()))}
+                    </span>
+                  </Show>
                 </div>
               </Show>
 
               <section class="cs-field">
-                <span class="cs-field-label">Research direction</span>
-                <span class="cs-field-hint">
-                  This setting automatically selects the analysis agent and strategy for future turns.
-                </span>
-                <select
-                  class="cs-field-input"
-                  value={domain()}
-                  onChange={(e) => {
-                    const next = e.currentTarget.value as ProjectFormValues["researchDomain"]
-                    setDomain(next)
-                    setSubdomain("")
-                  }}
-                >
-                  <option value="general">General research</option>
-                  <option value="biology">Biology</option>
-                  <option value="physics">Physics</option>
-                  <option value="ml">Machine learning</option>
-                </select>
-                <Show when={SUBDOMAINS[domain()].length > 0}>
-                  <select
-                    class="cs-field-input"
-                    value={subdomain()}
-                    onChange={(e) => setSubdomain(e.currentTarget.value)}
-                  >
-                    <option value="">Automatic subdirection</option>
-                    <For each={SUBDOMAINS[domain()]}>{(item) => <option value={item}>{item}</option>}</For>
-                  </select>
-                </Show>
+                <span class="cs-field-label">{language.t("dialog.project.research.label")}</span>
+                <span class="cs-field-hint">{language.t("dialog.project.research.hint")}</span>
+                <input
+                  class="cs-field-input cs-field-input-locked"
+                  value={language.t(`domain.${direction()}.title`)}
+                  readOnly
+                  tabindex={-1}
+                />
                 <textarea
                   class="cs-field-textarea"
                   rows={3}
                   value={researchNotes()}
                   onInput={(e) => setResearchNotes(e.currentTarget.value)}
-                  placeholder="Research context, constraints, or preferred methodology"
+                  placeholder={language.t("dialog.project.research.notes")}
                 />
               </section>
 
@@ -284,29 +282,18 @@ export function DialogProjectForm(props: {
                 />
               </label>
 
-              <label class="cs-field">
-                <span class="cs-field-label">Result folder name</span>
-                <span class="cs-field-hint">
-                  Analysis outputs are isolated under this English-only folder inside the project root.
-                </span>
-                <input
-                  class="cs-field-input"
-                  value={resultName()}
-                  onInput={(e) => {
-                    setResultTouched(true)
-                    setResultName(e.currentTarget.value)
-                  }}
-                  onBlur={() => setResultName(normalizeResultFolderName(resultName(), name().trim() || "Project"))}
-                  placeholder="Project_Result"
-                />
-                <Show when={props.project?.worktree}>
-                  <span class="cs-field-hint">
-                    {formatWorkingDirLabel(
-                      `${props.project!.worktree}/${normalizeResultFolderName(resultName(), name().trim() || props.project!.worktree)}`,
-                    )}
-                  </span>
-                </Show>
-              </label>
+              <Show when={props.mode === "edit"}>
+                <label class="cs-field">
+                  <span class="cs-field-label">{language.t("dialog.project.new.resultPreview")}</span>
+                  <span class="cs-field-hint">{language.t("dialog.project.new.resultHint")}</span>
+                  <input
+                    class="cs-field-input cs-field-input-locked"
+                    value={formatWorkingDirLabel(domainResultDir(props.project?.worktree ?? workspace()))}
+                    readOnly
+                    tabindex={-1}
+                  />
+                </label>
+              </Show>
 
               <Show when={props.mode === "edit" && props.project?.worktree}>
                 <label class="cs-field">

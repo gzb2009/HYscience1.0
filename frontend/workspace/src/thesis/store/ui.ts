@@ -1,12 +1,19 @@
 import { createSignal } from "solid-js"
+import {
+  RIGHT_COL,
+  SIDEBAR_COL,
+  clampColumn,
+  leftReserved,
+  persistWidth,
+  readWidth,
+  rightReserved,
+} from "@/thesis/column-width"
 
-export type RightPaneTab = "terminal" | "review"
+export type RightPaneTab = "now" | "evidence" | "run" | "agents"
 export type ImagePreview = { directory: string; path: string; name: string; mime?: string }
 export type ReviewSelection = { sessionID: string; messageID: string }
 
 const PANE_OPEN_KEY = "thesis-rightpane-open-v3"
-const HIDDEN_TABS_KEY = "thesis-rightpane-hidden-tabs-v2"
-const PANE_PINNED_KEY = "thesis-rightpane-pinned-v1"
 
 function readPaneOpen(): boolean {
   try {
@@ -17,31 +24,36 @@ function readPaneOpen(): boolean {
   }
 }
 
-function readPanePinned(): boolean {
-  try {
-    const raw = localStorage.getItem(PANE_PINNED_KEY)
-    return raw === null ? true : raw !== "0"
-  } catch {
-    return true
-  }
-}
-
-function readHiddenTabs(): RightPaneTab[] {
-  try {
-    const raw = localStorage.getItem(HIDDEN_TABS_KEY)
-    const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr : []
-  } catch {
-    return []
-  }
-}
-
 const [helpOpen, setHelpOpen] = createSignal(false)
 const [paletteOpen, setPaletteOpen] = createSignal(false)
-const [rightPaneTab, setRightPaneTab] = createSignal<RightPaneTab>("terminal")
+const [rightPaneTab, setRightPaneTab] = createSignal<RightPaneTab>("now")
 const [rightPaneOpen, setRightPaneOpenRaw] = createSignal(readPaneOpen())
-const [rightPanePinned, setRightPanePinnedRaw] = createSignal(readPanePinned())
-const [hiddenTabs, setHiddenTabs] = createSignal<RightPaneTab[]>(readHiddenTabs())
+const [sidebarWidth, setSidebarWidthRaw] = createSignal(
+  readWidth(SIDEBAR_COL.key, SIDEBAR_COL.def, SIDEBAR_COL.min, SIDEBAR_COL.max),
+)
+const [rightPaneWidth, setRightPaneWidthRaw] = createSignal(
+  readWidth(RIGHT_COL.key, RIGHT_COL.def, RIGHT_COL.min, RIGHT_COL.max),
+)
+
+function applySidebarWidth(value: number, persist: boolean) {
+  const next = clampColumn(value, SIDEBAR_COL.min, SIDEBAR_COL.max, rightReserved(), window.innerWidth)
+  setSidebarWidthRaw(next)
+  if (persist) persistWidth(SIDEBAR_COL.key, next)
+}
+
+function applyRightPaneWidth(value: number, persist: boolean) {
+  const next = clampColumn(value, RIGHT_COL.min, RIGHT_COL.max, leftReserved(), window.innerWidth)
+  setRightPaneWidthRaw(next)
+  if (persist) persistWidth(RIGHT_COL.key, next)
+}
+
+function resetSidebarWidth() {
+  applySidebarWidth(SIDEBAR_COL.def, true)
+}
+
+function resetRightPaneWidth() {
+  applyRightPaneWidth(RIGHT_COL.def, true)
+}
 const [imagePreview, setImagePreviewRaw] = createSignal<ImagePreview>()
 const [prefill, setPrefill] = createSignal<string | undefined>(undefined)
 const [prefillSend, setPrefillSend] = createSignal(false)
@@ -54,34 +66,13 @@ function setRightPaneOpen(v: boolean) {
   setRightPaneOpenRaw(v)
 }
 
-function setRightPanePinned(v: boolean) {
-  try {
-    localStorage.setItem(PANE_PINNED_KEY, v ? "1" : "0")
-  } catch {}
-  setRightPanePinnedRaw(v)
-}
-
 function setImagePreview(value: ImagePreview | undefined) {
   setImagePreviewRaw(value)
 }
 
-function toggleTabHidden(tab: RightPaneTab) {
-  setHiddenTabs((prev) => {
-    const next = prev.includes(tab) ? prev.filter((t) => t !== tab) : [...prev, tab]
-    try {
-      localStorage.setItem(HIDDEN_TABS_KEY, JSON.stringify(next))
-    } catch {}
-    return next
-  })
-}
-
-function isTabHidden(tab: RightPaneTab) {
-  return hiddenTabs().includes(tab)
-}
-
 function inspectReview(sessionID: string, messageID: string) {
   setReviewSelection({ sessionID, messageID })
-  setRightPaneTab("review")
+  setRightPaneTab("evidence")
   setRightPaneOpen(true)
 }
 
@@ -94,13 +85,16 @@ export const uiStore = {
   setRightPaneTab,
   rightPaneOpen,
   setRightPaneOpen,
-  rightPanePinned,
-  setRightPanePinned,
+  sidebarWidth,
+  setSidebarWidth: (value: number) => applySidebarWidth(value, false),
+  commitSidebarWidth: (value: number) => applySidebarWidth(value, true),
+  resetSidebarWidth,
+  rightPaneWidth,
+  setRightPaneWidth: (value: number) => applyRightPaneWidth(value, false),
+  commitRightPaneWidth: (value: number) => applyRightPaneWidth(value, true),
+  resetRightPaneWidth,
   imagePreview,
   setImagePreview,
-  hiddenTabs,
-  toggleTabHidden,
-  isTabHidden,
   prefill,
   setPrefill,
   prefillSend,
