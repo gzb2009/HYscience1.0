@@ -15,11 +15,17 @@ type TmpDirOptions<T> = {
   init?: (dir: string) => Promise<T>
   dispose?: (dir: string) => Promise<T>
 }
+
+export async function gitInit(dir: string) {
+  await $`git init`.cwd(dir).quiet()
+  await $`git config user.email "hyscience-test@example.com"`.cwd(dir).quiet()
+  await $`git config user.name "hyscience-test"`.cwd(dir).quiet()
+}
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   const dirpath = sanitizePath(path.join(os.tmpdir(), "hyscience-test-" + Math.random().toString(36).slice(2)))
   await fs.mkdir(dirpath, { recursive: true })
   if (options?.git) {
-    await $`git init`.cwd(dirpath).quiet()
+    await gitInit(dirpath)
     await $`git commit --allow-empty -m "root commit ${dirpath}"`.cwd(dirpath).quiet()
   }
   if (options?.config) {

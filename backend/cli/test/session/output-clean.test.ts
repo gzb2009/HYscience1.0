@@ -22,9 +22,7 @@ describe("OutputClean reviewer removal", () => {
       "",
       "[SELF-CHECK PASSED] — 已用一句直接确认回答，未重复冗长清单，未虚构任何执行结果。",
     ].join("\n")
-    expect(OutputClean.clean(text)).toBe(
-      "现在只差把你手上的矩阵（路径 + 格式 + 物种）发我，就能实际开始并出注释结果。",
-    )
+    expect(OutputClean.clean(text)).toBe("现在只差把你手上的矩阵（路径 + 格式 + 物种）发我，就能实际开始并出注释结果。")
   })
 
   test("keeps normal answers unchanged", () => {

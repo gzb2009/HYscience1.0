@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  domainParentDir,
-  domainResultDir,
-  needsWorkspaceMarker,
-  resolveDomainWorkspace,
-} from "./domainWorkspace"
+import { domainParentDir, domainResultDir, needsWorkspaceMarker, resolveDomainWorkspace } from "./domainWorkspace"
 
 const root = "/Users/gaozongbao/Desktop/Work"
 

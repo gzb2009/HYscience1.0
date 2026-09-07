@@ -39,7 +39,11 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
   const tabs = createMemo(() => {
     const list: { id: RightPaneTab; label: string; icon: JSX.Element }[] = [
       { id: "now", label: language.t("rightpane.tab.now"), icon: <IconActivity size={13} strokeWidth={1.6} /> },
-      { id: "evidence", label: language.t("rightpane.tab.evidence"), icon: <IconBookOpen size={13} strokeWidth={1.6} /> },
+      {
+        id: "evidence",
+        label: language.t("rightpane.tab.evidence"),
+        icon: <IconBookOpen size={13} strokeWidth={1.6} />,
+      },
       { id: "run", label: language.t("rightpane.tab.run"), icon: <IconTerminal size={13} strokeWidth={1.6} /> },
     ]
     if (hasAgents()) {
@@ -88,7 +92,11 @@ export function RightPane(props: { sessionID?: string }): JSX.Element {
         </aside>
       }
     >
-      <aside class="cs-rightpane-fixed" aria-label={language.t("rightpane.label")} style={pane(uiStore.rightPaneWidth())}>
+      <aside
+        class="cs-rightpane-fixed"
+        aria-label={language.t("rightpane.label")}
+        style={pane(uiStore.rightPaneWidth())}
+      >
         <ColumnHandle
           edge="start"
           value={uiStore.rightPaneWidth()}

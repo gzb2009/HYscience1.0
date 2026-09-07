@@ -246,7 +246,8 @@ export function DialogProjectForm(props: {
                       {language.t("dialog.project.new.workspacePreview")}: {formatWorkingDirLabel(workspace())}
                     </span>
                     <span class="cs-field-hint">
-                      {language.t("dialog.project.new.resultPreview")}: {formatWorkingDirLabel(domainResultDir(workspace()))}
+                      {language.t("dialog.project.new.resultPreview")}:{" "}
+                      {formatWorkingDirLabel(domainResultDir(workspace()))}
                     </span>
                   </Show>
                 </div>

@@ -6,14 +6,7 @@ import PROMPT_PROTEOMICS from "../agent/prompt/biology-profiles/proteomics.txt"
 import PROMPT_STRUCTURE from "../agent/prompt/biology-profiles/structure.txt"
 import PROMPT_CHEMO from "../agent/prompt/biology-profiles/chemo.txt"
 
-export type BiologyProfile =
-  | "genomics"
-  | "single-cell"
-  | "imc"
-  | "spatial"
-  | "proteomics"
-  | "structure"
-  | "chemo"
+export type BiologyProfile = "genomics" | "single-cell" | "imc" | "spatial" | "proteomics" | "structure" | "chemo"
 
 const FRAGMENTS: Record<BiologyProfile, string> = {
   genomics: PROMPT_GENOMICS,

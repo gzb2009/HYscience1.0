@@ -387,40 +387,40 @@ export default function Home(): JSX.Element {
       <main class="thesis-scroll cs-home-main">
         <HomeParticles />
         <div class="cs-workbench-inner">
-            <div class="cs-workbench-header">
-              <div class="cs-workbench-brand-block">
-                <AgentIcon
-                  class="cs-workbench-mark"
-                  size={96}
-                  style={{
-                    "--agent-icon-ink": "var(--color-text)",
-                    "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
-                  }}
-                />
-                <div class="cs-workbench-copy">
-                  <h1 class="cs-workbench-brand">
-                    {domain() ? language.t(`domain.${domain()!.id}.title`) : "HYscience"}
-                  </h1>
-                  <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
-                </div>
-              </div>
-              <div class="cs-workbench-actions">
-                <button type="button" class="cs-btn-ghost" onClick={() => navigate("/domains")}>
-                  {language.t("domain.guide.switch")}
-                </button>
-                <HomeUserMenu onSettings={openSettings} />
+          <div class="cs-workbench-header">
+            <div class="cs-workbench-brand-block">
+              <AgentIcon
+                class="cs-workbench-mark"
+                size={96}
+                style={{
+                  "--agent-icon-ink": "var(--color-text)",
+                  "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
+                }}
+              />
+              <div class="cs-workbench-copy">
+                <h1 class="cs-workbench-brand">
+                  {domain() ? language.t(`domain.${domain()!.id}.title`) : "HYscience"}
+                </h1>
+                <p class="cs-workbench-tagline">{language.t("home.tagline")}</p>
               </div>
             </div>
+            <div class="cs-workbench-actions">
+              <button type="button" class="cs-btn-ghost" onClick={() => navigate("/domains")}>
+                {language.t("domain.guide.switch")}
+              </button>
+              <HomeUserMenu onSettings={openSettings} />
+            </div>
+          </div>
 
-            <Show
-              when={projects().length > 0}
-              fallback={
-                <EmptyHero
-                  onChoose={openNewProjectDialog}
-                  title={domain() ? language.t("domain.guide.empty") : undefined}
-                />
-              }
-            >
+          <Show
+            when={projects().length > 0}
+            fallback={
+              <EmptyHero
+                onChoose={openNewProjectDialog}
+                title={domain() ? language.t("domain.guide.empty") : undefined}
+              />
+            }
+          >
             <div class="cs-dashboard">
               <section>
                 <div class="cs-section-head-row">
@@ -493,9 +493,8 @@ export default function Home(): JSX.Element {
                 </div>
               </section>
             </div>
-            </Show>
-
-          </div>
+          </Show>
+        </div>
       </main>
     </div>
   )

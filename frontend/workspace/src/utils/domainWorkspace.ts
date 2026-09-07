@@ -44,11 +44,7 @@ export function domainFolderName(domain: DomainId) {
 }
 
 /** Isolated worktree for one direction. Result lives at `<workspace>/result`. */
-export function resolveDomainWorkspace(input: {
-  picked: string
-  domain: DomainId
-  projects?: ProjectRef[]
-}) {
+export function resolveDomainWorkspace(input: { picked: string; domain: DomainId; projects?: ProjectRef[] }) {
   const picked = projectRoot(normalize(input.picked))
   if (!picked) return ""
   if (basename(picked) === input.domain) return picked

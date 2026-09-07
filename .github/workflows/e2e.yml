@@ -44,6 +44,12 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      - name: Configure git for tests
+        run: |
+          git config --global user.email "ci@hyscience.dev"
+          git config --global user.name "HYscience CI"
+          git config --global init.defaultBranch main
+
       - name: Install Playwright browsers
         working-directory: frontend/workspace
         run: ${{ matrix.settings.playwright }}

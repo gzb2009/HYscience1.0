@@ -183,7 +183,7 @@ export function useHomeSkills(opts?: { domainId?: () => string | undefined; requ
         const nextAll = { ...domainMap(), [id]: { ...base, [name]: value } }
         const res = await sdk.client.global.config.update({ config: { domainSkill: nextAll } as never })
         if (res.error) throw new Error(String(res.error))
-        sync.set("config", "domainSkill" as never, nextAll)
+        sync.set("config", { ...sync.data.config, domainSkill: nextAll } as typeof sync.data.config)
       } else {
         const map: Record<string, "allow" | "deny"> = { ...skillPerm(), ...overrides(), [name]: value }
         const res = await sdk.client.global.config.update({ config: { permission: { skill: map } } })

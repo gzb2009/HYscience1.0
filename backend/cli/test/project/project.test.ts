@@ -4,14 +4,14 @@ import { Log } from "../../src/util/log"
 import { Storage } from "../../src/storage/storage"
 import { $ } from "bun"
 import path from "path"
-import { tmpdir } from "../fixture/fixture"
+import { gitInit, tmpdir } from "../fixture/fixture"
 
 Log.init({ print: false })
 
 describe("Project.fromDirectory", () => {
   test("git repository with no commits gets a stable path id", async () => {
     await using tmp = await tmpdir()
-    await $`git init`.cwd(tmp.path).quiet()
+    await gitInit(tmp.path)
 
     const { project } = await Project.fromDirectory(tmp.path)
 
@@ -64,7 +64,7 @@ describe("Project identity is stable", () => {
       time: { created: 1, updated: 1 },
     })
 
-    await $`git init`.cwd(tmp.path).quiet()
+    await gitInit(tmp.path)
     await $`git commit --allow-empty -m flip`.cwd(tmp.path).quiet()
 
     const after = await Project.fromDirectory(tmp.path)

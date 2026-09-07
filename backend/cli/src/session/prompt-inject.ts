@@ -549,7 +549,10 @@ function researchContext() {
 }
 
 function disciplinePack(agentName: string) {
-  return TaskProfile.pack(researchContext()) ?? (agentName === "biology" || agentName === "physics" || agentName === "ml" ? agentName : undefined)
+  return (
+    TaskProfile.pack(researchContext()) ??
+    (agentName === "biology" || agentName === "physics" || agentName === "ml" ? agentName : undefined)
+  )
 }
 
 export function injectDisciplinePack(userMessage: MessageV2.WithParts, agentName = "research") {
@@ -902,22 +905,22 @@ async function applyDynamicInjections(
         ...(drifted
           ? []
           : scientificInjections({
-          designRe: DESIGN_RE,
-          statsRe: STATS_RE,
-          dataRe: DATA_RE,
-          litRe: LIT_RE,
-          causalRe: CAUSAL_RE,
-          metaRe: META_RE,
-          activeRe: ACTIVE_RE,
-          experimentDesign: (c) => injectExperimentDesign(c.userMessage),
-          statsCheck: (c) => injectStatsCheck(c.userMessage),
-          dataQuality: (c) => injectDataQuality(c.userMessage),
-          literatureCheck: (c) => injectLiteratureCheck(c.userMessage),
-          causalCheck: (c) => injectCausalCheck(c.userMessage),
-          metaAnalysis: (c) => injectMetaAnalysis(c.userMessage, c.session.id),
-          activeLearning: (c) => injectActiveLearning(c.userMessage),
-          crossValidate: (c) => injectCrossValidate(c.userMessage),
-        })),
+              designRe: DESIGN_RE,
+              statsRe: STATS_RE,
+              dataRe: DATA_RE,
+              litRe: LIT_RE,
+              causalRe: CAUSAL_RE,
+              metaRe: META_RE,
+              activeRe: ACTIVE_RE,
+              experimentDesign: (c) => injectExperimentDesign(c.userMessage),
+              statsCheck: (c) => injectStatsCheck(c.userMessage),
+              dataQuality: (c) => injectDataQuality(c.userMessage),
+              literatureCheck: (c) => injectLiteratureCheck(c.userMessage),
+              causalCheck: (c) => injectCausalCheck(c.userMessage),
+              metaAnalysis: (c) => injectMetaAnalysis(c.userMessage, c.session.id),
+              activeLearning: (c) => injectActiveLearning(c.userMessage),
+              crossValidate: (c) => injectCrossValidate(c.userMessage),
+            })),
         ...advisoryInjections({
           agentRouter: (c) => injectAgentRouter(c.userMessage, c.agent),
           refineLoop: (c) => injectRefineLoop(c.userMessage),

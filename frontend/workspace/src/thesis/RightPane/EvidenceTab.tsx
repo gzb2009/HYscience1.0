@@ -5,11 +5,7 @@ import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 import { centerTabs } from "@/thesis/store/centerTabs"
 import { ReviewInspector } from "@/thesis/RightPane/ReviewInspector"
-import {
-  assistantMessagesForLastTurn,
-  collectResultFiles,
-  customerFacingResultFiles,
-} from "@hysci/ui/session-result"
+import { assistantMessagesForLastTurn, collectResultFiles, customerFacingResultFiles } from "@hysci/ui/session-result"
 
 export function EvidenceTab(props: { sessionID?: string }): JSX.Element {
   const params = useParams()

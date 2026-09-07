@@ -4727,7 +4727,10 @@ button.cs-composer-label:hover {
   bottom: 0;
   width: 1px;
   background: color-mix(in srgb, var(--color-text) 10%, transparent);
-  transition: background 140ms ease, width 140ms ease, opacity 140ms ease;
+  transition:
+    background 140ms ease,
+    width 140ms ease,
+    opacity 140ms ease;
 }
 
 .cs-col-handle[data-edge="end"]::before {
@@ -4754,7 +4757,9 @@ button.cs-composer-label:hover {
   background: color-mix(in srgb, var(--color-text) 22%, transparent);
   opacity: 0;
   transform: translateY(-50%);
-  transition: opacity 140ms ease, background 140ms ease;
+  transition:
+    opacity 140ms ease,
+    background 140ms ease;
 }
 
 .cs-col-handle[data-edge="end"] .cs-col-handle-grip {
@@ -5533,4 +5538,3 @@ body.cs-col-resizing input {
   display: flex;
   gap: 8px;
 }
-

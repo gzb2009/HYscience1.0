@@ -770,7 +770,9 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
   const [open, setOpen] = createSignal(props.defaultOpen ?? false)
 
   const label = createMemo(() => {
-    const match = text().trimStart().match(/^\*\*(.+?)\*\*/)
+    const match = text()
+      .trimStart()
+      .match(/^\*\*(.+?)\*\*/)
     if (match) return i18n.t("ui.sessionTurn.status.thinkingWithTopic", { topic: match[1].trim() })
     if (streaming()) return i18n.t("ui.sessionTurn.status.thinking")
     return i18n.t("ui.messagePart.reasoning.title")

@@ -52,7 +52,7 @@ export default function DomainGuide(): JSX.Element {
       if (!changed) return
       const update = await sdk.client.global.config.update({ config: { domainSkill: next } as never })
       if (update.error) return
-      sync.set("config", "domainSkill" as never, next)
+      sync.set("config", { ...sync.data.config, domainSkill: next } as typeof sync.data.config)
     })
   })
 

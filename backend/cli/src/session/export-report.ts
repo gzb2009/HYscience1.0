@@ -19,7 +19,10 @@ export namespace ExportReport {
   }
 
   export function stripLocale(text: string) {
-    return text.replace(/<ui-locale\b[^>]*>/gi, "").replace(/\s+\n/g, "\n").trim()
+    return text
+      .replace(/<ui-locale\b[^>]*>/gi, "")
+      .replace(/\s+\n/g, "\n")
+      .trim()
   }
 
   export function isJunkClaim(claim: string) {

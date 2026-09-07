@@ -5,18 +5,21 @@ import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 import { projectDomainId, type DomainId } from "@/domain/registry"
 import { centerTabs } from "@/thesis/store/centerTabs"
-import {
-  assistantMessagesForLastTurn,
-  collectResultFiles,
-  customerFacingResultFiles,
-} from "@hysci/ui/session-result"
+import { assistantMessagesForLastTurn, collectResultFiles, customerFacingResultFiles } from "@hysci/ui/session-result"
 import type { ToolPart } from "@hysci/sdk/v2/client"
 
 const LIT = /websearch|webfetch|pubmed|literature|research-lookup|biorxiv|openalex|skill/i
 const COMPUTE = /bash|notebook|rkernel|remote|python/i
 const WRITE = /write|edit|multiedit/i
 
-const TITLE: Record<DomainId, "domain.imc.title" | "domain.single-cell.title" | "domain.spatial.title" | "domain.genomics.title" | "domain.general.title"> = {
+const TITLE: Record<
+  DomainId,
+  | "domain.imc.title"
+  | "domain.single-cell.title"
+  | "domain.spatial.title"
+  | "domain.genomics.title"
+  | "domain.general.title"
+> = {
   imc: "domain.imc.title",
   "single-cell": "domain.single-cell.title",
   spatial: "domain.spatial.title",

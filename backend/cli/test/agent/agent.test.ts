@@ -616,8 +616,8 @@ test("defaultAgent returns next primary agent when first is disabled", async () 
     directory: tmp.path,
     fn: async () => {
       const agent = await Agent.defaultAgent()
-      // research is disabled, so it should return the next primary agent
-      expect(agent).toBe("biology")
+      // research is disabled; specialists are hidden, so the next visible primary is plan
+      expect(agent).toBe("plan")
     },
   })
 })

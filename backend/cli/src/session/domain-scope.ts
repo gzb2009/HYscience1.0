@@ -44,7 +44,8 @@ const DIRECTION: Record<DirectionId, Direction> = {
   },
   "single-cell": {
     title: "单细胞分析",
-    focus: "scRNA-seq / 单细胞：质控、整合、聚类、注释、差异基因、轨迹、细胞通讯。执行范围不包括 IMC 成像、空间转录组平台分析或基因组变异分析。",
+    focus:
+      "scRNA-seq / 单细胞：质控、整合、聚类、注释、差异基因、轨迹、细胞通讯。执行范围不包括 IMC 成像、空间转录组平台分析或基因组变异分析。",
     files: /\.(h5ad|loom|h5seurat)$/i,
     foreign: {
       imc: /\b(imc|imaging.?mass|hyperion|codex|mibi)\b|\.mcd\b|成像质谱/i,
@@ -55,7 +56,8 @@ const DIRECTION: Record<DirectionId, Direction> = {
   },
   spatial: {
     title: "空间转录组",
-    focus: "空间转录组（Visium / Stereo-seq / MERFISH 等）：空间邻域、配体受体、去卷积、与单细胞参考整合。执行范围不包括 IMC 蛋白成像或基因组变异分析。",
+    focus:
+      "空间转录组（Visium / Stereo-seq / MERFISH 等）：空间邻域、配体受体、去卷积、与单细胞参考整合。执行范围不包括 IMC 蛋白成像或基因组变异分析。",
     foreign: {
       imc: /\b(imc|imaging.?mass|hyperion|codex|mibi)\b|\.mcd\b|成像质谱/i,
       "single-cell": SCRNA,
@@ -120,7 +122,10 @@ export namespace DomainScope {
     return key ? DIRECTION[key].focus : undefined
   }
 
-  export function drift(subdomain: string | undefined, input: { text: string; filenames: string[] }): Drift | undefined {
+  export function drift(
+    subdomain: string | undefined,
+    input: { text: string; filenames: string[] },
+  ): Drift | undefined {
     const key = id(subdomain)
     if (!key) return undefined
     const blob = `${input.text}\n${input.filenames.join("\n")}`

@@ -290,9 +290,11 @@ export const dict = {
   "dialog.project.new.workspacePreview": "Direction workspace",
   "dialog.project.new.resultPreview": "Result folder",
   "dialog.project.new.resultHint": "Outputs stay in result/ inside this direction workspace.",
-  "dialog.project.new.isolateFailed": "Could not isolate this direction from the parent folder. Try a different folder.",
+  "dialog.project.new.isolateFailed":
+    "Could not isolate this direction from the parent folder. Try a different folder.",
   "dialog.project.research.label": "Analysis direction",
-  "dialog.project.research.hint": "Set on the domain page and locked here. Switch domain first if you need another direction.",
+  "dialog.project.research.hint":
+    "Set on the domain page and locked here. Switch domain first if you need another direction.",
   "dialog.project.research.notes": "Research notes, constraints, or preferred methods",
   "dialog.project.new.description": "Description",
   "dialog.project.new.descriptionHint":
@@ -930,8 +932,10 @@ export const dict = {
   "domain.guide.skillsHint": "Enabled skills belong to this domain. Disabled skills stay visible and can be turned on.",
   "domain.guide.skillsPick": "Choose Configure skills on a domain card first.",
   "domain.guide.switch": "Switch domain",
-  "domain.drift.execute": "This project is {{current}}, so {{suggest}} cannot be executed here. Switch domain, then run the analysis there.",
-  "domain.drift.ask": "This project is {{current}}. You can discuss {{suggest}} methods and literature in detail, but it cannot be run here. Switch domain to execute.",
+  "domain.drift.execute":
+    "This project is {{current}}, so {{suggest}} cannot be executed here. Switch domain, then run the analysis there.",
+  "domain.drift.ask":
+    "This project is {{current}}. You can discuss {{suggest}} methods and literature in detail, but it cannot be run here. Switch domain to execute.",
   "domain.drift.switch": "Switch domain",
   "domain.drift.stay": "Stay here to keep discussing methods",
   "domain.guide.empty": "No projects in this domain yet. Create one to start.",

@@ -28,13 +28,7 @@ export function persistWidth(key: string, value: number) {
   } catch {}
 }
 
-export function clampColumn(
-  value: number,
-  min: number,
-  max: number,
-  reserved: number,
-  viewport = 1280,
-) {
+export function clampColumn(value: number, min: number, max: number, reserved: number, viewport = 1280) {
   const room = Math.max(min, viewport - reserved - CENTER_MIN)
   return Math.round(Math.max(min, Math.min(max, room, value)))
 }

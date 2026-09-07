@@ -901,7 +901,8 @@ export const dict = {
   "domain.guide.skillsPick": "先点上方卡片的「配置 Skill」，再开关技能。",
   "domain.guide.switch": "切换领域",
   "domain.drift.execute": "当前项目是{{current}}，无法在这里执行{{suggest}}。请切换到对应方向后再发起分析。",
-  "domain.drift.ask": "当前项目是{{current}}。{{suggest}}的方法、文献和对比可以详细讨论，但不能在这里执行。要跑分析请先切换领域。",
+  "domain.drift.ask":
+    "当前项目是{{current}}。{{suggest}}的方法、文献和对比可以详细讨论，但不能在这里执行。要跑分析请先切换领域。",
   "domain.drift.switch": "切换领域",
   "domain.drift.stay": "留在当前方向可继续讨论方法",
   "domain.guide.empty": "该方向下还没有项目，先新建一个开始分析。",

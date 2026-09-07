@@ -1004,11 +1004,7 @@ function SessionsSidebar(props: {
   return (
     <aside
       class={`cs-sidebar thesis-scroll${props.open ? "" : " cs-sidebar-collapsed"}`}
-      style={
-        props.open
-          ? { "--cs-sidebar-width": `${uiStore.sidebarWidth()}px` }
-          : undefined
-      }
+      style={props.open ? { "--cs-sidebar-width": `${uiStore.sidebarWidth()}px` } : undefined}
     >
       <Show
         when={props.open}
@@ -1226,11 +1222,7 @@ function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX
   const noModel = () => models.list().length === 0
   const prompts = createMemo(() => {
     const id = props.domain
-    return [
-      language.t(`chat.welcome.${id}.1`),
-      language.t(`chat.welcome.${id}.2`),
-      language.t(`chat.welcome.${id}.3`),
-    ]
+    return [language.t(`chat.welcome.${id}.1`), language.t(`chat.welcome.${id}.2`), language.t(`chat.welcome.${id}.3`)]
   })
   return (
     <div class="thesis-fade-in cs-chat-welcome">
