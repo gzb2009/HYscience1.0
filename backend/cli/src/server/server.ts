@@ -699,21 +699,27 @@ export namespace Server {
   export function listen(opts: { port: number; cors?: string[] }) {
     _corsWhitelist = opts.cors ?? []
 
+    const fetch = App().fetch
     const args = {
-      hostname: "127.0.0.1",
       idleTimeout: 0,
-      fetch: App().fetch,
+      fetch,
       websocket: websocket,
     } as const
-    const tryServe = (port: number) => {
+    const tryServe = (port: number, hostname: string) => {
       try {
-        return Bun.serve({ ...args, port })
+        return Bun.serve({ ...args, hostname, port })
       } catch {
         return undefined
       }
     }
-    const server = opts.port === 0 ? (tryServe(4096) ?? tryServe(0)) : tryServe(opts.port)
+    const server =
+      opts.port === 0
+        ? (tryServe(4096, "127.0.0.1") ?? tryServe(0, "127.0.0.1"))
+        : tryServe(opts.port, "127.0.0.1")
     if (!server) throw new Error(`Failed to start server on port ${opts.port}`)
+    // Chrome/Safari resolve localhost to ::1 first. IPv4-only bind makes
+    // http://localhost:4096 fail with TypeError: Failed to fetch.
+    tryServe(server.port, "::1")
 
     _url = server.url
     _server = server

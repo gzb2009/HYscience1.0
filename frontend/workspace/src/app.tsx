@@ -107,12 +107,34 @@ export function AppInterface(props: { defaultUrl?: string }) {
     return normalizeServerUrl(result)
   })()
 
+  const localDevUrl = () => {
+    const host = import.meta.env.VITE_HYSCIENCE_SERVER_HOST === "localhost" || !import.meta.env.VITE_HYSCIENCE_SERVER_HOST
+      ? "127.0.0.1"
+      : import.meta.env.VITE_HYSCIENCE_SERVER_HOST
+    const port = import.meta.env.VITE_HYSCIENCE_SERVER_PORT ?? "4096"
+    return `http://${host}:${port}`
+  }
+
+  const usableStored = () => {
+    if (!stored) return
+    if (!import.meta.env.DEV) return stored
+    try {
+      const url = new URL(stored)
+      const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost"
+      const port = url.port || (url.protocol === "https:" ? "443" : "80")
+      const expected = import.meta.env.VITE_HYSCIENCE_SERVER_PORT ?? "4096"
+      if (loopback && port !== expected) return
+    } catch {
+      return
+    }
+    return stored
+  }
+
   const defaultServerUrl = () => {
     if (props.defaultUrl) return props.defaultUrl
-    if (stored) return stored
-    if (location.hostname.includes(URLS.host)) return "http://localhost:4096"
-    if (import.meta.env.DEV)
-      return `http://${import.meta.env.VITE_HYSCIENCE_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_HYSCIENCE_SERVER_PORT ?? "4096"}`
+    if (usableStored()) return usableStored()
+    if (location.hostname.includes(URLS.host)) return "http://127.0.0.1:4096"
+    if (import.meta.env.DEV) return localDevUrl()
 
     return window.location.origin
   }

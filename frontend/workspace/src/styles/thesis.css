@@ -249,7 +249,7 @@ html[data-color-scheme="dark"] .g-strip {
 }
 
 .g-composer {
-  background: var(--color-surface-solid);
+  background: none;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   transition:
@@ -1338,6 +1338,91 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   background: #a855f7;
 }
 
+.cs-compute-dock-dot[data-tier="off"] {
+  background: var(--color-text-faint);
+}
+
+.cs-model-dock-pop {
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cs-model-dock-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.cs-model-dock-section:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.cs-model-dock-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-text-faint);
+}
+
+.cs-model-dock-agent,
+.cs-model-dock-provider {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cs-model-dock-agent strong,
+.cs-model-dock-provider strong {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cs-model-dock-agent span,
+.cs-model-dock-provider span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.cs-model-dock-select {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.cs-model-dock-note {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-faint);
+}
+
+.cs-model-dock-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .cs-compute-dock-pop {
   width: min(340px, calc(100vw - 32px));
   padding: 12px 12px 8px;
@@ -1668,7 +1753,8 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
   margin-bottom: 4px;
 }
 
-.cs-cap-drawer-body input {
+.cs-cap-drawer-body input,
+.cs-cap-drawer-body select {
   width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -2816,7 +2902,7 @@ html[data-color-scheme="dark"] .thesis-agent-orbit {
 .thesis-md {
   color: var(--color-text);
   font-family: var(--font-serif);
-  font-size: 15px;
+  font-size: var(--app-font-size, 15px);
   line-height: 1.7;
 }
 
@@ -3694,6 +3780,15 @@ html[data-color-scheme="dark"] .thesis-overlay {
   background: color-mix(in srgb, var(--color-text) 3%, transparent);
 }
 
+.cs-sidebar-project-head[data-current="true"] {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+
+.cs-sidebar-project-open {
+  all: unset;
+  cursor: pointer;
+}
+
 .cs-sidebar-project-toggle {
   all: unset;
   cursor: pointer;
@@ -4105,6 +4200,45 @@ html[data-color-scheme="dark"] .thesis-overlay {
 .cs-composer-inner {
   width: 100%;
   max-width: 100%;
+}
+
+.cs-imc-flow-dock {
+  position: relative;
+  align-self: flex-start;
+}
+
+.cs-imc-flow-trigger {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 2px;
+  color: var(--color-text-muted);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.cs-imc-flow-trigger:hover,
+.cs-imc-flow-trigger[aria-expanded="true"] {
+  color: var(--color-text);
+}
+
+.cs-imc-flow-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: min(560px, calc(100vw - 48px));
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
 }
 
 .cs-composer-label {
@@ -4531,11 +4665,13 @@ button.cs-composer-label:hover {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 28px;
-  width: min(100%, 520px);
+  gap: 24px;
+  width: 100%;
+  max-width: 960px;
   margin-inline: auto;
-  padding: 40px clamp(16px, 3vw, 32px) 56px;
+  padding: 32px clamp(32px, 5vw, 64px) 48px;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .cs-chat-welcome-hero {
@@ -4550,14 +4686,6 @@ button.cs-composer-label:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--color-surface-solid) 88%, transparent);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .cs-chat-welcome-copy {
@@ -4565,17 +4693,80 @@ button.cs-composer-label:hover {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  max-width: 420px;
+  max-width: 560px;
+}
+
+.cs-font-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cs-font-size-preview {
+  width: 1.6em;
+  font-family: var(--font-serif);
+  font-size: var(--app-font-size, 14px);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-text);
+  text-align: center;
 }
 
 .cs-chat-welcome-title {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: 26px;
+  font-size: calc(var(--app-font-size, 14px) * 1.85);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.45;
+  text-align: center;
+  text-wrap: balance;
   color: var(--color-text);
+}
+
+.cs-chat-welcome-name {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  max-width: 16em;
+  margin: 0 0.18em;
+  padding: 0.06em 0.36em 0.1em 0.42em;
+  overflow: hidden;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text) 5.5%, transparent);
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: inherit;
+  letter-spacing: 0;
+  line-height: 1.25;
+  vertical-align: 0.08em;
+}
+
+.cs-chat-welcome-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-chat-welcome-name:hover,
+.cs-chat-welcome-name[data-expanded="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.cs-chat-welcome-project-menu {
+  min-width: 200px;
+  max-width: min(320px, 80vw);
+}
+
+.cs-chat-welcome-project-menu .cs-menu-item[data-current="true"] {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  font-weight: 600;
 }
 
 .cs-chat-welcome-lead {
@@ -4629,6 +4820,112 @@ button.cs-composer-label:hover {
   color: var(--color-text-faint);
   font-family: var(--font-mono);
   font-size: 12px;
+}
+
+.cs-chat-welcome-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.cs-chat-welcome-flow-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.cs-chat-welcome-flow-title {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+
+.cs-chat-welcome-flow-lead {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.cs-chat-welcome-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
+  width: 100%;
+}
+
+.cs-chat-welcome-flow-card {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 12px 10px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  background: none;
+  text-align: left;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.cs-chat-welcome-flow-card:hover {
+  border-color: var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
+}
+
+.cs-chat-welcome-flow-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-faint);
+}
+
+.cs-chat-welcome-flow-card:hover .cs-chat-welcome-flow-mark {
+  color: var(--color-text);
+}
+
+.cs-chat-welcome-flow-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: inherit;
+}
+
+.cs-chat-welcome-flow-name {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-text);
+}
+
+.cs-chat-welcome-flow-hint {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 720px) {
+  .cs-chat-welcome-flow-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .cs-chat-welcome-flow-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cs-chat-welcome-setup {

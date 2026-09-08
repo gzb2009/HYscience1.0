@@ -11,7 +11,7 @@ export function normalizeServerUrl(input: string) {
   const trimmed = input.trim()
   if (!trimmed) return
   const withProtocol = /^https?:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`
-  return withProtocol.replace(/\/+$/, "")
+  return withProtocol.replace(/\/+$/, "").replace("://localhost", "://127.0.0.1")
 }
 
 export function serverDisplayName(url: string) {
@@ -125,8 +125,17 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
         if (busy || hidden()) return
         busy = true
         void check(url)
-          .then((next) => {
+          .then(async (next) => {
             if (!alive) return
+            if (!next) {
+              const fallback = normalizeServerUrl(props.defaultUrl)
+              if (fallback && fallback !== url && (await check(fallback))) {
+                if (!alive) return
+                setActive(fallback)
+                setState("healthy", true)
+                return
+              }
+            }
             setState("healthy", next)
           })
           .finally(() => {

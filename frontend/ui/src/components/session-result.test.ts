@@ -279,8 +279,13 @@ describe("recent vs task file names", () => {
       ] as unknown as PartType[],
     }
     expect(assistantMessagesForLastTurn(messages).map((message) => message.id)).toEqual(["a2"])
-    expect([...collectRecentTurnFileNames({ messages, partsByMessage })]).toEqual(["new.png"])
-    expect([...collectTaskFileNames({ messages, partsByMessage })].sort()).toEqual(["new.png", "old.png"])
+    expect([...collectRecentTurnFileNames({ messages, partsByMessage })].sort()).toEqual(["new.png", "result/new.png"])
+    expect([...collectTaskFileNames({ messages, partsByMessage })].sort()).toEqual([
+      "new.png",
+      "old.png",
+      "result/new.png",
+      "result/old.png",
+    ])
   })
 
   test("collectInferredFileNamesFromTools reads write tool paths without verified metadata", () => {
@@ -297,6 +302,6 @@ describe("recent vs task file names", () => {
         ] as unknown as PartType[],
       },
     })
-    expect([...names]).toEqual(["legacy_plot.png"])
+    expect([...names].sort()).toEqual(["legacy_plot.png", "result/legacy_plot.png"])
   })
 })

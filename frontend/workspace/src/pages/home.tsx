@@ -17,6 +17,7 @@ import { ToastContainer } from "@/thesis/Toast"
 import { toast } from "@/thesis/Toast"
 import { DialogSettings } from "@/components/dialog-settings"
 import { HomeUserMenu } from "@/components/home-user-menu"
+import { HomeDock } from "@/components/home-capabilities/HomeDock"
 import { DisconnectedPanel } from "@/thesis/DisconnectedPanel"
 import { uiStore } from "@/thesis/store/ui"
 import { useGlobalKeys } from "@/thesis/useGlobalKeys"
@@ -496,6 +497,7 @@ export default function Home(): JSX.Element {
           </Show>
         </div>
       </main>
+      <HomeDock />
     </div>
   )
 }

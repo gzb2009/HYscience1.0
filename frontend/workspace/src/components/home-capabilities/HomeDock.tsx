@@ -3,6 +3,7 @@ import { Portal } from "solid-js/web"
 import { useLanguage } from "@/context/language"
 import { HomeSkillsBlock } from "./HomeCapabilities"
 import { HomeComputeDock } from "./HomeCompute"
+import { HomeModelDock } from "./HomeModel"
 import { IconSkillsStack } from "./icons"
 
 export function HomeDock(props: {
@@ -39,6 +40,7 @@ export function HomeDock(props: {
             <IconSkillsStack size={20} />
             <span>{language.t("home.dock.skill")}</span>
           </button>
+          <HomeModelDock />
           <HomeComputeDock />
         </div>
       </Portal>

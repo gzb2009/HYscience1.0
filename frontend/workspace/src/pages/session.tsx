@@ -17,10 +17,14 @@ import { Portal } from "solid-js/web"
 import { useNavigate, useParams } from "@solidjs/router"
 import { produce } from "solid-js/store"
 import { Binary } from "@hysci/util/binary"
+import { base64Encode } from "@hysci/util/encode"
+import type { Project } from "@hysci/sdk/v2/client"
 import { SessionTurn } from "@hysci/ui/session-turn"
+import { DropdownMenu } from "@hysci/ui/dropdown-menu"
 import { useSync } from "@/context/sync"
 import { useGlobalSync } from "@/context/global-sync"
 import { useSDK } from "@/context/sdk"
+import { useServer } from "@/context/server"
 import { usePlatform } from "@/context/platform"
 import { useLayout } from "@/context/layout"
 import { Composer } from "@/thesis/Composer"
@@ -86,6 +90,7 @@ import {
 } from "@hysci/ui/session-result"
 import {
   migrateResultDirectory,
+  isResultDirectory,
   isResultFolderName,
   normalizeResultFolderName,
   resultFolderName,
@@ -93,12 +98,22 @@ import {
 import { firstUserMessageText, getSessionDisplayTitle } from "@/utils/sessionDisplayTitle"
 import { projectMetaLocal } from "@/thesis/store/projectMetaLocal"
 import { projectDomainId } from "@/domain/registry"
+import { IMC_STEPS } from "@/domain/imc-flow"
 import { lastSelectedDomain } from "@/domain/store"
 import { sessionTitleLocal } from "@/thesis/store/sessionTitleLocal"
 import { toast } from "@/thesis/Toast"
 import { artifactImageUrl, artifactTable, type ArtifactData } from "@/utils/artifactPreview"
 
 type SyncSession = ReturnType<typeof useSync>["data"]["session"][number]
+type SidebarSession = { session: SyncSession; title: string; busy: boolean }
+type SidebarGroup = {
+  worktree: string
+  directory: string
+  name: string
+  pinned: boolean
+  current: boolean
+  sessions: SidebarSession[]
+}
 /**
  * Session page — sidebar + chat/files center + inspector rail (terminal/review).
  */
@@ -110,6 +125,7 @@ export default function Page(): JSX.Element {
   const sdk = useSDK()
   const platform = usePlatform()
   const layout = useLayout()
+  const server = useServer()
   const dialog = useDialog()
   const [creating, setCreating] = createSignal(false)
 
@@ -360,6 +376,80 @@ export default function Page(): JSX.Element {
       .filter((s) => !s.directory || s.directory === dir)
       .sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
   })
+
+  const siblingProjects = createMemo(() => {
+    projectMetaLocal.all()
+    const hide = projectPrefs.hidden()
+    const domain = projectDomainId(projectRecord())
+    const current = projectWorktree()
+    const byWorktree = new Map<string, Project>()
+    const norm = (w: string) => w.replace(/\/$/, "")
+    for (const p of globalSync.data.project) {
+      if (!p.worktree || hide.has(p.worktree) || hide.has(norm(p.worktree))) continue
+      if (isResultDirectory(p.worktree)) continue
+      if (projectDomainId(p) !== domain) continue
+      byWorktree.set(p.worktree, p)
+    }
+    const rec = projectRecord()
+    if (current && rec && !byWorktree.has(current)) {
+      byWorktree.set(current, { ...rec, worktree: current })
+    }
+    return Array.from(byWorktree.values()).sort((a, b) => {
+      if (a.worktree === current) return -1
+      if (b.worktree === current) return 1
+      return projectLabel(a).localeCompare(projectLabel(b), "zh")
+    })
+  })
+
+  const sidebarGroups = createMemo(() => {
+    projectMetaLocal.all()
+    sessionTitleLocal.all()
+    const current = projectWorktree()
+    const live = sessions()
+    return siblingProjects().map((project) => {
+      const dir = resolveProjectWorkingDir(project.worktree)
+      const isCurrent = project.worktree === current || dir === workspaceDir()
+      const [child] = globalSync.child(dir, { bootstrap: false })
+      const list = isCurrent
+        ? live
+        : [...child.session]
+            .filter((s) => !s.parentID && !s.time?.archived)
+            .filter((s) => !s.directory || s.directory === dir)
+            .sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
+      return {
+        worktree: project.worktree,
+        directory: dir,
+        name: projectLabel(project),
+        pinned: projectPrefs.isFavorite(project.worktree),
+        current: isCurrent,
+        sessions: list.map((session) => {
+          const status = child.session_status[session.id]?.type
+          return {
+            session,
+            title: getSessionDisplayTitle(session, child.message[session.id], child.part),
+            busy: status === "busy" || status === "retry",
+          }
+        }),
+      }
+    })
+  })
+
+  createEffect((prev?: string) => {
+    const dirs = siblingProjects().map((p) => p.worktree)
+    const key = dirs.slice().sort().join("\0")
+    if (key === prev) return key
+    if (dirs.length === 0) return key
+    void Promise.all(dirs.map((dir) => globalSync.project.loadSessions(resolveProjectWorkingDir(dir))))
+    return key
+  })
+
+  function openProject(directory: string, sessionId?: string) {
+    projectPrefs.unhide(directory)
+    layout.projects.open(directory)
+    server.projects.touch(directory)
+    const slug = base64Encode(directory)
+    navigate(sessionId ? `/${slug}/session/${sessionId}` : `/${slug}/session`)
+  }
   const messages = createMemo(() => (params.id ? (sync.data.message[params.id] ?? []) : []))
   const taskFileNames = createMemo(() => {
     const id = params.id
@@ -621,10 +711,7 @@ export default function Page(): JSX.Element {
       >
         <SessionsSidebar
           open={sidebarOpen()}
-          projectName={projectName()}
-          projectWorktree={projectWorktree() || resolveProjectWorkingDir(workspaceDir())}
-          projectPinned={projectPrefs.isFavorite(projectWorktree())}
-          sessions={sessions()}
+          groups={sidebarGroups()}
           activeId={params.id}
           creating={creating()}
           filesActive={centerTabs.filesOpen() && centerTabs.active() === "files"}
@@ -639,9 +726,13 @@ export default function Page(): JSX.Element {
             setVisitedFiles(true)
             centerTabs.showFiles()
           }}
-          onSelect={(id) => {
+          onOpenProject={(worktree) => {
             centerTabs.showChat()
-            navigate(`/${params.dir}/session/${id}`)
+            openProject(worktree)
+          }}
+          onSelect={(worktree, id) => {
+            centerTabs.showChat()
+            openProject(worktree, id)
           }}
           onDelete={(id) => void deleteSession(id)}
           onRenameProject={(name) => void renameProject(name)}
@@ -797,7 +888,16 @@ export default function Page(): JSX.Element {
                   </div>
                 </Match>
                 <Match when={true}>
-                  <ChatWelcome domain={projectDomainId(projectRecord())} />
+                  <ChatWelcome
+                    domain={projectDomainId(projectRecord())}
+                    name={projectName()}
+                    projects={sidebarGroups().map((g) => ({
+                      worktree: g.worktree,
+                      name: g.name,
+                      current: g.current,
+                    }))}
+                    onOpenProject={openProject}
+                  />
                 </Match>
               </Switch>
 
@@ -841,7 +941,7 @@ export default function Page(): JSX.Element {
                 </div>
               </Show>
 
-              <Composer />
+              <Composer imcFlow={projectDomainId(projectRecord()) === "imc" && turnMessages().length > 0} />
             </div>
 
             {/* files — the host explorer, mounted on first visit */}
@@ -972,10 +1072,7 @@ function CenterTabStrip(props: { chatTitle: string }): JSX.Element {
 
 function SessionsSidebar(props: {
   open: boolean
-  projectName: string
-  projectWorktree: string
-  projectPinned: boolean
-  sessions: SyncSession[]
+  groups: SidebarGroup[]
   activeId: string | undefined
   creating: boolean
   filesActive: boolean
@@ -984,22 +1081,36 @@ function SessionsSidebar(props: {
   onNew: () => void
   onCustomize: () => void
   onFiles: () => void
-  onSelect: (id: string) => void
+  onOpenProject: (worktree: string) => void
+  onSelect: (worktree: string, id: string) => void
   onDelete: (id: string) => void
   onRenameProject: (name: string) => void
   onRenameSession: (sessionID: string, title: string) => void
 }): JSX.Element {
   const language = useLanguage()
   const [search, setSearch] = createSignal("")
-  const [groupCollapsed, setGroupCollapsed] = createSignal(false)
+  const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({})
 
-  const filteredSessions = createMemo(() => {
+  const visible = createMemo(() => {
     const q = search().trim().toLowerCase()
-    return props.sessions.filter((s) => {
-      if (!q) return true
-      return (s.title || "").toLowerCase().includes(q)
-    })
+    return props.groups
+      .map((group) => {
+        const nameHit = !q || group.name.toLowerCase().includes(q)
+        const sessions = nameHit
+          ? group.sessions
+          : group.sessions.filter((row) => row.title.toLowerCase().includes(q) || (row.session.title || "").toLowerCase().includes(q))
+        return { ...group, sessions }
+      })
+      .filter((group) => !q || group.sessions.length > 0 || group.name.toLowerCase().includes(q))
   })
+
+  function isCollapsed(worktree: string) {
+    return collapsed()[worktree] ?? false
+  }
+
+  function toggleGroup(worktree: string) {
+    setCollapsed((prev) => ({ ...prev, [worktree]: !prev[worktree] }))
+  }
 
   return (
     <aside
@@ -1068,66 +1179,87 @@ function SessionsSidebar(props: {
             <span>{props.creating ? "Creating…" : language.t("sidebar.newSubTask")}</span>
           </button>
 
-          <div class="cs-sidebar-project-group">
-            <div class="cs-sidebar-project-head">
-              <button
-                type="button"
-                class="cs-sidebar-project-toggle"
-                aria-label={groupCollapsed() ? "expand" : "collapse"}
-                onClick={() => setGroupCollapsed((v) => !v)}
-              >
-                <Show when={groupCollapsed()} fallback={<IconChevronDown size={14} strokeWidth={1.5} />}>
-                  <IconChevronRight size={14} strokeWidth={1.5} />
-                </Show>
-              </button>
-              <IconFolder size={14} strokeWidth={1.5} style={{ color: "var(--color-text-faint)", "flex-shrink": 0 }} />
-              <Show when={props.projectPinned}>
-                <span class="cs-star-amber">
-                  <IconStarFilled size={13} strokeWidth={1.5} />
-                </span>
-              </Show>
-              <InlineRename
-                class="cs-sidebar-project-name"
-                inputClass="cs-inline-rename-input cs-sidebar-project-name-input"
-                value={props.projectName}
-                title={language.t("common.rename")}
-                onSave={props.onRenameProject}
-              />
-              <span class="cs-sidebar-project-count">{filteredSessions().length}</span>
-            </div>
+          <For each={visible()}>
+            {(group) => (
+              <div class="cs-sidebar-project-group">
+                <div class="cs-sidebar-project-head" data-current={group.current ? "true" : "false"}>
+                  <button
+                    type="button"
+                    class="cs-sidebar-project-toggle"
+                    aria-label={isCollapsed(group.worktree) ? "expand" : "collapse"}
+                    onClick={() => toggleGroup(group.worktree)}
+                  >
+                    <Show when={isCollapsed(group.worktree)} fallback={<IconChevronDown size={14} strokeWidth={1.5} />}>
+                      <IconChevronRight size={14} strokeWidth={1.5} />
+                    </Show>
+                  </button>
+                  <IconFolder size={14} strokeWidth={1.5} style={{ color: "var(--color-text-faint)", "flex-shrink": 0 }} />
+                  <Show when={group.pinned}>
+                    <span class="cs-star-amber">
+                      <IconStarFilled size={13} strokeWidth={1.5} />
+                    </span>
+                  </Show>
+                  <Show
+                    when={group.current}
+                    fallback={
+                      <button
+                        type="button"
+                        class="cs-sidebar-project-name cs-sidebar-project-open"
+                        title={group.name}
+                        onClick={() => props.onOpenProject(group.worktree)}
+                      >
+                        {group.name}
+                      </button>
+                    }
+                  >
+                    <InlineRename
+                      class="cs-sidebar-project-name"
+                      inputClass="cs-inline-rename-input cs-sidebar-project-name-input"
+                      value={group.name}
+                      title={language.t("common.rename")}
+                      onSave={props.onRenameProject}
+                    />
+                  </Show>
+                  <span class="cs-sidebar-project-count">{group.sessions.length}</span>
+                </div>
 
-            <Show when={!groupCollapsed()}>
-              <div class="cs-sidebar-project-sessions">
-                <Show
-                  when={filteredSessions().length > 0}
-                  fallback={
-                    <div
-                      style={{
-                        padding: "12px 16px",
-                        "font-family": FONT_SANS,
-                        "font-size": "12px",
-                        color: "var(--color-text-faint)",
-                      }}
+                <Show when={!isCollapsed(group.worktree)}>
+                  <div class="cs-sidebar-project-sessions">
+                    <Show
+                      when={group.sessions.length > 0}
+                      fallback={
+                        <div
+                          style={{
+                            padding: "12px 16px",
+                            "font-family": FONT_SANS,
+                            "font-size": "12px",
+                            color: "var(--color-text-faint)",
+                          }}
+                        >
+                          {language.t("home.noRecentSessions")}
+                        </div>
+                      }
                     >
-                      {language.t("home.noRecentSessions")}
-                    </div>
-                  }
-                >
-                  <For each={filteredSessions()}>
-                    {(s) => (
-                      <SessionRow
-                        session={s}
-                        active={props.activeId === s.id}
-                        onSelect={() => props.onSelect(s.id)}
-                        onDelete={() => props.onDelete(s.id)}
-                        onRename={(title) => props.onRenameSession(s.id, title)}
-                      />
-                    )}
-                  </For>
+                      <For each={group.sessions}>
+                        {(row) => (
+                          <SessionRow
+                            session={row.session}
+                            title={row.title}
+                            busy={row.busy}
+                            readonly={!group.current}
+                            active={group.current && props.activeId === row.session.id}
+                            onSelect={() => props.onSelect(group.worktree, row.session.id)}
+                            onDelete={() => props.onDelete(row.session.id)}
+                            onRename={(title) => props.onRenameSession(row.session.id, title)}
+                          />
+                        )}
+                      </For>
+                    </Show>
+                  </div>
                 </Show>
               </div>
-            </Show>
-          </div>
+            )}
+          </For>
 
           <button
             type="button"
@@ -1160,6 +1292,9 @@ function SessionsSidebar(props: {
 
 function SessionRow(props: {
   session: SyncSession
+  title?: string
+  busy?: boolean
+  readonly?: boolean
   active: boolean
   onSelect: () => void
   onDelete: () => void
@@ -1167,8 +1302,10 @@ function SessionRow(props: {
 }): JSX.Element {
   const sync = useSync()
   const language = useLanguage()
-  const displayTitle = createMemo(() =>
-    getSessionDisplayTitle(props.session, sync.data.message[props.session.id], sync.data.part),
+  const displayTitle = createMemo(
+    () =>
+      props.title ??
+      getSessionDisplayTitle(props.session, sync.data.message[props.session.id], sync.data.part),
   )
   const fullTitle = createMemo(
     () => firstUserMessageText(sync.data.message[props.session.id], sync.data.part) || displayTitle(),
@@ -1190,47 +1327,67 @@ function SessionRow(props: {
         }
       }}
     >
-      <SessionStatusLight sessionID={props.session.id} />
-      <InlineRename
-        class="cs-session-title"
-        inputClass="cs-inline-rename-input cs-session-title-input"
-        value={displayTitle()}
-        title={language.t("common.rename")}
-        onSave={props.onRename}
-      />
-      <button
-        type="button"
-        class="cs-session-delete"
-        title="delete session"
-        aria-label="delete session"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation()
-          e.preventDefault()
-          props.onDelete()
-        }}
+      <SessionStatusLight sessionID={props.session.id} running={props.readonly ? props.busy : undefined} />
+      <Show
+        when={!props.readonly}
+        fallback={<span class="cs-session-title">{displayTitle()}</span>}
       >
-        <IconTrash size={11} strokeWidth={1.5} />
-      </button>
+        <InlineRename
+          class="cs-session-title"
+          inputClass="cs-inline-rename-input cs-session-title-input"
+          value={displayTitle()}
+          title={language.t("common.rename")}
+          onSave={props.onRename}
+        />
+      </Show>
+      <Show when={!props.readonly}>
+        <button
+          type="button"
+          class="cs-session-delete"
+          title="delete session"
+          aria-label="delete session"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            props.onDelete()
+          }}
+        >
+          <IconTrash size={11} strokeWidth={1.5} />
+        </button>
+      </Show>
     </div>
   )
 }
 
-function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX.Element {
+function launchWelcome(prompt: string) {
+  uiStore.setPrefillSend(false)
+  uiStore.setPrefill(prompt)
+}
+
+function ChatWelcome(props: {
+  domain: ReturnType<typeof projectDomainId>
+  name: string
+  projects: Array<{ worktree: string; name: string; current: boolean }>
+  onOpenProject: (worktree: string) => void
+}): JSX.Element {
   const models = useModels()
   const dialog = useDialog()
   const language = useLanguage()
+  const [switchOpen, setSwitchOpen] = createSignal(false)
   const noModel = () => models.list().length === 0
+  const flow = () => props.domain === "imc"
   const prompts = createMemo(() => {
+    if (flow()) return []
     const id = props.domain
-    return [language.t(`chat.welcome.${id}.1`), language.t(`chat.welcome.${id}.2`), language.t(`chat.welcome.${id}.3`)]
+    return ([1, 2, 3] as const).map((n) => language.t(`chat.welcome.${id}.${n}`))
   })
   return (
     <div class="thesis-fade-in cs-chat-welcome">
       <div class="cs-chat-welcome-hero">
         <div class="cs-chat-welcome-mark">
           <AgentIcon
-            size={52}
+            size={76}
             style={{
               "--agent-icon-ink": "var(--color-text)",
               "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
@@ -1239,12 +1396,39 @@ function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX
         </div>
         <div class="cs-chat-welcome-copy">
           <h2 class="cs-chat-welcome-title">
-            {language.t("chat.welcome.title")}
+            {language.t("chat.welcome.title.before")}
+            <DropdownMenu open={switchOpen()} onOpenChange={setSwitchOpen} modal={false}>
+              <DropdownMenu.Trigger
+                class="cs-chat-welcome-name"
+                title={language.t("chat.welcome.switchProject")}
+                aria-label={language.t("chat.welcome.switchProject")}
+              >
+                <span class="cs-chat-welcome-name-text">{props.name}</span>
+                <IconChevronDown size={14} strokeWidth={1.8} />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content class="cs-menu cs-chat-welcome-project-menu">
+                  <For each={props.projects}>
+                    {(project) => (
+                      <DropdownMenu.Item
+                        class="cs-menu-item"
+                        data-current={project.current ? "true" : "false"}
+                        onSelect={() => {
+                          if (!project.current) props.onOpenProject(project.worktree)
+                        }}
+                      >
+                        {project.name}
+                      </DropdownMenu.Item>
+                    )}
+                  </For>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu>
+            {language.t("chat.welcome.title.after")}
             <span class="thesis-blink" style={{ color: "var(--color-text-faint)" }}>
               _
             </span>
           </h2>
-          <p class="cs-chat-welcome-lead">{language.t("chat.welcome.lead")}</p>
         </div>
       </div>
 
@@ -1258,6 +1442,34 @@ function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX
       </Show>
 
       <div class="cs-chat-welcome-prompts">
+        <Show when={flow()}>
+          <section class="cs-chat-welcome-flow">
+            <div class="cs-chat-welcome-flow-head">
+              <span class="cs-chat-welcome-flow-title">{language.t("chat.welcome.imc.flow.title")}</span>
+            </div>
+            <div class="cs-chat-welcome-flow-grid">
+              <For each={IMC_STEPS}>
+                {(step, index) => {
+                  const Glyph = step[3]
+                  return (
+                    <button
+                      type="button"
+                      class="cs-chat-welcome-flow-card"
+                      onClick={() => launchWelcome(language.t(step[2]))}
+                    >
+                      <span class="cs-chat-welcome-flow-mark">
+                        <Glyph size={16} strokeWidth={1.6} />
+                        <span class="cs-chat-welcome-flow-num">{String(index() + 1).padStart(2, "0")}</span>
+                      </span>
+                      <span class="cs-chat-welcome-flow-name">{language.t(step[0])}</span>
+                      <span class="cs-chat-welcome-flow-hint">{language.t(step[1])}</span>
+                    </button>
+                  )
+                }}
+              </For>
+            </div>
+          </section>
+        </Show>
         <For each={prompts()}>
           {(p) => (
             <button type="button" class="cs-chat-welcome-prompt" onClick={() => uiStore.setPrefill(p)}>

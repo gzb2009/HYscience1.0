@@ -1,6 +1,6 @@
 import { type JSX } from "solid-js"
 
-interface IconProps {
+export interface IconProps {
   size?: number
   strokeWidth?: number
   class?: string
@@ -460,5 +460,70 @@ export const IconLogOut = (p: IconProps): JSX.Element => (
     <path d="M10 17l5-5-5-5" />
     <path d="M15 12H3" />
     <path d="M15 3h4a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-4" />
+  </svg>
+)
+
+export const IconMatrix = (p: IconProps): JSX.Element => (
+  <svg xmlns="http://www.w3.org/2000/svg" {...baseProps(p)}>
+    <path d="M7 4v16" />
+    <path d="M17 4v16" />
+    <path d="M4 7h3" />
+    <path d="M4 17h3" />
+    <path d="M17 7h3" />
+    <path d="M17 17h3" />
+    <path d="M10 8h1.5" />
+    <path d="M12.5 8H14" />
+    <path d="M10 12h4" />
+    <path d="M10 16h1.5" />
+    <path d="M12.5 16H14" />
+  </svg>
+)
+
+export const IconCells = (p: IconProps): JSX.Element => (
+  <svg xmlns="http://www.w3.org/2000/svg" {...baseProps(p)}>
+    <rect x="3" y="3" width="8" height="8" rx="1.5" />
+    <rect x="13" y="3" width="8" height="8" rx="1.5" />
+    <rect x="3" y="13" width="8" height="8" rx="1.5" />
+    <circle cx="17" cy="17" r="3.2" />
+  </svg>
+)
+
+export const IconSigma = (p: IconProps): JSX.Element => (
+  <svg xmlns="http://www.w3.org/2000/svg" {...baseProps(p)}>
+    <path d="M19 5H6.6a1 1 0 0 0-.8 1.6L11 12l-5.2 5.4a1 1 0 0 0 .8 1.6H19" />
+  </svg>
+)
+
+export const IconScatter = (p: IconProps): JSX.Element => (
+  <svg xmlns="http://www.w3.org/2000/svg" {...baseProps(p)}>
+    <path d="M4 19V5" />
+    <path d="M4 19h16" />
+    <circle cx="9" cy="14" r="1.4" />
+    <circle cx="13" cy="9" r="1.4" />
+    <circle cx="17" cy="13" r="1.4" />
+    <circle cx="11" cy="7" r="1.4" />
+  </svg>
+)
+
+export const IconGraph = (p: IconProps): JSX.Element => (
+  <svg xmlns="http://www.w3.org/2000/svg" {...baseProps(p)}>
+    <circle cx="7" cy="7" r="2" />
+    <circle cx="17" cy="7" r="2" />
+    <circle cx="7" cy="17" r="2" />
+    <circle cx="17" cy="17" r="2" />
+    <path d="M9 7h6" />
+    <path d="M7 9v6" />
+    <path d="M17 9v6" />
+    <path d="M9 17h6" />
+  </svg>
+)
+
+export const IconChart = (p: IconProps): JSX.Element => (
+  <svg xmlns="http://www.w3.org/2000/svg" {...baseProps(p)}>
+    <path d="M4 19V5" />
+    <path d="M4 19h16" />
+    <path d="M8 16v-5" />
+    <path d="M12 16V8" />
+    <path d="M16 16v-8" />
   </svg>
 )

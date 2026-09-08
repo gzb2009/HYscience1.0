@@ -17,6 +17,7 @@ import {
   IconStop,
   IconX,
 } from "@/thesis/shared/Icon"
+import { IMC_STEPS } from "@/domain/imc-flow"
 import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { toast } from "@/thesis/Toast"
 import { SkillsBrowser } from "@/thesis/SkillsBrowser"
@@ -222,7 +223,7 @@ function attachmentGuidance(atts: Attachment[]): string {
   return `HYscience attachments (durable scratchpad):\n${lines.join("\n")}\nPaths are under \`${CONTEXT_DIR}/\` at the project working directory. Prefer \`read\` / bash on these paths — do not rely on inline data URLs.${markerHint}`
 }
 
-export function Composer(): JSX.Element {
+export function Composer(props: { imcFlow?: boolean }): JSX.Element {
   const params = useParams()
   const navigate = useNavigate()
   const sdk = useSDK()
@@ -300,8 +301,26 @@ export function Composer(): JSX.Element {
   }
   const [queue, setQueue] = createSignal<QueuedPrompt[]>([])
   const [inflight, setInflight] = createSignal(false)
+  const [lastSent, setLastSent] = createSignal("")
   const [taskControl, setTaskControl] = createSignal<TaskControl>()
   const [taskControlOpen, setTaskControlOpen] = createSignal(false)
+  const [imcOpen, setImcOpen] = createSignal(false)
+  let imcRef: HTMLDivElement | undefined
+  createEffect(() => {
+    if (!imcOpen()) return
+    const close = (e: MouseEvent) => {
+      if (imcRef && !imcRef.contains(e.target as Node)) setImcOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setImcOpen(false)
+    }
+    document.addEventListener("mousedown", close)
+    document.addEventListener("keydown", onEsc)
+    onCleanup(() => {
+      document.removeEventListener("mousedown", close)
+      document.removeEventListener("keydown", onEsc)
+    })
+  })
   const selectedTaskControl = createMemo(() => taskControls.find((item) => item.id === taskControl()))
   createEffect(
     on(
@@ -673,13 +692,40 @@ export function Composer(): JSX.Element {
     return s !== undefined && s !== "idle"
   }
 
+  const restore = (prompt: string) => {
+    const body = prompt.trim()
+    if (!body) return
+    grow(body)
+    textareaRef?.focus()
+  }
+
+  const lastUserPrompt = () => {
+    const sid = sessionPending()
+    if (sid) {
+      const msgs = sync.data.message[sid] ?? []
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const msg = msgs[i]
+        if (msg?.role !== "user") continue
+        const text = (sync.data.part[msg.id] ?? [])
+          .filter((part) => part.type === "text" && !(part as { hybio?: boolean }).hybio)
+          .map((part) => ("text" in part ? part.text : ""))
+          .join("\n")
+          .trim()
+        if (text) return text
+      }
+    }
+    return lastSent()
+  }
+
   const stop = async () => {
     const sid = sessionPending()
     if (!sid) return
+    const prompt = lastUserPrompt()
     try {
       const pending = sync.data.question?.[sid] ?? []
       await Promise.all(pending.map((q) => sdk.client.question.reject({ requestID: q.id }).catch(() => undefined)))
       await sdk.client.session.abort({ sessionID: sid } as any)
+      restore(prompt)
     } catch (e: any) {
       console.error("session.abort failed", e)
       toast.error("could not stop", e?.message ?? String(e))
@@ -1002,6 +1048,7 @@ export function Composer(): JSX.Element {
       return
     }
     setSubmitting(true)
+    setLastSent(p.text)
     try {
       await ensureDirectory(sdk.url, platform.fetch ?? fetch, sdk.directory)
       let sessionID = sessionPending()
@@ -1231,7 +1278,7 @@ export function Composer(): JSX.Element {
               dragOver() || focused()
                 ? "0 0 0 4px color-mix(in srgb, var(--color-focus) 10%, transparent), var(--shadow-xs)"
                 : "var(--shadow-xs)",
-            background: dragOver() ? "var(--color-accent-subtle)" : "var(--color-surface-solid)",
+            background: dragOver() ? "var(--color-accent-subtle)" : "none",
             "border-radius": "14px",
             transition: "background 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
           }}
@@ -1317,7 +1364,10 @@ export function Composer(): JSX.Element {
                     <button
                       type="button"
                       aria-label="remove from queue"
-                      onClick={() => setQueue((qs) => qs.filter((x) => x.id !== q.id))}
+                      onClick={() => {
+                        setQueue((qs) => qs.filter((x) => x.id !== q.id))
+                        restore(q.text)
+                      }}
                       style={{
                         all: "unset",
                         cursor: "pointer",
@@ -1380,6 +1430,53 @@ export function Composer(): JSX.Element {
               </div>
             )}
           </Show>
+          <Show when={props.imcFlow}>
+            <div class="cs-imc-flow-dock" ref={imcRef}>
+              <button
+                type="button"
+                class="cs-imc-flow-trigger"
+                aria-expanded={imcOpen()}
+                aria-haspopup="menu"
+                onClick={() => {
+                  setTaskControlOpen(false)
+                  setImcOpen((open) => !open)
+                }}
+              >
+                {language.t("chat.welcome.imc.flow.title")}
+                <IconChevronDown size={11} strokeWidth={1.6} />
+              </button>
+              <Show when={imcOpen()}>
+                <div class="cs-imc-flow-pop" role="menu">
+                  <div class="cs-chat-welcome-flow-grid">
+                    <For each={IMC_STEPS}>
+                      {(step, index) => {
+                        const Glyph = step[3]
+                        return (
+                          <button
+                            type="button"
+                            class="cs-chat-welcome-flow-card"
+                            role="menuitem"
+                            onClick={() => {
+                              grow(language.t(step[2]))
+                              setImcOpen(false)
+                              textareaRef?.focus()
+                            }}
+                          >
+                            <span class="cs-chat-welcome-flow-mark">
+                              <Glyph size={16} strokeWidth={1.6} />
+                              <span class="cs-chat-welcome-flow-num">{String(index() + 1).padStart(2, "0")}</span>
+                            </span>
+                            <span class="cs-chat-welcome-flow-name">{language.t(step[0])}</span>
+                            <span class="cs-chat-welcome-flow-hint">{language.t(step[1])}</span>
+                          </button>
+                        )
+                      }}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+            </div>
+          </Show>
           <div style={{ position: "relative", width: "100%" }}>
             <textarea
               ref={textareaRef}
@@ -1399,7 +1496,7 @@ export function Composer(): JSX.Element {
               style={{
                 all: "unset",
                 "font-family": FONT_SANS,
-                "font-size": "13px",
+                "font-size": "var(--app-font-size, 14px)",
                 "line-height": 1.55,
                 color: "var(--color-text)",
                 "min-height": "20px",

@@ -137,6 +137,9 @@ const envLocalBody = [
   "",
 ].join("\n")
 await fs.writeFile(envLocalPath, envLocalBody)
+const restoreEnv = () => fs.rm(envLocalPath, { force: true }).catch(() => undefined)
+process.once("SIGINT", () => void restoreEnv())
+process.once("SIGTERM", () => void restoreEnv())
 
 const result = await (async () => {
   try {
@@ -156,7 +159,7 @@ const result = await (async () => {
   } finally {
     await inst.Instance.disposeAll()
     await server.stop()
-    await fs.rm(envLocalPath, { force: true })
+    await restoreEnv()
   }
 })()
 

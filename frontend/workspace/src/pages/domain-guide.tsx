@@ -53,7 +53,7 @@ export default function DomainGuide(): JSX.Element {
       const update = await sdk.client.global.config.update({ config: { domainSkill: next } as never })
       if (update.error) return
       sync.set("config", { ...sync.data.config, domainSkill: next } as typeof sync.data.config)
-    })
+    }).catch(() => undefined)
   })
 
   const skillTitle = createMemo(() => {

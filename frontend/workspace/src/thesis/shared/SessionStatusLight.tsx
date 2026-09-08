@@ -6,11 +6,13 @@ const CELLS = Array.from({ length: GRID_SIZE }, (_, i) => i)
 
 interface SessionStatusLightProps {
   sessionID: string
+  running?: boolean
 }
 
 export function SessionStatusLight(props: SessionStatusLightProps): JSX.Element {
   const sync = useSync()
   const running = createMemo(() => {
+    if (props.running !== undefined) return props.running
     const type = sync.data.session_status[props.sessionID]?.type
     return type === "busy" || type === "retry"
   })
