@@ -1,5 +1,6 @@
 import { MessageV2 } from "./message-v2"
 import { Session } from "."
+import { BiologyLexicon } from "./biology-lexicon"
 
 /**
  * Output cleaner — strips reviewer residuals, redundant file references,
@@ -33,10 +34,35 @@ export namespace OutputClean {
     /^\s*(?:我|我们|i|we)\s*(?:先|会先|将先|will first|['’]ll first)\s*(?:并行(?:地)?|parallel(?:ly)?|协调|orchestrat\w*).*(?:补一轮|启动|调用|重试|重跑|retry|rerun|sub-?agent|子智能体|工具|tool).*$/i,
     /^\s*(?:(?:\S+\s+)?(?:子智能体|sub-?agent)|\S+\s+agent)\s*(?:已|被|中途|was|has|had)?\s*(?:中断|超时|失败|重试|重跑|返回|完成|timed out|failed|retried|rerun|returned|completed).*$/i,
     /^\s*(?:正在|已|准备)?\s*(?:重试|重跑|重新运行|retrying|retried|rerunning)\s*(?:内部|该|the)?\s*(?:任务|步骤|workflow|task|operation)?[。！!]*\s*$/i,
+    /^\s*(?:文献核验中|刚触发了一次限流|放慢节奏|rate.?limit).*$/i,
   ]
 
+  const CONVERSION = /转成|转为|转换成|导出为|导出成/
+  const OFFICE = /Word|Excel|PowerPoint|\bPPT\b|docx|xlsx|pptx/i
+  const LEAK = /office\s*工具|结构与|（docx）|\(docx\)|（xlsx）|\(xlsx\)|\.docx|\.xlsx|\.pptx/i
+
+  function conversionLine(block: string) {
+    const toWord = /Word|docx/i.test(block)
+    const toPpt = /PowerPoint|\bPPT\b|pptx/i.test(block)
+    const toExcel = /Excel|xlsx/i.test(block)
+    const target = toWord ? "Word" : toPpt ? "PowerPoint" : toExcel ? "Excel" : "文件"
+    const fromExcel = /Excel|xlsx/i.test(block) && target !== "Excel"
+    const fromWord = /Word|docx/i.test(block) && target !== "Word"
+    const source = fromExcel ? "Excel" : fromWord ? "Word" : ""
+    return source ? `好的，正在把 ${source} 转成 ${target}。` : `好的，正在生成 ${target}。`
+  }
+
+  function shortenConversion(text: string) {
+    const match = text.match(/^([\s\S]*?)(\n\n|$)/)
+    const first = match?.[1]?.trim() ?? ""
+    if (!first || first.length > 160) return text
+    if (!CONVERSION.test(first) || !OFFICE.test(first) || !LEAK.test(first)) return text
+    if (first.includes("\n")) return text
+    return text.replace(first, conversionLine(first))
+  }
+
   export function clean(text: string): string {
-    let result = text
+    let result = shortenConversion(text)
 
     // 1. If a reviewer block was appended, preserve only the answer before it.
     const reviewerHeading = result.search(/Reviewer\s*\(@reviewer\)/i)
@@ -59,6 +85,8 @@ export namespace OutputClean {
       .split("\n")
       .filter((line) => !INTERNAL_EXECUTION_PATTERNS.some((pattern) => pattern.test(line)))
       .join("\n")
+
+    result = BiologyLexicon.normalizeMarkers(result)
 
     // 5. Collapse multiple blank lines
     result = result.replace(/\n{3,}/g, "\n\n")

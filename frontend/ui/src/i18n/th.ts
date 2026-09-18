@@ -16,7 +16,6 @@ export const dict = {
 
   "ui.sessionTurn.steps.show": "แสดงขั้นตอน",
   "ui.sessionTurn.steps.hide": "ซ่อนขั้นตอน",
-  "ui.sessionTurn.summary.response": "การตอบสนอง",
   "ui.sessionTurn.resultFile.open": "เปิด",
   "ui.sessionTurn.resultFile.showInFiles": "แสดงใน Files",
   "ui.sessionTurn.resultFile.showInFolder": "แสดงในโฟลเดอร์",
@@ -60,7 +59,6 @@ export const dict = {
   "ui.messagePart.title.edit": "แก้ไข",
   "ui.messagePart.title.write": "เขียน",
   "ui.messagePart.option.typeOwnAnswer": "พิมพ์คำตอบของคุณเอง",
-  "ui.messagePart.review.title": "ตรวจสอบคำตอบของคุณ",
 
   "ui.list.loading": "กำลังโหลด",
   "ui.list.empty": "ไม่มีผลลัพธ์",
@@ -120,7 +118,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} ตอบแล้ว",
   "ui.question.answer.none": "(ไม่มีคำตอบ)",
-  "ui.question.review.notAnswered": "(ไม่ได้ตอบ)",
   "ui.question.multiHint": "(เลือกทั้งหมดที่ใช้)",
   "ui.question.custom.placeholder": "พิมพ์คำตอบของคุณ...",
 }

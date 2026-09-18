@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { Message, ReviewRecord } from "@hysci/sdk/v2/client"
-import { mergeReviews, reviewForTurn, reviewHistory, reviewState, selectedReview } from "./review"
+import type { ReviewRecord } from "@hysci/sdk/v2/client"
+import { mergeReviews, reviewHistory, reviewState, selectedReview } from "./review"
 
 const record = (
   messageID: string,
@@ -29,31 +29,6 @@ describe("review records", () => {
 
     expect(mergeReviews([old], [stale, other])).toEqual([old, other])
     expect(mergeReviews([old], [latest])).toEqual([latest])
-  })
-
-  test("associates a review with the final reviewed assistant in a user turn", () => {
-    const messages = [
-      { id: "msg_user", sessionID: "ses_test", role: "user", time: { created: 1 } },
-      {
-        id: "msg_first",
-        sessionID: "ses_test",
-        role: "assistant",
-        parentID: "msg_user",
-        time: { created: 2 },
-      },
-      {
-        id: "msg_final",
-        sessionID: "ses_test",
-        role: "assistant",
-        parentID: "msg_user",
-        time: { created: 3 },
-      },
-    ] as Message[]
-
-    expect(reviewForTurn(messages, [record("msg_first"), record("msg_final", "FLAGGED")], "msg_user")?.messageID).toBe(
-      "msg_final",
-    )
-    expect(reviewForTurn(messages, [record("msg_final")], "msg_other")).toBeUndefined()
   })
 
   test("blocks only non-clean enforce records", () => {

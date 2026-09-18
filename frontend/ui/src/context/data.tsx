@@ -46,6 +46,14 @@ export type QuestionReplyFn = (input: { requestID: string; answers: QuestionAnsw
 
 export type QuestionRejectFn = (input: { requestID: string }) => void
 
+export type QuestionReviseFn = (input: {
+  sessionID: string
+  question: string
+  answers: string[]
+  messageID: string
+  partID: string
+}) => void
+
 export type NavigateToSessionFn = (sessionID: string) => void
 
 export const { use: useData, provider: DataProvider } = createSimpleContext({
@@ -56,6 +64,7 @@ export const { use: useData, provider: DataProvider } = createSimpleContext({
     onPermissionRespond?: PermissionRespondFn
     onQuestionReply?: QuestionReplyFn
     onQuestionReject?: QuestionRejectFn
+    onQuestionRevise?: QuestionReviseFn
     onNavigateToSession?: NavigateToSessionFn
   }) => {
     return {
@@ -68,6 +77,7 @@ export const { use: useData, provider: DataProvider } = createSimpleContext({
       respondToPermission: props.onPermissionRespond,
       replyToQuestion: props.onQuestionReply,
       rejectQuestion: props.onQuestionReject,
+      reviseQuestion: props.onQuestionRevise,
       navigateToSession: props.onNavigateToSession,
     }
   },

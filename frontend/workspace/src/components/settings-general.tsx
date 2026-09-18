@@ -7,7 +7,7 @@ import { useTheme, type ColorScheme } from "@hysci/ui/theme"
 import { showToast } from "@hysci/ui/toast"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { useSettings, monoFontFamily } from "@/context/settings"
+import { useSettings, monoFontFamily, FONT_SIZE_PRESETS } from "@/context/settings"
 import { playSound, SOUND_OPTIONS } from "@/utils/sound"
 import { URLS } from "@/config/urls"
 import { Link } from "./link"
@@ -133,6 +133,13 @@ export const AppearanceSections: Component = () => {
     })),
   )
 
+  const fontSizeLabels = {
+    12: "settings.general.row.fontSize.12",
+    14: "settings.general.row.fontSize.14",
+    16: "settings.general.row.fontSize.16",
+    18: "settings.general.row.fontSize.18",
+  } as const
+
   const fontOptions = [
     { value: "ibm-plex-mono", label: "font.option.ibmPlexMono" },
     { value: "cascadia-code", label: "font.option.cascadiaCode" },
@@ -196,6 +203,35 @@ export const AppearanceSections: Component = () => {
                   </button>
                 )}
               </For>
+            </div>
+          </SettingsRow>
+
+          <SettingsRow
+            title={language.t("settings.general.row.fontSize.title")}
+            description={language.t("settings.general.row.fontSize.description")}
+          >
+            <div class="cs-font-size-control">
+              <span class="cs-font-size-preview" aria-hidden="true">
+                Aa
+              </span>
+              <div class="inline-flex items-center gap-0.5 p-0.5 rounded-xs border border-border-weak-base bg-surface-base">
+                <For each={FONT_SIZE_PRESETS}>
+                  {(size) => (
+                    <button
+                      type="button"
+                      class="h-7 min-w-8 px-2.5 rounded-xs text-13-medium transition-colors"
+                      classList={{
+                        "bg-surface-raised-base-active text-text-strong shadow-xs":
+                          settings.appearance.fontSize() === size,
+                        "text-text-weak hover:text-text-strong": settings.appearance.fontSize() !== size,
+                      }}
+                      onClick={() => settings.appearance.setFontSize(size)}
+                    >
+                      {language.t(fontSizeLabels[size])}
+                    </button>
+                  )}
+                </For>
+              </div>
             </div>
           </SettingsRow>
         </div>

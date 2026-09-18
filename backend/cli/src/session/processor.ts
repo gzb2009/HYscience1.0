@@ -71,15 +71,15 @@ export namespace SessionProcessor {
               ...streamInput,
               abort: signal,
             })
-            let timeout: StreamGuard.TimeoutError | undefined
+            let timeout: Error | undefined
             const timer = setInterval(() => {
               try {
                 guard.check()
               } catch (error) {
-                timeout = error as StreamGuard.TimeoutError
+                timeout = error as Error
                 controller.abort()
               }
-            }, 1000)
+            }, 250)
 
             try {
               for await (const value of stream.fullStream) {
@@ -136,6 +136,7 @@ export namespace SessionProcessor {
                     break
 
                   case "tool-input-start":
+                    guard.textProgress()
                     const part = await Session.updatePart({
                       id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
                       messageID: input.assistantMessage.id,
@@ -306,6 +307,7 @@ export namespace SessionProcessor {
                     break
 
                   case "text-start":
+                    guard.textProgress()
                     currentText = {
                       id: Identifier.ascending("part"),
                       messageID: input.assistantMessage.id,
@@ -334,6 +336,7 @@ export namespace SessionProcessor {
 
                   case "text-end":
                     if (currentText) {
+                      guard.textEnd()
                       currentText.text = currentText.text.trimEnd()
                       const textOutput = await Plugin.trigger(
                         "experimental.text.complete",
@@ -375,36 +378,50 @@ export namespace SessionProcessor {
                 }
               }
             } catch (error) {
+              if (timeout instanceof StreamGuard.SettledError) break
               if (timeout) throw timeout
               throw error
             } finally {
               clearInterval(timer)
             }
-            if (timeout) throw timeout
-          } catch (e: any) {
-            log.error("process", {
-              error: e,
-              stack: JSON.stringify(e.stack),
-            })
-            const error = MessageV2.fromError(e, { providerID: input.model.providerID })
-            const retry = SessionRetry.retryable(error)
-            if (retry !== undefined) {
-              attempt++
-              const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
-              SessionStatus.set(input.sessionID, {
-                type: "retry",
-                attempt,
-                message: retry,
-                next: Date.now() + delay,
-              })
-              await SessionRetry.sleep(delay, input.abort).catch(() => {})
-              continue
+            if (timeout instanceof StreamGuard.SettledError) {
+              if (!input.assistantMessage.finish) input.assistantMessage.finish = "stop"
+            } else if (timeout) {
+              throw timeout
+            } else if (!input.assistantMessage.finish && Object.keys(toolcalls).length === 0) {
+              input.assistantMessage.finish = "stop"
             }
-            input.assistantMessage.error = error
-            Bus.publish(Session.Event.Error, {
-              sessionID: input.assistantMessage.sessionID,
-              error: input.assistantMessage.error,
-            })
+          } catch (e: any) {
+            if (
+              (e instanceof StreamGuard.SettledError || e instanceof StreamGuard.TimeoutError) &&
+              Object.keys(toolcalls).length === 0
+            ) {
+              if (!input.assistantMessage.finish) input.assistantMessage.finish = "stop"
+            } else {
+              log.error("process", {
+                error: e,
+                stack: JSON.stringify(e.stack),
+              })
+              const error = MessageV2.fromError(e, { providerID: input.model.providerID })
+              const retry = SessionRetry.retryable(error)
+              if (retry !== undefined) {
+                attempt++
+                const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
+                SessionStatus.set(input.sessionID, {
+                  type: "retry",
+                  attempt,
+                  message: retry,
+                  next: Date.now() + delay,
+                })
+                await SessionRetry.sleep(delay, input.abort).catch(() => {})
+                continue
+              }
+              input.assistantMessage.error = error
+              Bus.publish(Session.Event.Error, {
+                sessionID: input.assistantMessage.sessionID,
+                error: input.assistantMessage.error,
+              })
+            }
           }
           if (snapshot) {
             const patch = await Snapshot.patch(snapshot)

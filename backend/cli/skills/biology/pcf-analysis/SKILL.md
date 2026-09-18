@@ -1,6 +1,6 @@
 ---
 name: pcf-analysis
-description: Protein Correlation Fingerprinting for spatial proteomics — co-expression matrices, fingerprint clustering, tissue microenvironment classification. Works on IMC/CODEX/MIBI multi-channel protein data.
+description: Computational Protein Correlation Fingerprinting on already-confirmed multiplex protein tables (IMC/CODEX/MIBI). Do not use this skill to interpret the acronym PCF — ask first; PCF often means PhenoCycler-Fusion.
 category: biology
 license: Apache-2.0
 metadata:
@@ -18,7 +18,9 @@ Protein Correlation Fingerprinting quantifies the spatial co-expression relation
 
 ## When to Use This Skill
 
-- Analyzing protein co-expression patterns in IMC data
+BLOCKING: If the user only wrote "PCF" (e.g. 做PCF的panel), do not assume this method. Ask whether they mean PhenoCycler-Fusion (Akoya, formerly CODEX) or this fingerprinting analysis.
+
+- Analyzing protein co-expression patterns in IMC data after the user confirmed this method
 - Identifying functional tissue microenvironments (TME compartments)
 - Comparing protein correlation networks between conditions
 - Replacing R-based PCF workflows with Python

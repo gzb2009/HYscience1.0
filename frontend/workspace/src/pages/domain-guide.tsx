@@ -34,26 +34,28 @@ export default function DomainGuide(): JSX.Element {
     setSeeded(true)
     const existing =
       (sync.data.config as { domainSkill?: Record<string, Record<string, "allow" | "deny">> }).domainSkill ?? {}
-    void loadSkillCatalog(sdk).then(async (list) => {
-      const names = list.map((item) => item.name)
-      if (names.length === 0) return
-      const preset = buildDomainSkillPreset(names)
-      const next = { ...preset, ...existing }
-      let changed = false
-      for (const item of DOMAINS) {
-        const map = { ...(next[item.id] ?? preset[item.id]) }
-        if (!existing[item.id]) changed = true
-        if (map["grill-me"] !== "allow") {
-          map["grill-me"] = "allow"
-          changed = true
+    void loadSkillCatalog(sdk)
+      .then(async (list) => {
+        const names = list.map((item) => item.name)
+        if (names.length === 0) return
+        const preset = buildDomainSkillPreset(names)
+        const next = { ...preset, ...existing }
+        let changed = false
+        for (const item of DOMAINS) {
+          const map = { ...(next[item.id] ?? preset[item.id]) }
+          if (!existing[item.id]) changed = true
+          if (map["grill-me"] !== "allow") {
+            map["grill-me"] = "allow"
+            changed = true
+          }
+          next[item.id] = map
         }
-        next[item.id] = map
-      }
-      if (!changed) return
-      const update = await sdk.client.global.config.update({ config: { domainSkill: next } as never })
-      if (update.error) return
-      sync.set("config", { ...sync.data.config, domainSkill: next } as typeof sync.data.config)
-    })
+        if (!changed) return
+        const update = await sdk.client.global.config.update({ config: { domainSkill: next } as never })
+        if (update.error) return
+        sync.set("config", { ...sync.data.config, domainSkill: next } as typeof sync.data.config)
+      })
+      .catch(() => undefined)
   })
 
   const skillTitle = createMemo(() => {

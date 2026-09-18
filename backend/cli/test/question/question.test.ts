@@ -298,3 +298,41 @@ test("list - returns empty when no pending", async () => {
     },
   })
 })
+
+test("ask parks a busy session as waiting and reply restores the prior phase", async () => {
+  await using tmp = await tmpdir({ git: true })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const { SessionStatus } = await import("../../src/session/status")
+      const sessionID = "ses_wait"
+      SessionStatus.set(sessionID, { type: "busy", phase: "processing", step: 3 })
+      const questions = [{ question: "Which data?", header: "Data", options: [{ label: "IMC", description: "" }] }]
+      const first = Question.ask({ sessionID, questions })
+      const second = Question.ask({ sessionID, questions })
+      await Bun.sleep(5)
+      expect(SessionStatus.get(sessionID)).toEqual({ type: "busy", phase: "waiting", step: 3 })
+
+      const pending = await Question.list()
+      const ids = pending.filter((item) => item.sessionID === sessionID).map((item) => item.id)
+      expect(ids).toHaveLength(2)
+
+      await Question.reply({ requestID: ids[0], answers: [["IMC"]] })
+      // One question still open → stay parked.
+      expect(SessionStatus.get(sessionID)).toEqual({ type: "busy", phase: "waiting", step: 3 })
+
+      await Question.reply({ requestID: ids[1], answers: [["IMC"]] })
+      expect(SessionStatus.get(sessionID)).toEqual({ type: "busy", phase: "processing", step: 3 })
+      await Promise.all([first, second])
+
+      // Idle sessions are left alone.
+      SessionStatus.set(sessionID, { type: "idle" })
+      const third = Question.ask({ sessionID, questions })
+      await Bun.sleep(5)
+      expect(SessionStatus.get(sessionID)).toEqual({ type: "idle" })
+      const rest = (await Question.list()).filter((item) => item.sessionID === sessionID)
+      await Question.reject(rest[0].id)
+      await third.catch(() => undefined)
+    },
+  })
+})

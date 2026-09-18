@@ -603,6 +603,14 @@ export type SessionStatus =
     }
   | {
       type: "busy"
+      /**
+       * Current session loop phase
+       */
+      phase?: "processing" | "subtask" | "compacting" | "pruning" | "finalizing" | "waiting"
+      /**
+       * Current loop step
+       */
+      step?: number
     }
 
 export type EventSessionStatus = {
@@ -1757,15 +1765,15 @@ export type Config = {
    */
   default_agent?: string
   /**
-   * Managed (Atlas wallet) vs bring-your-own-key spend, toggled independently for LLM inference and compute.
+   * Managed (HYcloud wallet) vs bring-your-own-key spend, toggled independently for LLM inference and compute.
    */
   billing?: {
     /**
-     * How LLM inference is paid for. 'managed' routes through the Atlas wallet (metered credits); 'byok' uses your own provider API keys or first-party OAuth (ChatGPT/Claude Pro/Copilot) and is never billed. Unset or null = auto-detect from the resolved credential.
+     * How LLM inference is paid for. 'managed' routes through the HYcloud wallet (metered credits); 'byok' uses your own provider API keys or first-party OAuth (ChatGPT/Claude Pro/Copilot) and is never billed. Unset or null = auto-detect from the resolved credential.
      */
     llm?: "managed" | "byok" | null
     /**
-     * How GPU/compute is paid for. 'managed' runs on Atlas-provisioned compute billed to your wallet (via the bundled atlas CLI); 'byok' uses your own connected GPU providers (Modal, Tinker, TensorPool, …). Unset = byok.
+     * How GPU/compute is paid for. 'managed' runs on HYcloud-provisioned compute billed to your wallet; 'byok' uses your own connected GPU providers (Modal, Tinker, TensorPool, …). Unset = byok.
      */
     compute?: "managed" | "byok"
   }
@@ -1847,6 +1855,14 @@ export type Config = {
   instructions?: Array<string>
   layout?: LayoutConfig
   permission?: PermissionConfig
+  /**
+   * Per-analysis-domain skill allow/deny overlay. Domain overlay wins over global permission.skill.
+   */
+  domainSkill?: {
+    [key: string]: {
+      [key: string]: PermissionActionConfig
+    }
+  }
   tools?: {
     [key: string]: boolean
   }
@@ -1917,7 +1933,11 @@ export type Config = {
      */
     mcp_timeout?: number
     /**
-     * Run a blind reviewer and persist a structured ReviewRecord. 'annotate' is fail-open; 'enforce' rejects successful completion on FLAGGED or ERROR. Defaults to annotate for research/biology/ml when unset.
+     * Run the heuristic post-turn pipelines (hypothesis scan, reproducibility bundle, ELN, knowledge graph, RSI trajectory, markdown export report). They write files only and are not shown in the UI; off by default.
+     */
+    sciencePipelines?: boolean
+    /**
+     * Run a blind reviewer and persist a structured ReviewRecord. 'annotate' silently corrects flagged issues before delivery; 'enforce' rejects completion if correction fails. Defaults to annotate for research/biology/ml when unset.
      */
     reviewGate?: "off" | "annotate" | "enforce"
     /**
@@ -2193,6 +2213,22 @@ export type FileContent = {
   }
   encoding?: "base64"
   mimeType?: string
+  preview?: {
+    kind: "xlsx" | "docx" | "pptx"
+    sheets?: Array<{
+      name: string
+      rows: Array<Array<string>>
+    }>
+    blocks?: Array<{
+      type: "heading" | "paragraph" | "table"
+      text?: string
+      rows?: Array<Array<string>>
+    }>
+    slides?: Array<{
+      title: string
+      lines: Array<string>
+    }>
+  }
 }
 
 export type File = {
@@ -2859,6 +2895,16 @@ export type SettingsComputeGetResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -2912,6 +2958,16 @@ export type SettingsComputeExecutionSetResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -2956,6 +3012,16 @@ export type SettingsComputeProviderDisconnectResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -3012,6 +3078,16 @@ export type SettingsComputeProviderConnectResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -3068,6 +3144,16 @@ export type SettingsComputeSshAddResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -3111,6 +3197,16 @@ export type SettingsComputeSshRemoveResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -3166,6 +3262,16 @@ export type SettingsComputeEndpointAddResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -3210,6 +3316,16 @@ export type SettingsComputeEndpointRemoveResponses = {
       url: string
       kind: "local" | "remote"
     }>
+    local?: {
+      hostname: string
+      platform: string
+      release: string
+      arch: string
+      cpus: number
+      cpu: string
+      memoryTotal: number
+      memoryFree: number
+    }
   }
 }
 
@@ -6341,6 +6457,43 @@ export type AppSkillDeleteResponses = {
 }
 
 export type AppSkillDeleteResponse = AppSkillDeleteResponses[keyof AppSkillDeleteResponses]
+
+export type AppSkillReadData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/skill/{name}"
+}
+
+export type AppSkillReadErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type AppSkillReadError = AppSkillReadErrors[keyof AppSkillReadErrors]
+
+export type AppSkillReadResponses = {
+  /**
+   * Skill detail
+   */
+  200: {
+    name: string
+    description: string
+    location: string
+    category?: string
+    tags?: Array<string>
+    entry?: boolean
+    content: string
+  }
+}
+
+export type AppSkillReadResponse = AppSkillReadResponses[keyof AppSkillReadResponses]
 
 export type AppSkillWriteData = {
   body?: {

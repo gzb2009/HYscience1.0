@@ -7,6 +7,7 @@ describe("domainSkillAllowed", () => {
     expect(domainSkillAllowed("imc", "literature-review")).toBe(true)
     expect(domainSkillAllowed("imc", "scanpy")).toBe(true)
     expect(domainSkillAllowed("imc", "anndata")).toBe(true)
+    expect(domainSkillAllowed("imc", "pcf-analysis")).toBe(true)
   })
 
   test("keeps single-cell pipelines on the single-cell domain", () => {

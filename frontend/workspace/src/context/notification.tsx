@@ -13,6 +13,7 @@ import { decode64 } from "@/utils/base64"
 import { EventSessionError } from "@hysci/sdk/v2"
 import { Persist, persisted } from "@/utils/persist"
 import { playSound, soundSrc } from "@/utils/sound"
+import { isUserStopError } from "@hysci/ui/session-result"
 
 type NotificationBase = {
   directory?: string
@@ -40,10 +41,7 @@ const NOTIFICATION_TTL_MS = 1000 * 60 * 60 * 24 * 30
 // superseded) are expected — they should not ping a sound, fire a system
 // notification, or persist as an error. Only genuine failures notify.
 function isTransientError(error: unknown): boolean {
-  const msg = typeof error === "string" ? error : String((error as any)?.message ?? "")
-  const name = String((error as any)?.name ?? (error as any)?.type ?? "")
-  if (name === "AbortError" || name === "MessageAbortedError") return true
-  return /\bab(?:ort|orted)\b|cancell?ed|request was aborted|the operation was aborted/i.test(msg)
+  return isUserStopError(error)
 }
 
 function pruneNotifications(list: Notification[]) {

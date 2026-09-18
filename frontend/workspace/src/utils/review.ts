@@ -1,4 +1,4 @@
-import type { Message, ReviewRecord } from "@hysci/sdk/v2/client"
+import type { ReviewRecord } from "@hysci/sdk/v2/client"
 
 export function mergeReviews(current: ReviewRecord[], incoming: ReviewRecord[]) {
   const records = new Map(current.map((record) => [record.messageID, record]))
@@ -8,16 +8,6 @@ export function mergeReviews(current: ReviewRecord[], incoming: ReviewRecord[]) 
     records.set(record.messageID, record)
   }
   return [...records.values()].sort((a, b) => a.time.started - b.time.started || a.messageID.localeCompare(b.messageID))
-}
-
-export function reviewForTurn(messages: Message[], reviews: ReviewRecord[], messageID: string) {
-  const records = new Map(reviews.map((record) => [record.messageID, record]))
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i]
-    if (message.role !== "assistant" || message.parentID !== messageID) continue
-    const record = records.get(message.id)
-    if (record) return record
-  }
 }
 
 export function reviewState(record: ReviewRecord | undefined) {

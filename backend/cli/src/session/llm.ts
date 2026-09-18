@@ -64,26 +64,15 @@ export namespace LLM {
     ])
     const isOpenaiOAuth = provider.id === "openai" && auth?.type === "oauth"
 
-    const system = []
-    system.push(
-      [
-        // agent.prompt (system role) is set for subagents like explore/critique.
-        // Primary agents (research, biology, ...) leave it unset: their behavior
-        // comes from promptText which insertReminders injects as a user message part.
-        // OpenAI OAuth subscription: skip SystemPrompt.provider(), sent via options.instructions instead.
-        ...(input.agent.prompt ? [input.agent.prompt] : isOpenaiOAuth ? [] : SystemPrompt.provider(input.model)),
-        // any custom prompt passed into this call
+    const system = SystemPrompt.cacheLayers({
+      frozen: input.agent.prompt ? [input.agent.prompt] : isOpenaiOAuth ? [] : SystemPrompt.provider(input.model),
+      live: [
         ...input.system,
-        // any custom prompt from last user message
         ...(input.user.system ? [input.user.system] : []),
-        // plan mode instructions (if enabled)
         ...(await SystemPrompt.planModeInstructions()),
-        // slash-skill invocation contract
         ...SystemPrompt.slashSkillDirective(),
-      ]
-        .filter((x) => x)
-        .join("\n"),
-    )
+      ],
+    })
 
     const header = system[0]
     const original = clone(system)

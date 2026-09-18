@@ -51,6 +51,8 @@ import { IconButton } from "./icon-button"
 import { createAutoScroll } from "../hooks"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { NotebookView, type NotebookCellProps } from "./notebook-cell"
+import { isUserStopError } from "./session-result"
+import { ChoiceCard } from "./choice-card"
 
 interface Diagnostic {
   range: {
@@ -651,7 +653,11 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   return (
     <div data-component="tool-part-wrapper" data-permission={showPermission()} data-question={showQuestion()}>
       <Switch>
-        <Match when={part.state.status === "error" && part.state.error}>
+        <Match
+          when={
+            part.state.status === "error" && !isUserStopError(part.state.error ?? "") ? part.state.error : undefined
+          }
+        >
           {(error) => {
             const cleaned = error().replace("Error: ", "")
             const [title, ...rest] = cleaned.split(": ")
@@ -675,7 +681,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
             )
           }}
         </Match>
-        <Match when={true}>
+        <Match when={!showQuestion()}>
           <Dynamic
             component={render()}
             input={input()}
@@ -1417,31 +1423,16 @@ ToolRegistry.register({
     })
 
     return (
-      <BasicTool
-        {...props}
-        defaultOpen={completed()}
-        icon="bubble-5"
-        trigger={{
-          title: i18n.t("ui.tool.questions"),
-          subtitle: subtitle(),
-        }}
-      >
-        <Show when={completed()}>
-          <div data-component="question-answers">
-            <For each={questions()}>
-              {(q, i) => {
-                const answer = () => answers()[i()] ?? []
-                return (
-                  <div data-slot="question-answer-item">
-                    <div data-slot="question-text">{q.question}</div>
-                    <div data-slot="answer-text">{answer().join(", ") || i18n.t("ui.question.answer.none")}</div>
-                  </div>
-                )
-              }}
-            </For>
-          </div>
-        </Show>
-      </BasicTool>
+      <Show when={!completed()}>
+        <BasicTool
+          {...props}
+          icon="bubble-5"
+          trigger={{
+            title: i18n.t("ui.tool.questions"),
+            subtitle: subtitle(),
+          }}
+        />
+      </Show>
     )
   },
 })
@@ -1601,20 +1592,11 @@ function QuestionPrompt(props: { request: QuestionRequest }) {
   const [store, setStore] = createStore({
     tab: 0,
     answers: [] as QuestionAnswer[],
-    custom: [] as string[],
-    editing: false,
   })
 
   const question = createMemo(() => questions()[store.tab])
-  const confirm = createMemo(() => !single() && store.tab === questions().length)
   const options = createMemo(() => question()?.options ?? [])
-  const input = createMemo(() => store.custom[store.tab] ?? "")
   const multi = createMemo(() => question()?.multiple === true)
-  const customPicked = createMemo(() => {
-    const value = input()
-    if (!value) return false
-    return store.answers[store.tab]?.includes(value) ?? false
-  })
 
   createEffect(() => {
     const expiresAt = decision()?.expiresAt
@@ -1634,14 +1616,6 @@ function QuestionPrompt(props: { request: QuestionRequest }) {
     const minutes = Math.floor(seconds / 60)
     return `${minutes}:${String(seconds % 60).padStart(2, "0")}`
   })
-
-  function submit() {
-    const answers = questions().map((_, i) => store.answers[i] ?? [])
-    data.replyToQuestion?.({
-      requestID: props.request.id,
-      answers,
-    })
-  }
 
   function defaultAnswer(q: QuestionInfo): string {
     const rec = decision()?.recommendation?.trim()
@@ -1669,113 +1643,50 @@ function QuestionPrompt(props: { request: QuestionRequest }) {
     })
   }
 
-  function stop() {
+  function pick(answer: string) {
     stopCountdown()
-    data.rejectQuestion?.({
-      requestID: props.request.id,
-    })
-  }
-
-  function pick(answer: string, custom: boolean = false) {
-    stopCountdown()
-    const answers = [...store.answers]
+    const answers = store.answers.slice(0, store.tab)
     answers[store.tab] = [answer]
     setStore("answers", answers)
-    if (custom) {
-      const inputs = [...store.custom]
-      inputs[store.tab] = answer
-      setStore("custom", inputs)
-    }
-    if (single()) {
+    const last = store.tab >= questions().length - 1
+    if (single() || last) {
       data.replyToQuestion?.({
         requestID: props.request.id,
-        answers: [[answer]],
+        answers: questions().map((_, i) => answers[i] ?? []),
       })
       return
     }
     setStore("tab", store.tab + 1)
   }
 
-  function toggle(answer: string) {
-    const existing = store.answers[store.tab] ?? []
-    const next = [...existing]
-    const index = next.indexOf(answer)
-    if (index === -1) next.push(answer)
-    if (index !== -1) next.splice(index, 1)
-    const answers = [...store.answers]
-    answers[store.tab] = next
-    setStore("answers", answers)
-  }
-
   function selectTab(index: number) {
+    if (index < 0 || index >= questions().length) return
+    if (index > store.tab && index > store.answers.length - 1) return
     stopCountdown()
+    setStore("answers", store.answers.slice(0, index + 1))
     setStore("tab", index)
-    setStore("editing", false)
   }
 
-  function selectOption(optIndex: number) {
-    stopCountdown()
-    if (optIndex === options().length) {
-      setStore("editing", true)
-      return
-    }
-    const opt = options()[optIndex]
-    if (!opt) return
+  const finish = (answers: string[]) => {
     if (multi()) {
-      toggle(opt.label)
+      const next = [...store.answers]
+      next[store.tab] = answers
+      setStore("answers", next)
+      if (store.tab >= questions().length - 1) {
+        data.replyToQuestion?.({
+          requestID: props.request.id,
+          answers: questions().map((_, i) => next[i] ?? []),
+        })
+        return
+      }
+      setStore("tab", store.tab + 1)
       return
     }
-    pick(opt.label)
-  }
-
-  function handleCustomSubmit(e: Event) {
-    e.preventDefault()
-    const value = input().trim()
-    if (!value) {
-      setStore("editing", false)
-      return
-    }
-    if (multi()) {
-      const existing = store.answers[store.tab] ?? []
-      const next = [...existing]
-      if (!next.includes(value)) next.push(value)
-      const answers = [...store.answers]
-      answers[store.tab] = next
-      setStore("answers", answers)
-      setStore("editing", false)
-      return
-    }
-    pick(value, true)
-    setStore("editing", false)
+    pick(answers[0] ?? defaultAnswer(question()!))
   }
 
   return (
     <div data-component="question-prompt">
-      <Show when={decision()}>
-        {(item) => (
-          <div data-slot="decision-confirmation">
-            <div data-slot="decision-recommendation">
-              推荐：{item().recommendation}
-              <Show when={item().reason}> — {item().reason}</Show>
-            </div>
-            <div data-slot="decision-options">
-              <For each={questions().flatMap((question) => question.options)}>
-                {(option) => (
-                  <div data-slot="decision-option">
-                    {option.label}：{option.description}
-                  </div>
-                )}
-              </For>
-            </div>
-            <Show when={!recommended() && counting()}>
-              <div data-slot="decision-countdown">请在 {countdown()} 内确认</div>
-            </Show>
-            <Show when={recommended()}>
-              <div data-slot="decision-waiting">{i18n.t("ui.question.decision.waiting")}</div>
-            </Show>
-          </div>
-        )}
-      </Show>
       <Show when={!single()}>
         <div data-slot="question-tabs">
           <For each={questions()}>
@@ -1794,119 +1705,23 @@ function QuestionPrompt(props: { request: QuestionRequest }) {
               )
             }}
           </For>
-          <button data-slot="question-tab" data-active={confirm()} onClick={() => selectTab(questions().length)}>
-            {i18n.t("ui.common.confirm")}
-          </button>
         </div>
       </Show>
-
-      <Show when={!confirm()}>
-        <div data-slot="question-content">
-          <div data-slot="question-text">
-            {question()?.question}
-            {multi() ? " " + i18n.t("ui.question.multiHint") : ""}
-          </div>
-          <div data-slot="question-options">
-            <For each={options()}>
-              {(opt, i) => {
-                const picked = () => store.answers[store.tab]?.includes(opt.label) ?? false
-                return (
-                  <button data-slot="question-option" data-picked={picked()} onClick={() => selectOption(i())}>
-                    <span data-slot="option-label">{opt.label}</span>
-                    <Show when={opt.description}>
-                      <span data-slot="option-description">{opt.description}</span>
-                    </Show>
-                    <Show when={picked()}>
-                      <Icon name="check-small" size="normal" />
-                    </Show>
-                  </button>
-                )
-              }}
-            </For>
-            <button
-              data-slot="question-option"
-              data-picked={customPicked()}
-              onClick={() => selectOption(options().length)}
-            >
-              <span data-slot="option-label">{i18n.t("ui.messagePart.option.typeOwnAnswer")}</span>
-              <Show when={!store.editing && input()}>
-                <span data-slot="option-description">{input()}</span>
-              </Show>
-              <Show when={customPicked()}>
-                <Icon name="check-small" size="normal" />
-              </Show>
-            </button>
-            <Show when={store.editing}>
-              <form data-slot="custom-input-form" onSubmit={handleCustomSubmit}>
-                <input
-                  ref={(el) => setTimeout(() => el.focus(), 0)}
-                  type="text"
-                  data-slot="custom-input"
-                  placeholder={i18n.t("ui.question.custom.placeholder")}
-                  value={input()}
-                  onInput={(e) => {
-                    const inputs = [...store.custom]
-                    inputs[store.tab] = e.currentTarget.value
-                    setStore("custom", inputs)
-                  }}
-                />
-                <Button type="submit" variant="primary" size="small">
-                  {multi() ? i18n.t("ui.common.add") : i18n.t("ui.common.submit")}
-                </Button>
-                <Button type="button" variant="ghost" size="small" onClick={() => setStore("editing", false)}>
-                  {i18n.t("ui.common.cancel")}
-                </Button>
-              </form>
-            </Show>
-          </div>
-        </div>
+      <Show when={question()}>
+        <ChoiceCard
+          question={question()!.question}
+          options={options()}
+          recommendation={decision()?.recommendation}
+          reason={decision()?.reason}
+          multiple={multi()}
+          onPick={finish}
+          onSkip={skip}
+          onAgentDecide={skip}
+        />
       </Show>
-
-      <Show when={confirm()}>
-        <div data-slot="question-review">
-          <div data-slot="review-title">{i18n.t("ui.messagePart.review.title")}</div>
-          <For each={questions()}>
-            {(q, index) => {
-              const value = () => store.answers[index()]?.join(", ") ?? ""
-              const answered = () => Boolean(value())
-              return (
-                <div data-slot="review-item">
-                  <span data-slot="review-label">{q.question}</span>
-                  <span data-slot="review-value" data-answered={answered()}>
-                    {answered() ? value() : i18n.t("ui.question.review.notAnswered")}
-                  </span>
-                </div>
-              )
-            }}
-          </For>
-        </div>
+      <Show when={!recommended() && counting() && remaining() > 0}>
+        <div data-slot="decision-countdown">请在 {countdown()} 内确认</div>
       </Show>
-
-      <div data-slot="question-actions">
-        <Button variant="ghost" size="small" onClick={stop}>
-          {i18n.t("ui.question.action.stop")}
-        </Button>
-        <Button variant="secondary" size="small" onClick={skip}>
-          {decision()?.recommendation ? i18n.t("ui.question.action.useRecommended") : i18n.t("ui.question.action.skip")}
-        </Button>
-        <Show when={!single()}>
-          <Show when={confirm()}>
-            <Button variant="primary" size="small" onClick={submit}>
-              {i18n.t("ui.common.submit")}
-            </Button>
-          </Show>
-          <Show when={!confirm() && multi()}>
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={() => selectTab(store.tab + 1)}
-              disabled={(store.answers[store.tab]?.length ?? 0) === 0}
-            >
-              {i18n.t("ui.common.next")}
-            </Button>
-          </Show>
-        </Show>
-      </div>
     </div>
   )
 }

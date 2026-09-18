@@ -4,6 +4,7 @@ import { MessageV2 } from "../../src/session/message-v2"
 import * as Inject from "../../src/session/prompt-inject"
 import { Identifier } from "../../src/id/id"
 import { Instance } from "../../src/project/instance"
+import { AgentRouter } from "../../src/session/agent-router"
 
 function mkMsg(role: "user" | "assistant"): MessageV2.WithParts {
   const id = Identifier.ascending("message")
@@ -32,6 +33,59 @@ describe("prompt-inject", () => {
     const hp = msg.parts.filter((p: any) => p.hybio)
     expect(hp.length).toBe(1)
     expect((hp[0] as any).text).toContain("result-delivery-protocol")
+  })
+
+  test("off-theme execute still receives delivery and interaction contracts", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "请分析这个数据集并运行差异表达分析")
+    Inject.injectResultDelivery([msg], msg)
+    Inject.injectResearchContract([msg], msg)
+    Inject.injectInteractionContract(msg)
+    const texts = msg.parts.filter((p: any) => p.hybio).map((p: any) => p.text)
+    expect(texts.some((text: string) => text.includes("result-delivery-protocol"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("research-intent"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("interaction-contract"))).toBe(true)
+  })
+
+  test("PhenoCycler answers travel into a Word export without IMC metals", () => {
+    const prev = mkMsg("user")
+    pushUserText(prev, "帮我设计一个做PCF的胃癌 50 marker panel")
+    const answered = mkMsg("assistant")
+    const msg = mkMsg("user")
+    pushUserText(msg, "生成一个word")
+    const history = [
+      "帮我设计一个做PCF的胃癌 50 marker panel",
+      "PCF是PhenoCycler-Fusion，Akoya 前身 CODEX",
+      "偏 B / TLS，胃癌组织",
+    ]
+    const contract = AgentRouter.interpret({ text: "生成一个word", history })
+    Inject.injectResultDelivery([prev, answered, msg], msg, contract)
+    Inject.injectResearchContract([prev, answered, msg], msg, contract)
+    const texts = msg.parts.filter((p: any) => p.hybio).map((p: any) => p.text)
+    expect(contract.intent).toBe("execution")
+    expect(contract.knownContext).toContain("phenocycler chemistry")
+    expect(contract.knownContext).toContain("agreed deliverable export")
+    expect(texts.some((text: string) => text.includes("result-delivery-protocol"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("direct-answer-protocol"))).toBe(false)
+    expect(texts.some((text: string) => text.includes("Export follow-up"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("task-decisions"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("DNA-barcoded immunofluorescence"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("Closed ontology"))).toBe(true)
+    expect(texts.every((text: string) => !/金属核素|Hyperion|Forbidden/.test(text))).toBe(true)
+    expect(texts.every((text: string) => !text.includes(AgentRouter.IMC_CONFIRM))).toBe(true)
+  })
+
+  test("injectResultDelivery writes an agreed panel as Word instead of a short answer", () => {
+    const prev = mkMsg("user")
+    pushUserText(prev, "帮我设计一个做PCF的胃癌 50 marker panel")
+    const msg = mkMsg("user")
+    pushUserText(msg, "生成一个word")
+    Inject.injectResultDelivery([prev, msg], msg)
+    Inject.injectResearchContract([prev, msg], msg)
+    const texts = msg.parts.filter((p: any) => p.hybio).map((p: any) => p.text)
+    expect(texts.some((text: string) => text.includes("result-delivery-protocol"))).toBe(true)
+    expect(texts.some((text: string) => text.includes("direct-answer-protocol"))).toBe(false)
+    expect(texts.some((text: string) => text.includes("Export follow-up"))).toBe(true)
   })
 
   test("injectResultDelivery uses compact direct-answer protocol for method questions", () => {
@@ -74,7 +128,7 @@ describe("prompt-inject", () => {
     Inject.injectBiologyServiceContract(msg)
     const hp = msg.parts.filter((p: any) => p.hybio)
     expect(hp.length).toBe(1)
-    expect((hp[0] as any).text).toContain("Service Boundaries And Scientific Rigor")
+    expect((hp[0] as any).text).toContain("Biology-specific rigor")
   })
 
   test("injectDisciplinePack loads the biology pack without harness copy", () => {
@@ -172,7 +226,20 @@ describe("prompt-inject", () => {
     const text = (msg.parts.find((part: any) => part.hybio) as any).text
     expect(text).toContain('intent="direct_answer"')
     expect(text).toContain("Direct-answer mode")
+    expect(text).toContain("do not append 顺势问一句")
     expect(text).not.toContain("Execution is blocked")
+    expect(text).not.toContain("At most one natural follow-up")
+    expect(text).not.toContain("Answer the user's substantive request before asking")
+  })
+
+  test("injectResearchContract stops a spatial methods answer without a prose species ask", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "FFPE 组织做空间转录组的标准流程是什么？")
+    Inject.injectResearchContract([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain('intent="direct_answer"')
+    expect(text).toContain("do not append 顺势问一句")
+    expect(text).not.toContain("Ask is blocking")
   })
 
   test("injectDataGate skips general scRNA methodology questions", () => {
@@ -234,13 +301,78 @@ describe("prompt-inject", () => {
     })
   })
 
+  test("injectResearchContract blocks an undefined acronym before any answer", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "帮我设计一个 PCF 前列腺癌 50 marker panel")
+    Inject.injectResearchContract([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("Ask is blocking")
+    expect(text).toContain("meaning of PCF")
+    expect(text).toContain("One question tool call for all of them")
+    expect(text).not.toContain("Answer the user's substantive request before asking")
+  })
+
+  test("injectResearchContract does not treat a project lock as IMC confirmation", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "帮我设计一个 PCF 胃癌 50 marker panel")
+    const contract = AgentRouter.interpret({
+      text: "帮我设计一个 PCF 胃癌 50 marker panel",
+    })
+    Inject.injectResearchContract([msg], msg, contract)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("Ask is blocking")
+    expect(text).toContain("meaning of PCF")
+    expect(text).toContain("PhenoCycler-Fusion")
+    expect(text).not.toMatch(/金属核素|Hyperion|Forbidden/)
+    expect(text).not.toContain(AgentRouter.IMC_CONFIRM)
+  })
+
+  test("injectResearchContract keeps a closed PhenoCycler ontology without rival-assay bans", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "按这个 PCF 设计偏 B 的 50 marker panel，输出 Excel")
+    const contract = AgentRouter.interpret({
+      text: "按这个 PCF 设计偏 B 的 50 marker panel，输出 Excel",
+      history: ["PCF是PhenoCycler-Fusion，Akoya 前身 CODEX"],
+    })
+    Inject.injectResearchContract([msg], msg, contract)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("Closed ontology")
+    expect(text).toContain("DNA-barcoded immunofluorescence")
+    expect(text).not.toMatch(/金属核素|Hyperion|Forbidden/)
+    expect(text).not.toContain(AgentRouter.IMC_CONFIRM)
+  })
+
+  test("injectResearchContract asks a missing platform without rival-assay bans", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "帮我设计一个 50 marker panel，输出 Excel")
+    Inject.injectResearchContract([msg], msg)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain(AgentRouter.PLATFORM_SLOT)
+    expect(text).toContain("Ask which assay or platform")
+    expect(text).not.toMatch(/金属核素|Hyperion|Forbidden/)
+  })
+
+  test("injectResearchContract closes fingerprinting without imaging vocabulary", () => {
+    const msg = mkMsg("user")
+    pushUserText(msg, "按这个 PCF 设计偏 T 的 panel，输出 Excel")
+    const contract = AgentRouter.interpret({
+      text: "按这个 PCF 设计偏 T 的 panel，输出 Excel",
+      history: ["PCF是Protein Correlation Fingerprinting"],
+    })
+    Inject.injectResearchContract([msg], msg, contract)
+    const text = (msg.parts.find((part: any) => part.hybio) as any).text
+    expect(text).toContain("Protein Correlation Fingerprinting")
+    expect(text).not.toContain("DNA-barcoded")
+    expect(text).not.toMatch(/金属核素|Hyperion|Forbidden/)
+  })
+
   test("injectResearchContract gates only missing execution prerequisites", () => {
     const msg = mkMsg("user")
     pushUserText(msg, "请分析这个数据集并运行差异表达分析")
     Inject.injectResearchContract([msg], msg)
     const text = (msg.parts.find((part: any) => part.hybio) as any).text
     expect(text).toContain('intent="data_analysis"')
-    expect(text).toContain("Execution is blocked only by")
+    expect(text).toContain("Ask is blocking")
   })
 
   test("injectResearchContract tracks a Chinese correction across turns", () => {
@@ -251,7 +383,7 @@ describe("prompt-inject", () => {
     Inject.injectResearchContract([prev, msg], msg)
     const text = (msg.parts.find((part: any) => part.hybio) as any).text
     expect(text).toContain('intent="correction"')
-    expect(text).toContain("latest correction replace prior assumptions")
+    expect(text).toContain("latest correction replaces prior assumptions")
   })
 
   test("injectResearchContract does not coordinate an ordinary long question", () => {
@@ -267,7 +399,6 @@ describe("prompt-inject", () => {
     pushUserText(msg, "请说明这次文献检索的进度和当前限制。")
     Inject.injectResearchContract([msg], msg)
     const text = (msg.parts.find((part: any) => part.hybio) as any).text
-    expect(text).toContain("Keep the final answer separate from internal execution")
     expect(text).toContain("progress, failure, or reproduction")
     expect(text).toContain("completed scope, observable limits, and reproducible steps")
   })

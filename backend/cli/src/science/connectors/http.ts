@@ -47,7 +47,7 @@ interface CacheEntry {
 
 /** A non-ok HTTP response. Terminal by construction: retryable statuses are
  * handled before this is thrown, so reaching it means "do not retry". */
-class HttpStatusError extends Error {
+export class HttpStatusError extends Error {
   constructor(
     readonly status: number,
     message: string,

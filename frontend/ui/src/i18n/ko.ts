@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "댓글",
   "ui.sessionTurn.steps.show": "단계 표시",
   "ui.sessionTurn.steps.hide": "단계 숨기기",
-  "ui.sessionTurn.summary.response": "응답",
   "ui.sessionTurn.resultFile.open": "열기",
   "ui.sessionTurn.resultFile.showInFiles": "Files에서 보기",
   "ui.sessionTurn.resultFile.showInFolder": "폴더에서 보기",
@@ -58,7 +57,6 @@ export const dict = {
   "ui.messagePart.title.edit": "편집",
   "ui.messagePart.title.write": "작성",
   "ui.messagePart.option.typeOwnAnswer": "직접 답변 입력",
-  "ui.messagePart.review.title": "답변 검토",
 
   "ui.list.loading": "로딩 중",
   "ui.list.empty": "결과 없음",
@@ -118,7 +116,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}}개 답변됨",
   "ui.question.answer.none": "(답변 없음)",
-  "ui.question.review.notAnswered": "(답변되지 않음)",
   "ui.question.multiHint": "(해당하는 항목 모두 선택)",
   "ui.question.custom.placeholder": "답변 입력...",
 }

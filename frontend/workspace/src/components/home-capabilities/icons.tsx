@@ -39,6 +39,17 @@ export function IconComputer(props: SvgProps): JSX.Element {
   )
 }
 
+export function IconModel(props: SvgProps): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...base(props)}>
+      <circle cx="12" cy="6.5" r="2.2" stroke="currentColor" stroke-width="1.5" />
+      <circle cx="6.5" cy="16.5" r="2.2" stroke="currentColor" stroke-width="1.5" />
+      <circle cx="17.5" cy="16.5" r="2.2" stroke="currentColor" stroke-width="1.5" />
+      <path d="M10.2 8.1 7.8 14.4M13.8 8.1l2.4 6.3M8.7 16.5h6.6" stroke="currentColor" stroke-width="1.5" />
+    </svg>
+  )
+}
+
 export function SkillCardArt(props: SvgProps): JSX.Element {
   return (
     <svg

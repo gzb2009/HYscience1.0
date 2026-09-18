@@ -1,8 +1,9 @@
-import { createEffect, createSignal, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js"
 
 export function InlineRename(props: {
   value: string
   onSave: (next: string) => void | Promise<void>
+  onActivate?: () => void
   class?: string
   inputClass?: string
   placeholder?: string
@@ -11,12 +12,28 @@ export function InlineRename(props: {
   const [editing, setEditing] = createSignal(false)
   const [draft, setDraft] = createSignal("")
   let inputRef: HTMLInputElement | undefined
+  const pending = { id: undefined as ReturnType<typeof setTimeout> | undefined }
+
+  onCleanup(() => {
+    if (pending.id) clearTimeout(pending.id)
+  })
 
   function startEdit(e: MouseEvent) {
+    if (pending.id) clearTimeout(pending.id)
+    pending.id = undefined
     e.stopPropagation()
     e.preventDefault()
     setDraft(props.value)
     setEditing(true)
+  }
+
+  function activate() {
+    if (!props.onActivate) return
+    if (pending.id) clearTimeout(pending.id)
+    pending.id = setTimeout(() => {
+      pending.id = undefined
+      props.onActivate?.()
+    }, 220)
   }
 
   createEffect(() => {
@@ -40,7 +57,13 @@ export function InlineRename(props: {
     <Show
       when={editing()}
       fallback={
-        <span class={props.class} onDblClick={startEdit} title={props.title}>
+        <span
+          class={props.class}
+          role={props.onActivate ? "button" : undefined}
+          onClick={props.onActivate ? activate : undefined}
+          onDblClick={startEdit}
+          title={props.title}
+        >
           {props.value}
         </span>
       }

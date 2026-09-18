@@ -19,7 +19,6 @@ export const dict = {
   "ui.lineComment.submit": "Kommentieren",
   "ui.sessionTurn.steps.show": "Schritte anzeigen",
   "ui.sessionTurn.steps.hide": "Schritte ausblenden",
-  "ui.sessionTurn.summary.response": "Antwort",
   "ui.sessionTurn.resultFile.open": "Öffnen",
   "ui.sessionTurn.resultFile.showInFiles": "In Files anzeigen",
   "ui.sessionTurn.resultFile.showInFolder": "Im Ordner anzeigen",
@@ -63,7 +62,6 @@ export const dict = {
   "ui.messagePart.title.edit": "Bearbeiten",
   "ui.messagePart.title.write": "Schreiben",
   "ui.messagePart.option.typeOwnAnswer": "Eigene Antwort eingeben",
-  "ui.messagePart.review.title": "Antworten überprüfen",
 
   "ui.list.loading": "Laden",
   "ui.list.empty": "Keine Ergebnisse",
@@ -122,7 +120,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} beantwortet",
   "ui.question.answer.none": "(keine Antwort)",
-  "ui.question.review.notAnswered": "(nicht beantwortet)",
   "ui.question.multiHint": "(alle zutreffenden auswählen)",
   "ui.question.custom.placeholder": "Geben Sie Ihre Antwort ein...",
 } satisfies Partial<Record<Keys, string>>

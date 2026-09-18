@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "Skomentuj",
   "ui.sessionTurn.steps.show": "Pokaż kroki",
   "ui.sessionTurn.steps.hide": "Ukryj kroki",
-  "ui.sessionTurn.summary.response": "Odpowiedź",
   "ui.sessionTurn.resultFile.open": "Otwórz",
   "ui.sessionTurn.resultFile.showInFiles": "Pokaż w Files",
   "ui.sessionTurn.resultFile.showInFolder": "Pokaż w folderze",
@@ -59,7 +58,6 @@ export const dict = {
   "ui.messagePart.title.edit": "Edycja",
   "ui.messagePart.title.write": "Pisanie",
   "ui.messagePart.option.typeOwnAnswer": "Wpisz własną odpowiedź",
-  "ui.messagePart.review.title": "Przejrzyj swoje odpowiedzi",
 
   "ui.list.loading": "Ładowanie",
   "ui.list.empty": "Brak wyników",
@@ -119,7 +117,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} odpowiedzi",
   "ui.question.answer.none": "(brak odpowiedzi)",
-  "ui.question.review.notAnswered": "(bez odpowiedzi)",
   "ui.question.multiHint": "(zaznacz wszystkie pasujące)",
   "ui.question.custom.placeholder": "Wpisz swoją odpowiedź...",
 }

@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "コメント",
   "ui.sessionTurn.steps.show": "ステップを表示",
   "ui.sessionTurn.steps.hide": "ステップを隠す",
-  "ui.sessionTurn.summary.response": "応答",
   "ui.sessionTurn.resultFile.open": "開く",
   "ui.sessionTurn.resultFile.showInFiles": "Files で表示",
   "ui.sessionTurn.resultFile.showInFolder": "フォルダで表示",
@@ -59,7 +58,6 @@ export const dict = {
   "ui.messagePart.title.edit": "編集",
   "ui.messagePart.title.write": "作成",
   "ui.messagePart.option.typeOwnAnswer": "自分の回答を入力",
-  "ui.messagePart.review.title": "回答を確認",
 
   "ui.list.loading": "読み込み中",
   "ui.list.empty": "結果なし",
@@ -119,7 +117,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}}件回答済み",
   "ui.question.answer.none": "(回答なし)",
-  "ui.question.review.notAnswered": "(未回答)",
   "ui.question.multiHint": "(該当するものをすべて選択)",
   "ui.question.custom.placeholder": "回答を入力...",
 }

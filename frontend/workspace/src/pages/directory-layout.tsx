@@ -11,6 +11,7 @@ import { decode64 } from "@/utils/base64"
 import { resolveProjectWorkingDir } from "@/utils/projectWorkspace"
 import { projectMetaLocal } from "@/thesis/store/projectMetaLocal"
 import { showToast } from "@hysci/ui/toast"
+import { revertAfterPart } from "@hysci/ui/session-result"
 import { useLanguage } from "@/context/language"
 
 export default function Layout(props: ParentProps) {
@@ -57,6 +58,32 @@ export default function Layout(props: ParentProps) {
 
             const rejectQuestion = (input: { requestID: string }) => sdk.client.question.reject(input)
 
+            const reviseQuestion = async (input: {
+              sessionID: string
+              question: string
+              answers: string[]
+              messageID: string
+              partID: string
+            }) => {
+              const point = revertAfterPart({
+                messages: sync.data.message[input.sessionID] ?? [],
+                partsByMessage: sync.data.part,
+                messageID: input.messageID,
+                partID: input.partID,
+              })
+              await sdk.client.session.abort({ sessionID: input.sessionID }).catch(() => undefined)
+              if (point) await sync.session.revert(input.sessionID, point.messageID, point.partID)
+              await sdk.client.session.prompt({
+                sessionID: input.sessionID,
+                parts: [
+                  {
+                    type: "text",
+                    text: `改选择：${input.question}\n新答案：${input.answers.join("、")}\n从这个问题之后按新选择重跑，不要重问同一题。`,
+                  },
+                ],
+              })
+            }
+
             const navigateToSession = (sessionID: string) => {
               navigate(`/${params.dir}/session/${sessionID}`)
             }
@@ -68,6 +95,7 @@ export default function Layout(props: ParentProps) {
                 onPermissionRespond={respond}
                 onQuestionReply={replyToQuestion}
                 onQuestionReject={rejectQuestion}
+                onQuestionRevise={reviseQuestion}
                 onNavigateToSession={navigateToSession}
               >
                 <LocalProvider>{props.children}</LocalProvider>

@@ -16,7 +16,12 @@ Files modified, datasets, models, experiment outputs, and important paths.
 ## tool-context
 Only tool results still needed for the next steps (skip verbose logs already cleared from context).
 
+## failed-tools
+Every failed command and its error. Never omit these.
+
 ## next-steps
 Ordered immediate actions for the assistant after compaction.
+
+If the user prompt includes a <compaction-keep> block, copy its facts verbatim into the matching sections.
 
 Your summary must be comprehensive enough to resume work but compact enough to fit a reduced context window.

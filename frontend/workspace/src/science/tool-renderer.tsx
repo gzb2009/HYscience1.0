@@ -15,6 +15,7 @@
 import { Show } from "solid-js"
 import { ARTIFACT_TOOL, ToolRegistry } from "@hysci/ui/message-part"
 import { BasicTool } from "@hysci/ui/basic-tool"
+import { Markdown } from "@hysci/ui/markdown"
 import stripAnsi from "strip-ansi"
 import { ScienceArtifact } from "./ScienceArtifact"
 import type { ArtifactKind } from "./renderers"
@@ -30,6 +31,56 @@ function readEnvelope(metadata: Record<string, unknown> | undefined): ArtifactEn
   if (!artifact || typeof artifact !== "object" || !("kind" in artifact)) return undefined
   return artifact
 }
+
+/**
+ * Notebook / R kernel cells: code with syntax highlighting, then stdout /
+ * result / traceback, then any captured figures. Both tools share the shape
+ * `{ input.code, output, metadata.{ok, output, artifact?} }`.
+ */
+function kernelRenderer(name: "notebook" | "rkernel", lang: "python" | "r", label: string) {
+  ToolRegistry.register({
+    name,
+    render(props) {
+      const code = () => String(props.input?.code ?? "")
+      const output = () => stripAnsi(String(props.output || props.metadata?.output || ""))
+      const failed = () =>
+        props.metadata?.ok === false || /\[ERROR\]|Traceback \(most recent call last\)/.test(output())
+      const envelope = () => readEnvelope(props.metadata)
+      const lines = () => code().split("\n").length
+      return (
+        <BasicTool
+          {...props}
+          icon="console"
+          trigger={{
+            title: label,
+            subtitle: failed() ? "error" : `${lines()} line${lines() === 1 ? "" : "s"}`,
+          }}
+        >
+          <Show when={code()}>
+            <div data-component="tool-output" data-scrollable>
+              <Markdown text={`\`\`\`${lang}\n${code()}\n\`\`\``} />
+            </div>
+          </Show>
+          <Show when={output() && output() !== "(no output)"}>
+            <div data-component="tool-output" data-scrollable data-kernel-output data-failed={failed()}>
+              <pre>{output()}</pre>
+            </div>
+          </Show>
+          <Show when={envelope()}>
+            {(env) => (
+              <div data-component="tool-artifact">
+                <ScienceArtifact kind={env().kind} data={env().data} height={env().height} />
+              </div>
+            )}
+          </Show>
+        </BasicTool>
+      )
+    },
+  })
+}
+
+kernelRenderer("notebook", "python", "Python")
+kernelRenderer("rkernel", "r", "R")
 
 ToolRegistry.register({
   name: ARTIFACT_TOOL,

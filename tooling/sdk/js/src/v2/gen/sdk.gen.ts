@@ -16,6 +16,8 @@ import type {
   AppLogErrors,
   AppLogResponses,
   AppSkillDeleteResponses,
+  AppSkillReadErrors,
+  AppSkillReadResponses,
   AppSkillsResponses,
   AppSkillWriteResponses,
   Auth as Auth3,
@@ -4134,6 +4136,36 @@ export class Skill extends HeyApiClient {
       ],
     )
     return (options?.client ?? this.client).delete<AppSkillDeleteResponses, unknown, ThrowOnError>({
+      url: "/skill/{name}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read skill
+   *
+   * Get a skill's metadata and full SKILL.md content.
+   */
+  public read<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AppSkillReadResponses, AppSkillReadErrors, ThrowOnError>({
       url: "/skill/{name}",
       ...options,
       ...params,

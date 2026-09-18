@@ -120,6 +120,45 @@ export namespace SessionCompaction {
     return "other"
   }
 
+  function toolFailed(part: MessageV2.ToolPart) {
+    if (part.state.status === "error") return true
+    if (part.state.status !== "completed") return false
+    return /\bexit(?:ed)?(?:\s+code)?[:\s]+[1-9]\d*/i.test(part.state.output.slice(0, 800))
+  }
+
+  function clip(text: string, cap: number) {
+    if (text.length <= cap) return text
+    return text.slice(0, cap) + "…"
+  }
+
+  /** Facts the condenser must copy verbatim: open theme slots, data profiles, failed tools. */
+  export function keepFacts(messages: MessageV2.WithParts[]) {
+    const slots: string[] = []
+    const profiles: string[] = []
+    const failures: string[] = []
+    for (const msg of messages) {
+      for (const part of msg.parts) {
+        if (part.type === "text" && part.hybio && part.text) {
+          if (part.text.includes("<theme-slots")) slots.push(clip(part.text, 2000))
+          if (part.text.includes("<data-profile")) profiles.push(clip(part.text, 2000))
+        }
+        if (part.type !== "tool" || !toolFailed(part)) continue
+        const detail =
+          part.state.status === "error" ? part.state.error : part.state.status === "completed" ? part.state.output : ""
+        failures.push(clip(`${part.tool}: ${detail}`, 400))
+      }
+    }
+    if (slots.length + profiles.length + failures.length === 0) return ""
+    return [
+      "<compaction-keep>",
+      "Copy these facts into the summary unchanged. Do not drop them to save space.",
+      ...(slots.length ? ["## open-theme-slots", ...slots.slice(-2)] : []),
+      ...(profiles.length ? ["## data-profile", ...profiles.slice(-3)] : []),
+      ...(failures.length ? ["## failed-tools", ...failures.slice(-8)] : []),
+      "</compaction-keep>",
+    ].join("\n")
+  }
+
   function collectPruneCandidates(msgs: MessageV2.WithParts[], protectedTools: string[]) {
     const first: PruneCandidate[] = []
     const other: PruneCandidate[] = []
@@ -135,6 +174,7 @@ export namespace SessionCompaction {
         const part = msg.parts[partIndex]
         if (part.type === "text" && part.text.includes("<rlm_state>")) continue
         if (part.type !== "tool" || part.state.status !== "completed") continue
+        if (toolFailed(part)) continue
         if (pruneTier(part.tool, protectedTools) === "protected") continue
         if (part.state.time.compacted) break loop
         const estimate = Token.estimate(part.state.output)
@@ -245,12 +285,15 @@ export namespace SessionCompaction {
       "## key-decisions — constraints, corrections, and choices that must persist",
       "## artifacts — files, datasets, models, and important paths",
       "## tool-context — only tool results still needed for next steps",
+      "## failed-tools — command + error for every failed tool; never drop these",
       "## next-steps — ordered immediate actions",
     ].join("\n")
     const decisions = await decisionPrompt(input.sessionID, session.taskScope)
     const promptText =
       compacting.prompt ??
-      [defaultPrompt, taskPrompt(session.taskScope), decisions, ...compacting.context].filter(Boolean).join("\n\n")
+      [defaultPrompt, keepFacts(messages), taskPrompt(session.taskScope), decisions, ...compacting.context]
+        .filter(Boolean)
+        .join("\n\n")
     const result = await processor.process({
       user: userMessage,
       agent,

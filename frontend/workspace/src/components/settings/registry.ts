@@ -24,7 +24,6 @@ export type SettingsSection = "capabilities" | "workspace"
 
 export type SettingsPanelId =
   | "connectors"
-  | "specialists"
   | "memory"
   | "network"
   | "permissions"
@@ -56,13 +55,6 @@ export const SETTINGS_PANELS: SettingsPanel[] = [
     component: lazy(() => import("./Connectors")),
   },
   {
-    id: "specialists",
-    title: "Specialists",
-    icon: "models",
-    section: "capabilities",
-    component: lazy(() => import("./Specialists")),
-  },
-  {
     id: "memory",
     title: "Memory",
     icon: "archive",
@@ -87,7 +79,7 @@ export const SETTINGS_PANELS: SettingsPanel[] = [
   {
     id: "credentials",
     title: "Credentials",
-    icon: "providers",
+    icon: "link",
     section: "workspace",
     component: lazy(() => import("./Credentials")),
   },

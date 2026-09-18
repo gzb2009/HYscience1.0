@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "تعليق",
   "ui.sessionTurn.steps.show": "إظهار الخطوات",
   "ui.sessionTurn.steps.hide": "إخفاء الخطوات",
-  "ui.sessionTurn.summary.response": "استجابة",
   "ui.sessionTurn.resultFile.open": "فتح",
   "ui.sessionTurn.resultFile.showInFiles": "إظهار في Files",
   "ui.sessionTurn.resultFile.showInFolder": "إظهار في المجلد",
@@ -59,7 +58,6 @@ export const dict = {
   "ui.messagePart.title.edit": "تحرير",
   "ui.messagePart.title.write": "كتابة",
   "ui.messagePart.option.typeOwnAnswer": "اكتب إجابتك الخاصة",
-  "ui.messagePart.review.title": "مراجعة إجاباتك",
 
   "ui.list.loading": "جارٍ التحميل",
   "ui.list.empty": "لا توجد نتائج",
@@ -119,7 +117,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} أجيب",
   "ui.question.answer.none": "(لا توجد إجابة)",
-  "ui.question.review.notAnswered": "(لم يتم الرد)",
   "ui.question.multiHint": "(حدد كل ما ينطبق)",
   "ui.question.custom.placeholder": "اكتب إجابتك...",
 }

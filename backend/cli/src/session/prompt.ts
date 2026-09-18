@@ -84,6 +84,23 @@ export namespace SessionPrompt {
     return tools
   }
 
+  export function turnComplete(input: {
+    userID: string
+    assistant?: { id: string; finish?: string }
+    parts: { type?: string; text?: string }[]
+    bare?: boolean
+  }) {
+    if (!input.assistant || input.userID >= input.assistant.id) return false
+    if (input.bare && input.assistant.finish) return true
+    const finish = input.assistant.finish
+    if (!finish || finish === "tool-calls") return false
+    if (finish === "unknown") {
+      const text = input.parts.some((part) => part.type === "text" && part.text?.trim())
+      return text && input.parts.every((part) => part.type !== "tool")
+    }
+    return true
+  }
+
   const state = Instance.state(
     () => {
       const data: Record<
@@ -330,6 +347,7 @@ export namespace SessionPrompt {
 
     let step = 0
     let compactionAttempts = 0
+    let reviewAttempts = 0
     const breaker = CircuitBreaker.init()
     const session = await Session.get(sessionID)
     const config = await Config.get()
@@ -356,37 +374,69 @@ export namespace SessionPrompt {
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
       const bareMode = lastUser.tools?.["*"] === false
+      const lastParts = lastAssistant ? (msgs.find((item) => item.info.id === lastAssistant.id)?.parts ?? []) : []
       if (
-        lastAssistant?.finish &&
-        (!["tool-calls", "unknown"].includes(lastAssistant.finish) || bareMode) &&
-        lastUser.id < lastAssistant.id
+        turnComplete({
+          userID: lastUser.id,
+          assistant: lastAssistant,
+          parts: lastParts,
+          bare: bareMode,
+        })
       ) {
-        SessionStatus.set(sessionID, SessionLoop.busy("finalizing", step))
-        log.info("exiting loop", { sessionID, bareMode })
         await OutputClean.cleanFinalAnswer(sessionID, msgs)
         msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
         if (lastUser.agent) {
-          try {
-            await SessionReview.gate({ sessionID, agent: lastUser.agent, model: lastUser.model })
-          } catch (error) {
-            if (!(error instanceof SessionReview.BlockedError)) throw error
-            Bus.publish(Session.Event.Error, {
-              sessionID,
-              error: new NamedError.Unknown({ message: error.message }).toObject(),
+          const kicked = await SessionReview.kick({
+            sessionID,
+            agent: lastUser.agent,
+            model: lastUser.model,
+            attempt: reviewAttempts,
+          })
+          if (kicked) {
+            reviewAttempts++
+            continue
+          }
+          const cfg = await Config.get()
+          const domain = (() => {
+            try {
+              return Instance.project.research?.domain
+            } catch {
+              return undefined
+            }
+          })()
+          const mode = SessionReview.modeFor(lastUser.agent, cfg.experimental?.reviewGate, domain)
+          if (mode === "enforce") {
+            try {
+              await SessionReview.gate({ sessionID, agent: lastUser.agent, model: lastUser.model })
+            } catch (error) {
+              if (!(error instanceof SessionReview.BlockedError)) throw error
+              Bus.publish(Session.Event.Error, {
+                sessionID,
+                error: new NamedError.Unknown({ message: error.message }).toObject(),
+              })
+              throw error
+            }
+          } else {
+            void SessionReview.gate({ sessionID, agent: lastUser.agent, model: lastUser.model }).catch((error) => {
+              log.warn("review gate failed", { sessionID, error })
             })
-            throw error
           }
         }
 
-        if (lastUser.agent && RSITrajectory.ARTIFACT_AGENTS.includes(lastUser.agent as any)) {
-          RSITrajectory.pipeline(sessionID).catch(() => {})
-        }
-        Hypothesis.scanSession(sessionID, msgs).catch(() => {})
-        Reproducibility.compile(sessionID, msgs).catch(() => {})
-        ELN.scanSession(sessionID, msgs).catch(() => {})
-        KnowledgeGraph.scan(sessionID, msgs).catch(() => {})
-        ExportReport.generateAndSave(sessionID).catch(() => {})
+        SessionStatus.set(sessionID, { type: "idle" })
+        log.info("exiting loop", { sessionID, bareMode })
+
         ProjectMemory.rememberSession(sessionID, msgs).catch(() => {})
+        if ((await Config.get()).experimental?.sciencePipelines) {
+          if (lastUser.agent && RSITrajectory.ARTIFACT_AGENTS.includes(lastUser.agent as any)) {
+            RSITrajectory.pipeline(sessionID).catch(() => {})
+          }
+          Hypothesis.scanSession(sessionID, msgs).catch(() => {})
+          Reproducibility.compile(sessionID, msgs).catch(() => {})
+          ELN.scanSession(sessionID, msgs).catch(() => {})
+          KnowledgeGraph.scan(sessionID, msgs).catch(() => {})
+          ExportReport.generateAndSave(sessionID).catch(() => {})
+        }
         break
       }
 

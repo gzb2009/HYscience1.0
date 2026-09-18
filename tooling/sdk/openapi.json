@@ -1460,6 +1460,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -1615,6 +1658,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -1801,6 +1887,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -1991,6 +2120,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -2155,6 +2327,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -2350,6 +2565,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -2514,6 +2772,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -2709,6 +3010,49 @@
                           "kind"
                         ]
                       }
+                    },
+                    "local": {
+                      "type": "object",
+                      "properties": {
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        },
+                        "release": {
+                          "type": "string"
+                        },
+                        "arch": {
+                          "type": "string"
+                        },
+                        "cpus": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memoryTotal": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryFree": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "hostname",
+                        "platform",
+                        "release",
+                        "arch",
+                        "cpus",
+                        "cpu",
+                        "memoryTotal",
+                        "memoryFree"
+                      ]
                     }
                   }
                 }
@@ -9995,6 +10339,88 @@
       }
     },
     "/skill/{name}": {
+      "get": {
+        "operationId": "app.skill.read",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Read skill",
+        "description": "Get a skill's metadata and full SKILL.md content.",
+        "responses": {
+          "200": {
+            "description": "Skill detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "entry": {
+                      "type": "boolean"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "description",
+                    "location",
+                    "content"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createHYscienceClient } from \"@hysci/sdk\n\nconst client = createHYscienceClient()\nawait client.app.skill.read({\n  ...\n})"
+          }
+        ]
+      },
       "put": {
         "operationId": "app.skill.write",
         "parameters": [
@@ -12366,6 +12792,22 @@
               "type": {
                 "type": "string",
                 "const": "busy"
+              },
+              "phase": {
+                "description": "Current session loop phase",
+                "type": "string",
+                "enum": [
+                  "processing",
+                  "subtask",
+                  "compacting",
+                  "pruning",
+                  "finalizing",
+                  "waiting"
+                ]
+              },
+              "step": {
+                "description": "Current loop step",
+                "type": "number"
               }
             },
             "required": [
@@ -14867,11 +15309,11 @@
             "type": "string"
           },
           "billing": {
-            "description": "Managed (Atlas wallet) vs bring-your-own-key spend, toggled independently for LLM inference and compute.",
+            "description": "Managed (HYcloud wallet) vs bring-your-own-key spend, toggled independently for LLM inference and compute.",
             "type": "object",
             "properties": {
               "llm": {
-                "description": "How LLM inference is paid for. 'managed' routes through the Atlas wallet (metered credits); 'byok' uses your own provider API keys or first-party OAuth (ChatGPT/Claude Pro/Copilot) and is never billed. Unset or null = auto-detect from the resolved credential.",
+                "description": "How LLM inference is paid for. 'managed' routes through the HYcloud wallet (metered credits); 'byok' uses your own provider API keys or first-party OAuth (ChatGPT/Claude Pro/Copilot) and is never billed. Unset or null = auto-detect from the resolved credential.",
                 "anyOf": [
                   {
                     "type": "string",
@@ -14886,7 +15328,7 @@
                 ]
               },
               "compute": {
-                "description": "How GPU/compute is paid for. 'managed' runs on Atlas-provisioned compute billed to your wallet (via the bundled atlas CLI); 'byok' uses your own connected GPU providers (Modal, Tinker, TensorPool, …). Unset = byok.",
+                "description": "How GPU/compute is paid for. 'managed' runs on HYcloud-provisioned compute billed to your wallet; 'byok' uses your own connected GPU providers (Modal, Tinker, TensorPool, …). Unset = byok.",
                 "type": "string",
                 "enum": [
                   "managed",
@@ -15109,6 +15551,22 @@
           "permission": {
             "$ref": "#/components/schemas/PermissionConfig"
           },
+          "domainSkill": {
+            "description": "Per-analysis-domain skill allow/deny overlay. Domain overlay wins over global permission.skill.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "$ref": "#/components/schemas/PermissionActionConfig"
+              }
+            }
+          },
           "tools": {
             "type": "object",
             "propertyNames": {
@@ -15249,8 +15707,12 @@
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
               },
+              "sciencePipelines": {
+                "description": "Run the heuristic post-turn pipelines (hypothesis scan, reproducibility bundle, ELN, knowledge graph, RSI trajectory, markdown export report). They write files only and are not shown in the UI; off by default.",
+                "type": "boolean"
+              },
               "reviewGate": {
-                "description": "Run a blind reviewer and persist a structured ReviewRecord. 'annotate' is fail-open; 'enforce' rejects successful completion on FLAGGED or ERROR. Defaults to annotate for research/biology/ml when unset.",
+                "description": "Run a blind reviewer and persist a structured ReviewRecord. 'annotate' silently corrects flagged issues before delivery; 'enforce' rejects completion if correction fails. Defaults to annotate for research/biology/ml when unset.",
                 "type": "string",
                 "enum": [
                   "off",
@@ -16200,6 +16662,98 @@
           },
           "mimeType": {
             "type": "string"
+          },
+          "preview": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "xlsx",
+                  "docx",
+                  "pptx"
+                ]
+              },
+              "sheets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "rows"
+                  ]
+                }
+              },
+              "blocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "heading",
+                        "paragraph",
+                        "table"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              },
+              "slides": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "lines"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "kind"
+            ]
           }
         },
         "required": [

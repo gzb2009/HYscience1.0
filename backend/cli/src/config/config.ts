@@ -1203,11 +1203,17 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          sciencePipelines: z
+            .boolean()
+            .optional()
+            .describe(
+              "Run the heuristic post-turn pipelines (hypothesis scan, reproducibility bundle, ELN, knowledge graph, RSI trajectory, markdown export report). They write files only and are not shown in the UI; off by default.",
+            ),
           reviewGate: z
             .enum(["off", "annotate", "enforce"])
             .optional()
             .describe(
-              "Run a blind reviewer and persist a structured ReviewRecord. 'annotate' is fail-open; 'enforce' rejects successful completion on FLAGGED or ERROR. Defaults to annotate for research/biology/ml when unset.",
+              "Run a blind reviewer and persist a structured ReviewRecord. 'annotate' silently corrects flagged issues before delivery; 'enforce' rejects completion if correction fails. Defaults to annotate for research/biology/ml when unset.",
             ),
           reviewTimeoutMs: z
             .number()
@@ -1221,6 +1227,12 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Maximum model steps for gate reviewer agents. Defaults to 12."),
+          reviewRetryMax: z
+            .number()
+            .int()
+            .nonnegative()
+            .optional()
+            .describe("How many times a blocking deterministic review may bounce a finished turn. Defaults to 2."),
         })
         .optional(),
     })

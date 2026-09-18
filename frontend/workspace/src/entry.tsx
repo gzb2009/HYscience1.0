@@ -11,6 +11,10 @@ import pkg from "../package.json"
 
 const DEFAULT_SERVER_URL_KEY = "hyscience.settings.dat:defaultServerUrl"
 
+if (import.meta.env.DEV && location.port === "4096") {
+  location.replace(`http://${location.hostname}:4444${location.pathname}${location.search}${location.hash}`)
+}
+
 const root = document.getElementById("root")
 if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
   const locale = (() => {

@@ -10,7 +10,13 @@ import {
 } from "@/thesis/column-width"
 
 export type RightPaneTab = "now" | "evidence" | "run" | "agents"
-export type ImagePreview = { directory: string; path: string; name: string; mime?: string }
+export type ImagePreview = {
+  directory: string
+  path: string
+  name: string
+  mime?: string
+  kind?: "image" | "pdf"
+}
 export type ReviewSelection = { sessionID: string; messageID: string }
 
 const PANE_OPEN_KEY = "thesis-rightpane-open-v3"
@@ -70,12 +76,6 @@ function setImagePreview(value: ImagePreview | undefined) {
   setImagePreviewRaw(value)
 }
 
-function inspectReview(sessionID: string, messageID: string) {
-  setReviewSelection({ sessionID, messageID })
-  setRightPaneTab("evidence")
-  setRightPaneOpen(true)
-}
-
 export const uiStore = {
   helpOpen,
   setHelpOpen,
@@ -101,5 +101,4 @@ export const uiStore = {
   setPrefillSend,
   reviewSelection,
   setReviewSelection,
-  inspectReview,
 }

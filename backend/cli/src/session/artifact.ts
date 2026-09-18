@@ -10,12 +10,14 @@ export namespace SessionArtifact {
     mime: string
     size: number
     verified: true
+    how?: string
   }
 
-  const EXTENSIONS = /\.(?:xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|rds)$/i
+  const EXTENSIONS =
+    /\.(?:xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|rds|docx|pptx)$/i
 
   /** Only tools that can create deliverables — not read-only exploration. */
-  const OUTPUT_TOOLS = new Set(["bash", "write", "edit", "notebook", "rkernel"])
+  const OUTPUT_TOOLS = new Set(["bash", "write", "edit", "office", "notebook", "rkernel"])
 
   function mime(name: string) {
     const ext = path.extname(name).slice(1).toLowerCase()
@@ -29,6 +31,9 @@ export namespace SessionArtifact {
     if (ext === "tsv") return "text/tab-separated-values"
     if (ext === "md" || ext === "markdown") return "text/markdown"
     if (ext === "json" || ext === "jsonl") return "application/json"
+    if (ext === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if (ext === "pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     return "application/octet-stream"
   }
 
@@ -37,7 +42,7 @@ export namespace SessionArtifact {
 
     const args = input.args as { filePath?: string; path?: string; output?: string; command?: string } | undefined
     const values =
-      input.tool === "write" || input.tool === "edit"
+      input.tool === "write" || input.tool === "edit" || input.tool === "office"
         ? [args?.filePath].filter((value): value is string => !!value)
         : [args?.output].filter((value): value is string => !!value)
 
@@ -58,6 +63,17 @@ export namespace SessionArtifact {
     }
 
     return [...new Set(values.map((value) => value.replace(/^file:\/\//, "").replace(/^["'`]+|["'`,;:.]+$/g, "")))]
+  }
+
+  function how(input: { tool: string; args: unknown }) {
+    const args = input.args as { command?: string; filePath?: string; path?: string; notebook?: string } | undefined
+    if (input.tool === "bash" && args?.command) {
+      return args.command.replace(/\s+/g, " ").trim().slice(0, 140)
+    }
+    if (input.tool === "notebook" || input.tool === "rkernel") {
+      return args?.filePath || args?.notebook || args?.path || input.tool
+    }
+    return undefined
   }
 
   async function recent(since: number) {
@@ -98,6 +114,7 @@ export namespace SessionArtifact {
     since?: number
   }): Promise<Item[]> {
     const discovered = input.tool === "bash" && input.since ? await recent(input.since) : []
+    const origin = how(input)
     const out: Item[] = []
     for (const candidate of [...paths(input), ...discovered]) {
       if (!candidate || !EXTENSIONS.test(candidate)) continue
@@ -112,6 +129,7 @@ export namespace SessionArtifact {
         mime: file.type || mime(full),
         size: stat.size,
         verified: true,
+        ...(origin ? { how: origin } : {}),
       })
     }
     return out

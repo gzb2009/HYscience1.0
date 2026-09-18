@@ -101,6 +101,7 @@ export function DialogProjectForm(props: {
     return resolveDomainWorkspace({
       picked,
       domain: direction(),
+      name: name(),
       projects: sync.data.project,
     })
   }

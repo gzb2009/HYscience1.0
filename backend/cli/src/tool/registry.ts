@@ -39,6 +39,7 @@ import { RemoteTool } from "./remote"
 import { VisualizeTool } from "./visualize"
 import { PdfTool } from "./pdf"
 import { ImageTool } from "./image"
+import { OfficeTool } from "./office"
 import { DvcTool } from "./dvc"
 import { GitTool } from "./git"
 import { PermissionNext } from "@/permission/next"
@@ -158,6 +159,7 @@ export namespace ToolRegistry {
       VisualizeTool,
       PdfTool,
       ImageTool,
+      OfficeTool,
       DvcTool,
       GitTool,
       ArtifactTool,

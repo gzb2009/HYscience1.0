@@ -18,10 +18,10 @@ describe("BiologyProfile.detect", () => {
   test("respects explicit marker over filename", () => {
     expect(
       BiologyProfile.detect({
-        text: "<biology-profile>chemo</biology-profile>",
+        text: "<biology-profile>genomics</biology-profile>",
         filenames: ["pbmc.h5ad"],
       }),
-    ).toBe("chemo")
+    ).toBe("genomics")
   })
 
   test("detects from keywords", () => {

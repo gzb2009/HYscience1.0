@@ -1,13 +1,35 @@
 <biology-task-profile name="imc">
-Focus: Imaging Mass Cytometry — segmentation, phenotyping, neighborhood, region composition.
+Focus: multiplex protein imaging — IMC (Hyperion, default pipeline), CODEX / PhenoCycler, MIBI, CyCIF. Protein-level, 30–60 channels, single-cell after segmentation. Not scRNA-seq; not suspension CyTOF.
+Platform decides reagent vocabulary: metal isotopes for IMC / MIBI, oligo-barcoded antibodies and cycles for CODEX / PhenoCycler, fluorophores and rounds for CyCIF. Never mix them in one panel table.
 
-Load skills first: `imc-analysis`, `pcf-analysis`, `bioimage-analysis`, `squidpy`.
-Prefer the IMC pipeline over generic single-cell scripts when inputs are MCD/TIFF/OME-TIFF.
+## Ask first
+Only slots that change the result and are not already stated or stored:
+- New panel / marker list: tissue or cancer type, FFPE vs frozen, panel size, scientific aim (which cell populations or interactions must be resolved), any markers that are fixed.
+- Analysis on existing images or cell tables: which panel/metal assignment, segmentation method already used (or none), which comparison groups.
+Panel design is not COMPUTE: do not gate it on image files or literature-review.md.
 
-BLOCKING before COMPUTE:
-1. Confirm panel / channel metadata and segmentation method
-2. Write methodology citing literature-review.md
-3. Record provenance_record on masks, cell tables, and neighborhood outputs
+## Data forms
+- `.mcd` / `.txt` acquisitions, OME-TIFF stacks → need segmentation (steinbock / Mesmer / cellpose) before cells exist.
+- Cell tables (`cells.csv`, `*_intensities.csv`) → already segmented; confirm arcsinh cofactor and whether intensities are mean or integrated.
+- Panel table (`panel.csv`) → marker, metal, clone, target compartment.
+Skills: `imc-analysis`, `pcf-analysis`, `bioimage-analysis`, `squidpy`. Prefer the IMC pipeline over generic single-cell scripts.
 
-Do not treat IMC protein images as scRNA-seq. Use spatial-neighborhood and protein co-expression tools.
+## Hard constraints
+- One metal isotope per channel; no duplicate isotopes in a panel. Isotopes without a commercial Maxpar conjugate are placeholders and must be labelled as such.
+- Every marker carries a clone (or "clone TBD") and a target compartment (nuclear / membrane / cytoplasm / structural).
+- Panels include structural and QC channels: nuclear (Ir191/193 or Histone H3), a membrane/pan-cell marker, and a tissue/stroma marker; state them explicitly.
+- FFPE-sensitive epitopes (CD14, CTLA4, FOXP3, PD-1 and similar) need validation on the target tissue before batch acquisition; say so instead of assuming they work.
+- Use HGNC symbols in tables (FOXP3 not FoxP3; GZMB not GrzB); the clone column keeps vendor spelling.
+- Phenotyping is on protein intensity: use spatial-neighborhood and co-expression tools, never transcript-level marker logic.
+
+## Deliverable
+- Panel design: one table with columns marker | HGNC | isotope | clone | compartment | target population | rationale / citation. Follow with the unresolved slots (unconfirmed isotopes, unvalidated epitopes), not a summary paragraph.
+- Image / cell-table analysis: per-image cell counts, phenotype table with marker evidence, neighborhood or region composition figure; provenance_record on masks, cell tables, neighborhood outputs.
+
+## Review
+- Any isotope assigned twice? Any marker without clone or compartment?
+- Panel size vs channel budget: does the count in the table equal the requested size?
+- Are nuclear / membrane / structural channels present?
+- Are FFPE-sensitive epitopes marked "validate"?
+- Citations attached to markers must be about IMC / multiplex imaging on that marker, not about the gene in general.
 </biology-task-profile>

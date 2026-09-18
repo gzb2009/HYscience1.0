@@ -226,6 +226,56 @@ describe("session.compaction task scope", () => {
   })
 })
 
+describe("session.compaction.keepFacts", () => {
+  test("keeps theme slots, data profiles, and failed tools", () => {
+    const kept = SessionCompaction.keepFacts([
+      {
+        info: { id: "u1", role: "user", sessionID: "s", time: { created: 1 } },
+        parts: [
+          {
+            id: "p1",
+            messageID: "u1",
+            sessionID: "s",
+            type: "text",
+            hybio: true,
+            text: '<theme-slots theme="imc">[tissue]</theme-slots>',
+          },
+          {
+            id: "p2",
+            messageID: "u1",
+            sessionID: "s",
+            type: "text",
+            hybio: true,
+            text: '<data-profile file="x.h5ad" kind="h5ad">n_obs=100</data-profile>',
+          },
+        ],
+      },
+      {
+        info: { id: "a1", role: "assistant", sessionID: "s", time: { created: 2 } },
+        parts: [
+          {
+            id: "p3",
+            messageID: "a1",
+            sessionID: "s",
+            type: "tool",
+            callID: "c1",
+            tool: "bash",
+            state: {
+              status: "error",
+              error: "exit 1: scanpy not found",
+              time: { start: 0, end: 1 },
+            },
+          },
+        ],
+      },
+    ] as never)
+    expect(kept).toContain("<compaction-keep>")
+    expect(kept).toContain("[tissue]")
+    expect(kept).toContain("n_obs=100")
+    expect(kept).toContain("scanpy not found")
+  })
+})
+
 describe("util.token.estimate", () => {
   test("estimates tokens from text (4 chars per token)", () => {
     const text = "x".repeat(4000)

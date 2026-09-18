@@ -19,14 +19,15 @@ export const dict = {
   "ui.lineComment.submit": "评论",
   "ui.sessionTurn.steps.show": "显示步骤",
   "ui.sessionTurn.steps.hide": "隐藏步骤",
-  "ui.sessionTurn.summary.response": "回复",
   "ui.sessionTurn.resultFile.open": "打开",
   "ui.sessionTurn.resultFile.showInFiles": "在 Files 中显示",
   "ui.sessionTurn.resultFile.showInFolder": "在文件夹中显示",
   "ui.sessionTurn.resultFile.openInExcel": "用 Microsoft Excel 打开",
   "ui.sessionTurn.resultFile.openInApp": "打开",
   "ui.sessionTurn.resultFile.viewExcel": "查看 {{name}} Excel",
+  "ui.sessionTurn.resultFile.viewTable": "查看 {{name}} 表格",
   "ui.sessionTurn.resultFile.viewFile": "查看 {{name}}",
+  "ui.sessionTurn.stopped": "已停止",
   "ui.sessionTurn.resultFile.sheetBlurb":
     "工作表：亚群汇总（可信度 ✓/⚠/△/✗）、下游保留列表（优先级）、污染报告与统计、关键发现与建议。",
   "ui.sessionTurn.resultFile.spreadsheet": "电子表格",
@@ -56,6 +57,7 @@ export const dict = {
   "ui.sessionTurn.status.analyzingResults": "分析结果中",
   "ui.sessionTurn.status.synthesizingFindings": "整合发现",
   "ui.sessionTurn.status.writingOutput": "生成输出",
+  "ui.sessionTurn.status.waitingChoice": "等待选择",
 
   "ui.messagePart.reasoning.title": "思考过程",
 
@@ -63,7 +65,6 @@ export const dict = {
   "ui.messagePart.title.edit": "编辑",
   "ui.messagePart.title.write": "写入",
   "ui.messagePart.option.typeOwnAnswer": "输入自己的答案",
-  "ui.messagePart.review.title": "检查你的答案",
 
   "ui.list.loading": "加载中",
   "ui.list.empty": "无结果",
@@ -113,6 +114,7 @@ export const dict = {
   "ui.message.collapse": "收起消息",
   "ui.message.copy": "复制",
   "ui.message.copied": "已复制",
+  "ui.message.revert": "从这里撤回",
   "ui.message.attachment.alt": "附件",
 
   "ui.patch.action.deleted": "已删除",
@@ -122,12 +124,16 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} 已回答",
   "ui.question.answer.none": "(无答案)",
-  "ui.question.review.notAnswered": "(未回答)",
   "ui.question.multiHint": "(可多选)",
-  "ui.question.custom.placeholder": "输入你的答案...",
+  "ui.question.custom.placeholder": "或输入你的答案…",
+  "ui.question.recommended": "推荐",
+  "ui.question.action.back": "返回",
   "ui.question.action.stop": "停止",
-  "ui.question.action.skip": "跳过，由你决定",
+  "ui.question.action.skip": "跳过",
+  "ui.question.action.edit": "改选择",
+  "ui.question.action.agentDecide": "由智能体决定",
   "ui.question.action.useRecommended": "按推荐继续",
   "ui.question.skip.default": "由智能体决定",
+  "ui.question.revise.hint": "改答案 — 提交后将从这个问题起撤回并重跑。",
   "ui.question.decision.waiting": "已保留推荐方案。可按推荐继续、另选，或停止；不必必须作答。",
 } satisfies Partial<Record<Keys, string>>

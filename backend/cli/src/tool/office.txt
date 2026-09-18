@@ -1,0 +1,13 @@
+Write a conventional Office file from structured data. Use this for Excel (.xlsx), Word (.docx), and PowerPoint (.pptx).
+
+Do NOT write Python, pandas, python-docx, pptx, or bash to generate these files. Do NOT use the write tool for binary Office files.
+
+Usage:
+- Excel: filePath ends in .xlsx, pass sheets[{name, headers, rows}]
+- Word: filePath ends in .docx, pass blocks[{type: heading|paragraph|table, text?, headers?, rows?}] or sheets (becomes heading + table)
+- PowerPoint: filePath ends in .pptx, pass slides[{title, lines?, table?}] or sheets
+- Prefer result/panel.xlsx, result/notes.docx, result/brief.pptx
+- Numbers stay numbers in Excel
+- Write real Unicode. Never HTML entities (&#21069;). 中文 stays 中文.
+- Excel: short column names, one field per column. Notes use two columns (项目 / 内容), never a paragraph in one header cell.
+- Never mention this tool, OpenXML, or file internals in the user-visible reply. One short status line is enough.

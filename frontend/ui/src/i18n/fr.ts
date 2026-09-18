@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "Commenter",
   "ui.sessionTurn.steps.show": "Afficher les étapes",
   "ui.sessionTurn.steps.hide": "Masquer les étapes",
-  "ui.sessionTurn.summary.response": "Réponse",
   "ui.sessionTurn.resultFile.open": "Ouvrir",
   "ui.sessionTurn.resultFile.showInFiles": "Afficher dans Files",
   "ui.sessionTurn.resultFile.showInFolder": "Afficher dans le dossier",
@@ -59,7 +58,6 @@ export const dict = {
   "ui.messagePart.title.edit": "Modifier",
   "ui.messagePart.title.write": "Écrire",
   "ui.messagePart.option.typeOwnAnswer": "Tapez votre propre réponse",
-  "ui.messagePart.review.title": "Passez en revue vos réponses",
 
   "ui.list.loading": "Chargement",
   "ui.list.empty": "Aucun résultat",
@@ -119,7 +117,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} répondu(s)",
   "ui.question.answer.none": "(pas de réponse)",
-  "ui.question.review.notAnswered": "(non répondu)",
   "ui.question.multiHint": "(sélectionnez tout ce qui s'applique)",
   "ui.question.custom.placeholder": "Tapez votre réponse...",
 }

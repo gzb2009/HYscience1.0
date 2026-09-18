@@ -42,7 +42,10 @@ export async function serveWebAsset(c: Context): Promise<Response | undefined> {
   const direct = WEB_ASSETS[reqPath]
   if (direct) {
     return new Response(Bun.file(direct), {
-      headers: { "Content-Type": contentType(reqPath) },
+      headers: {
+        "Content-Type": contentType(reqPath),
+        "Cache-Control": "no-store",
+      },
     })
   }
 
@@ -59,6 +62,9 @@ export async function serveWebAsset(c: Context): Promise<Response | undefined> {
   }
 
   return new Response(Bun.file(WEB_INDEX), {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   })
 }

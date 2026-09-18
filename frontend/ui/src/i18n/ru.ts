@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "Комментировать",
   "ui.sessionTurn.steps.show": "Показать шаги",
   "ui.sessionTurn.steps.hide": "Скрыть шаги",
-  "ui.sessionTurn.summary.response": "Ответ",
   "ui.sessionTurn.resultFile.open": "Открыть",
   "ui.sessionTurn.resultFile.showInFiles": "Показать в Files",
   "ui.sessionTurn.resultFile.showInFolder": "Показать в папке",
@@ -59,7 +58,6 @@ export const dict = {
   "ui.messagePart.title.edit": "Редактировать",
   "ui.messagePart.title.write": "Написать",
   "ui.messagePart.option.typeOwnAnswer": "Введите свой ответ",
-  "ui.messagePart.review.title": "Проверьте ваши ответы",
 
   "ui.list.loading": "Загрузка",
   "ui.list.empty": "Нет результатов",
@@ -119,7 +117,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} отвечено",
   "ui.question.answer.none": "(нет ответа)",
-  "ui.question.review.notAnswered": "(не отвечено)",
   "ui.question.multiHint": "(выберите все подходящие)",
   "ui.question.custom.placeholder": "Введите ваш ответ...",
 }

@@ -7,9 +7,10 @@ import ML_TRAINING from "../agent/prompt/ml-profiles/training.txt"
 import { BiologyProfile, type BiologyProfile as BiologySubdomain } from "./biology-profile"
 import { DomainScope } from "./domain-scope"
 import type { Project } from "../project/project"
+import { BIOLOGY_THEMES } from "@hysci/util/themes"
 
 export const SUBDOMAINS = {
-  biology: ["imc", "single-cell", "spatial", "genomics", "proteomics", "structure", "chemo"],
+  biology: BIOLOGY_THEMES,
   physics: ["simulation", "theory", "experiment"],
   ml: ["training", "evaluation", "inference"],
   general: [],

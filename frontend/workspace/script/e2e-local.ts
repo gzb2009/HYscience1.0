@@ -124,20 +124,6 @@ const inst = await import("../../../backend/cli/src/project/instance")
 const server = servermod.Server.listen({ port: serverPort, hostname: "127.0.0.1" })
 console.log(`hyscience server listening on http://127.0.0.1:${serverPort}`)
 
-// Vite reads VITE_* env vars from .env.local at startup. Writing them
-// here (rather than relying on env-var propagation through Playwright's
-// webServer config) guarantees the Vite-served frontend bundle picks up
-// the matching Basic-Auth credentials. Cleaned up in the finally block.
-const envLocalPath = path.join(appDir, ".env.local")
-const envLocalBody = [
-  `VITE_HYSCIENCE_SERVER_HOST=127.0.0.1`,
-  `VITE_HYSCIENCE_SERVER_PORT=${serverPort}`,
-  `VITE_HYSCIENCE_SERVER_USERNAME=${e2eServerUsername}`,
-  `VITE_HYSCIENCE_SERVER_PASSWORD=${e2eServerPassword}`,
-  "",
-].join("\n")
-await fs.writeFile(envLocalPath, envLocalBody)
-
 const result = await (async () => {
   try {
     const healthAuth = `Basic ${Buffer.from(`${e2eServerUsername}:${e2eServerPassword}`).toString("base64")}`
@@ -156,7 +142,6 @@ const result = await (async () => {
   } finally {
     await inst.Instance.disposeAll()
     await server.stop()
-    await fs.rm(envLocalPath, { force: true })
   }
 })()
 

@@ -17,6 +17,7 @@ import { ToastContainer } from "@/thesis/Toast"
 import { toast } from "@/thesis/Toast"
 import { DialogSettings } from "@/components/dialog-settings"
 import { HomeUserMenu } from "@/components/home-user-menu"
+import { HomeDock } from "@/components/home-capabilities/HomeDock"
 import { DisconnectedPanel } from "@/thesis/DisconnectedPanel"
 import { uiStore } from "@/thesis/store/ui"
 import { useGlobalKeys } from "@/thesis/useGlobalKeys"
@@ -29,6 +30,7 @@ import { confirmDialog } from "@/thesis/dialogs"
 import { saveProjectAgentContext } from "@/utils/projectMemory"
 import { projectLabel } from "@/utils/projectLabel"
 import { getSessionDisplayTitle } from "@/utils/sessionDisplayTitle"
+import { isEmptyDraftSession } from "@/utils/sessionNaming"
 import { sessionTitleLocal } from "@/thesis/store/sessionTitleLocal"
 import { resolveProjectWorkingDir } from "@/utils/projectWorkspace"
 import { isResultDirectory, normalizeResultFolderName, resultFolderName } from "@/utils/projectResult"
@@ -141,7 +143,9 @@ export default function Home(): JSX.Element {
     projectMetaLocal.all()
     return projects().map((project) => {
       const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
-      const sessions = child.session.filter((s) => !s.parentID && !s.time?.archived)
+      const sessions = child.session.filter(
+        (s) => !s.parentID && !s.time?.archived && !isEmptyDraftSession(s, child.message[s.id]),
+      )
       const latestSession = sessions.reduce<Session | undefined>((best, s) => {
         if (!best) return s
         return sessionUpdatedAt(s) > sessionUpdatedAt(best) ? s : best
@@ -166,6 +170,7 @@ export default function Home(): JSX.Element {
       const [child] = sync.child(resolveProjectWorkingDir(project.worktree), { bootstrap: false })
       for (const session of child.session) {
         if (!session?.id || session.parentID || session.time?.archived) continue
+        if (isEmptyDraftSession(session, child.message[session.id])) continue
         items.push({
           session,
           project,
@@ -287,6 +292,7 @@ export default function Home(): JSX.Element {
     const workspace = resolveDomainWorkspace({
       picked: directory,
       domain,
+      name: values.name,
       projects: sync.data.project,
     })
     try {
@@ -496,6 +502,7 @@ export default function Home(): JSX.Element {
           </Show>
         </div>
       </main>
+      <HomeDock />
     </div>
   )
 }

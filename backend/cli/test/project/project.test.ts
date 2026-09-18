@@ -240,3 +240,20 @@ describe("Project.discover", () => {
     expect(updated.icon).toBeUndefined()
   })
 })
+
+describe("Project.dropMissing", () => {
+  test("removes records whose worktree is gone", async () => {
+    const id = "dead_" + Math.random().toString(36).slice(2)
+    const worktree = "/tmp/hyscience-missing-" + id
+    await Storage.write(["project", id], {
+      id,
+      worktree,
+      sandboxes: [],
+      name: "gone",
+      time: { created: 1, updated: 1 },
+    })
+    const dropped = await Project.dropMissing()
+    expect(dropped).toContain(worktree)
+    expect(await Storage.read(["project", id]).catch(() => null)).toBeNull()
+  })
+})

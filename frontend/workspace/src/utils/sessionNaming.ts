@@ -91,6 +91,16 @@ export function isGenericSessionTitle(title: string | undefined | null): boolean
   return false
 }
 
+/** Empty untitled draft — hide from the sidebar until the first user message. */
+export function isEmptyDraftSession(
+  session: { title?: string | null; parentID?: string },
+  messages?: Array<{ role?: string }>,
+): boolean {
+  if (session.parentID) return false
+  if ((messages ?? []).some((item) => item.role === "user")) return false
+  return isDefaultSessionTitle(session.title) || isGenericSessionTitle(session.title)
+}
+
 /** Sidebar-visible title from the user's first message / intent. */
 export function deriveSessionTitleFromMessage(text: string): string {
   const raw = stripMessageForTitle(text)

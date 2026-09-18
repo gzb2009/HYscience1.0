@@ -14,6 +14,7 @@ import { fileURLToPath } from "url"
 import { Shell } from "@/shell/shell"
 
 import { BashArity } from "@/permission/arity"
+import { BashRisk } from "@/permission/risk"
 import { Truncate } from "./truncation"
 import { HYscience } from "@/hyscience"
 import { DomainScope } from "@/session/domain-scope"
@@ -155,11 +156,13 @@ export const BashTool = Tool.define("bash", async () => {
       }
 
       if (patterns.size > 0) {
+        const command = params.command
+        const level = BashRisk.classify(command)
         await ctx.ask({
-          permission: "bash",
+          permission: BashRisk.permission(level),
           patterns: Array.from(patterns),
           always: Array.from(always),
-          metadata: {},
+          metadata: { risk: level },
         })
       }
 

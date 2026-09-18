@@ -271,7 +271,7 @@ export namespace ResearchContext {
 
     const suggestion =
       missing.length > 0
-        ? `Current known: ${present.join(", ") || "(none)"}. Missing: ${missing.join(", ")}. Max 1-2 natural follow-up questions — not a checklist.`
+        ? `Current known: ${present.join(", ") || "(none)"}. Missing: ${missing.join(", ")}. Ask every still-open result-changing slot in one question tool call before designing or analyzing.`
         : "All key entities known. Proceed to answer."
 
     return { level, present, missing, suggestion }

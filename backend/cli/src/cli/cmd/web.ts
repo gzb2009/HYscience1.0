@@ -8,6 +8,8 @@ import { needsOnboarding, runOnboarding, isConfigured } from "../onboard"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { Installation } from "../../installation"
+import { existsSync } from "fs"
 
 // macOS TCC probe: try to read ~/Desktop, which is one of the canonical
 // dirs blocked unless the running binary has Full Disk Access. An empty
@@ -30,6 +32,34 @@ async function probeMacFda(): Promise<{ blocked: boolean; reason?: string }> {
 }
 
 const FDA_SETTINGS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+const LIVE_UI = "http://localhost:4444"
+
+async function uiReady() {
+  return fetch(LIVE_UI, { signal: AbortSignal.timeout(800) })
+    .then((res) => res.ok)
+    .catch(() => false)
+}
+
+async function waitUi(left: number): Promise<boolean> {
+  if (left <= 0) return false
+  if (await uiReady()) return true
+  await Bun.sleep(250)
+  return waitUi(left - 1)
+}
+
+async function ensureVite() {
+  if (await uiReady()) return true
+  const workspace = path.resolve(import.meta.dir, "../../../../../frontend/workspace")
+  if (!existsSync(path.join(workspace, "package.json"))) return false
+  Bun.spawn([process.execPath, "run", "dev", "--", "--port", "4444"], {
+    cwd: workspace,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "ignore",
+    env: process.env,
+  })
+  return waitUi(40)
+}
 
 async function announceFdaIfNeeded() {
   const result = await probeMacFda()
@@ -93,7 +123,43 @@ export const WebCommand = cmd({
       UI.empty()
     }
 
-    const server = Server.listen(opts)
+    if (Installation.isLocal()) {
+      const apiPort = opts.port === 0 ? 4096 : opts.port
+      const api = (() => {
+        try {
+          return Server.listen({ ...opts, port: apiPort, web: false })
+        } catch {
+          return undefined
+        }
+      })()
+      const ok = await ensureVite()
+      UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, LIVE_UI)
+      UI.empty()
+      if (!ok) {
+        UI.println(UI.Style.TEXT_WARNING_BOLD + "  Vite UI is not running on :4444", UI.Style.TEXT_NORMAL)
+        UI.println(UI.Style.TEXT_DIM, "  cd frontend/workspace && bun run dev -- --port 4444")
+      } else {
+        UI.println(UI.Style.TEXT_DIM, "  Local source UI only — packed dist is not served.")
+      }
+      openUrl(LIVE_UI)
+      await announceFdaIfNeeded()
+      if (!api) return
+      await new Promise<void>((resolve) => {
+        const stop = () => resolve()
+        process.once("SIGINT", stop)
+        process.once("SIGTERM", stop)
+      })
+      const watchdog = setTimeout(() => process.exit(0), 2000)
+      watchdog.unref?.()
+      try {
+        await api.stop(true)
+      } catch {
+        // ignore
+      }
+      process.exit(0)
+    }
+
+    const server = Server.listen({ ...opts, web: true })
 
     const base = `http://localhost:${server.port}`
     UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, base)

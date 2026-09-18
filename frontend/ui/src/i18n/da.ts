@@ -15,7 +15,6 @@ export const dict = {
   "ui.lineComment.submit": "Kommenter",
   "ui.sessionTurn.steps.show": "Vis trin",
   "ui.sessionTurn.steps.hide": "Skjul trin",
-  "ui.sessionTurn.summary.response": "Svar",
   "ui.sessionTurn.resultFile.open": "Åbn",
   "ui.sessionTurn.resultFile.showInFiles": "Vis i Files",
   "ui.sessionTurn.resultFile.showInFolder": "Vis i mappe",
@@ -59,7 +58,6 @@ export const dict = {
   "ui.messagePart.title.edit": "Rediger",
   "ui.messagePart.title.write": "Skriv",
   "ui.messagePart.option.typeOwnAnswer": "Skriv dit eget svar",
-  "ui.messagePart.review.title": "Gennemgå dine svar",
 
   "ui.list.loading": "Indlæser",
   "ui.list.empty": "Ingen resultater",
@@ -119,7 +117,6 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} besvaret",
   "ui.question.answer.none": "(intet svar)",
-  "ui.question.review.notAnswered": "(ikke besvaret)",
   "ui.question.multiHint": "(vælg alle der gælder)",
   "ui.question.custom.placeholder": "Skriv dit svar...",
 }

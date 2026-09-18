@@ -52,6 +52,7 @@ export namespace Agent {
 
     const defaults = PermissionNext.fromConfig({
       "*": "allow",
+      destructive: "ask",
       mcp: "ask",
       doom_loop: "ask",
       external_directory: {

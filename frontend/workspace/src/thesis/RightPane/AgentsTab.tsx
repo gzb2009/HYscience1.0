@@ -87,10 +87,12 @@ export function AgentsTab(): JSX.Element {
         const agent = firstUser?.agent ?? ""
         const def = agentDefs()[agent]
         const status = sync.data.session_status[s.id]
-        const busy = status?.type === "busy"
+        const waiting = status?.type === "busy" && status.phase === "waiting"
+        const busy = status?.type === "busy" && !waiting
         const retrying = status?.type === "retry"
 
         let statusText = "idle"
+        if (waiting) statusText = "waiting for you"
         if (busy) statusText = "working"
         else if (retrying) statusText = `retry ${(status as any).attempt ?? ""}`
 

@@ -11,7 +11,7 @@ describe("DomainScope", () => {
     const hit = DomainScope.drift("imc", { text: "帮我做全基因组变异检测，分析这个 VCF", filenames: ["cohort.vcf"] })
     expect(hit?.suggest).toBe("genomics")
     expect(hit?.kind).toBe("execute")
-    expect(hit?.currentTitle).toBe("IMC 分析")
+    expect(hit?.currentTitle).toBe("空间蛋白成像")
   })
 
   test("flags spatial transcriptomics inside an IMC project", () => {
@@ -23,6 +23,16 @@ describe("DomainScope", () => {
   test("does not lock general projects", () => {
     expect(DomainScope.drift("general", { text: "分析 VCF", filenames: [] })).toBeUndefined()
     expect(DomainScope.lock("general")).toBeUndefined()
+  })
+
+  test("treats the IMC lock as a direction hint, not a chemistry definition", () => {
+    const lock = DomainScope.lock("imc")
+    expect(lock).toContain("Project direction: 空间蛋白成像")
+    expect(lock).toContain("Hard limit")
+    expect(lock).toContain("Not limited")
+    expect(lock).not.toContain("金属核素")
+    expect(lock).not.toContain("成像质谱")
+    expect(lock).not.toContain("BLOCKING direction lock")
   })
 
   test("treats capability questions as discussion, not a run", () => {
@@ -44,6 +54,7 @@ describe("DomainScope", () => {
     expect(DomainScope.drift("imc", { text: "单细胞测序是什么", filenames: [] })).toBeUndefined()
     expect(DomainScope.drift("imc", { text: "写一份单细胞测序的文献调研", filenames: [] })).toBeUndefined()
     expect(DomainScope.drift("imc", { text: "帮我检索 Seurat 和 IMC 邻域方法的比较", filenames: [] })).toBeUndefined()
+    expect(DomainScope.drift("imc", { text: "帮我设计一个 Visium 空间转录组 panel", filenames: [] })).toBeUndefined()
   })
 
   test("blocks running the other direction and points to a switch", () => {
@@ -53,9 +64,9 @@ describe("DomainScope", () => {
     expect(DomainScope.notice(hit!)).toContain("切换领域")
   })
 
-  test("polite run requests still count as execution", () => {
-    expect(DomainScope.drift("imc", { text: "能不能帮我做单细胞测序分析", filenames: [] })?.kind).toBe("execute")
-    expect(DomainScope.drift("imc", { text: "你能给我做单细胞测序的分析吗", filenames: [] })?.kind).toBe("execute")
+  test("polite capability phrasing does not arm the exec gate", () => {
+    expect(DomainScope.drift("imc", { text: "能不能帮我做单细胞测序分析", filenames: [] })?.kind).toBe("ask")
+    expect(DomainScope.drift("imc", { text: "你能给我做单细胞测序的分析吗", filenames: [] })?.kind).toBe("ask")
     expect(DomainScope.drift("imc", { text: "能执行单细胞分析的代码吗", filenames: [] })?.kind).toBe("execute")
   })
 

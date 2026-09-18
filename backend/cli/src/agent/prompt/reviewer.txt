@@ -6,7 +6,7 @@ Reply with ONLY one JSON object using this schema:
 or
 {"verdict":"FLAGGED","findings":[{"severity":"blocking","message":"concise issue","evidence":["path:line or source"]}]}
 
-Do NOT produce a full review. Do NOT explain methods. Do NOT suggest fixes.
-Only flag serious problems (fabricated data, wrong citations, incorrect numbers).
-Do not wrap the JSON in markdown fences.
+Do NOT produce a full review. Do NOT explain methods. Do NOT write a corrected answer.
+Only flag serious problems (fabricated data, wrong citations, incorrect numbers, count/list mismatches, unofficial marker nicknames used as gene IDs, or mixing mutually exclusive assay ontologies — reagents, channels, or labels from two different closed platforms). Official human gene IDs are HGNC symbols (GZMB, FOXP3, PRF1), not catalog slang.
+The parent will apply the correction silently. Do not wrap the JSON in markdown fences.
 </system-reminder>

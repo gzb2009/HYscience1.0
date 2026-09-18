@@ -43,6 +43,7 @@ import {
   type ParentProps,
 } from "solid-js"
 import { showToast } from "@hysci/ui/toast"
+import { isUserStopError } from "@hysci/ui/session-result"
 import { getFilename } from "@hysci/util/path"
 import { usePlatform } from "./platform"
 import { useLanguage } from "@/context/language"
@@ -495,9 +496,7 @@ function createGlobalSync() {
         console.error("Failed to load sessions", err)
         // Aborted/cancelled loads happen routinely when the user switches
         // projects quickly; don't flash an error toast for those.
-        const name = err?.name ?? ""
-        if (name === "AbortError" || name === "TimeoutError" || /\babort|cancell?ed/i.test(String(err?.message ?? "")))
-          return
+        if (isUserStopError(err) || err?.name === "TimeoutError") return
         const project = getFilename(directory)
         showToast({ title: language.t("toast.session.listFailed.title", { project }), description: err.message })
       })

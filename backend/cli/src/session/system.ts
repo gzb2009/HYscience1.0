@@ -42,6 +42,15 @@ export namespace SystemPrompt {
     return `<credentials>Connected external services: ${connected.join(", ")}. Check presence only; never print values.</credentials>`
   }
 
+  export function cacheLayers(input: { frozen: string[]; live: string[] }) {
+    const layers: string[] = []
+    const frozen = input.frozen.filter(Boolean).join("\n")
+    const live = input.live.filter(Boolean).join("\n")
+    if (frozen) layers.push(frozen)
+    if (live) layers.push(live)
+    return layers
+  }
+
   export function instructions() {
     return [PROMPT_BASE, PROMPT_GPT5].join("\n\n").trim()
   }

@@ -17,212 +17,56 @@ import {
   IconStop,
   IconX,
 } from "@/thesis/shared/Icon"
+import { IMC_STEPS } from "@/domain/imc-flow"
 import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { toast } from "@/thesis/Toast"
 import { SkillsBrowser } from "@/thesis/SkillsBrowser"
 import { EffortSlider } from "@/thesis/EffortSlider"
 import { uiStore } from "@/thesis/store/ui"
-import { URLS } from "@/config/urls"
+import { centerTabs } from "@/thesis/store/centerTabs"
 import { Identifier } from "@/utils/id"
 import { useProviders, popularProviders } from "@/hooks/use-providers"
 import { useGlobalSync } from "@/context/global-sync"
 import { useDialog } from "@hysci/ui/context/dialog"
 import { openSetupDialog } from "@/thesis/SetupDialog"
 import { resolveModelSource, type ModelSource } from "@/utils/model-cost"
-import { deriveSessionTitleFromMessage, isDefaultSessionTitle, makeUniqueSessionTitle } from "@/utils/sessionNaming"
+import {
+  deriveSessionTitleFromMessage,
+  isDefaultSessionTitle,
+  isGenericSessionTitle,
+  makeUniqueSessionTitle,
+} from "@/utils/sessionNaming"
 import { sessionTitleLocal } from "@/thesis/store/sessionTitleLocal"
 import { ensureDirectory } from "@/utils/projectResult"
 import { Binary } from "@hysci/util/binary"
 import { produce } from "solid-js/store"
 import { mergesContext, startsTask, taskControls, type TaskControl } from "@/thesis/task-control"
+import { isUserStopError } from "@hysci/ui/session-result"
+import {
+  BYOK_URL,
+  CONTEXT_DIR,
+  MAX_ATTACHMENT_BYTES,
+  REDUCE_MOTION,
+  SOURCE_DOT,
+  attachmentGuidance,
+  decodeDataUrl,
+  familyKey,
+  formatTokens,
+  isGpt55,
+  isSelectableModel,
+  isSubscriptionModel,
+  isTextLike,
+  providerLabel,
+  rateFor,
+  readAsDataURL,
+  safeFilename,
+  type AgentName,
+  type Attachment,
+  type ModelCostShape,
+} from "./composer/model-utils"
+import { AttachmentChip, CONTROL_LABEL, FloatingControls, Segmented } from "./composer/controls"
 
-const BYOK_URL = URLS.dashboard
-
-const PROVIDER_LABEL: Record<string, string> = {
-  anthropic: "Anthropic",
-  openai: "OpenAI",
-  "openai-codex": "ChatGPT subscription",
-  google: "Google",
-  "google-vertex": "Google Vertex",
-  "github-copilot": "GitHub Copilot",
-  openrouter: "OpenRouter",
-  vercel: "Vercel",
-  groq: "Groq",
-  mistral: "Mistral",
-  xai: "xAI",
-  cohere: "Cohere",
-  gitlab: "GitLab Duo",
-  hysci: "HYcloud",
-}
-
-// Credential source shown as a single low-weight dot — the one bit that matters
-// is "does this spend money?". Text badges (BYOK/metered) were removed from the
-// bar and rows; the dot carries the signal at near-zero visual weight. Inferred
-// from provider connection state; authoritative resolver is server-side.
-const SOURCE_DOT: Record<ModelSource, { color: string; opacity: number; meters: boolean; title: string }> = {
-  byok: { color: "var(--color-text-faint)", opacity: 0.5, meters: false, title: "your key — free" },
-  "signed-in": { color: "var(--color-text-faint)", opacity: 0.5, meters: false, title: "signed-in account — free" },
-  managed: { color: "var(--color-accent)", opacity: 0.8, meters: true, title: "metered — debits your wallet" },
-}
-
-// The effort control renders a model's OWN reasoning-effort variant keys
-// (low/medium/high/xhigh/none/minimal, exactly as the backend emits them) and
-// persists the choice via models.variant. No relabeling.
-//
-// A model exposes a REAL per-request "fast" API param only for gpt-5.5, where it
-// maps to OpenAI service_tier: priority (plumbed as providerOptions.openai.serviceTier
-// in src/session/llm.ts). Opus-4.8 speed:"fast" is real but not plumbable through the
-// installed @ai-sdk/anthropic, so no fast toggle is shown for it.
-const isGpt55 = (modelID: string) => /gpt-5\.5/.test(modelID.toLowerCase())
-
-// Collapse a model id to its FAMILY so the picker shows one current entry per
-// family and folds dated snapshots / superseded majors behind a "show older"
-// toggle. Best-effort + provider-agnostic: drop a trailing dated snapshot, then
-// trailing variant/tier-neutral suffixes, then the trailing version number.
-//   claude-opus-4-8 · claude-opus-4-1-20250805      → "claude-opus"
-//   gpt-5.5 · gpt-5.4                                → "gpt"
-//   gemini-3.1-pro-preview · …-preview-customtools   → "gemini-3.1-pro"
-const DATE_SUFFIX = /[-_](\d{8}|\d{4}-\d{2}-\d{2})$/
-const VARIANT_SUFFIX =
-  /[-_](preview|latest|stable|customtools|thinking|reasoning|non-reasoning|multi-agent|image-preview|image|hd|online)$/
-function familyKey(id: string): string {
-  let k = id.toLowerCase().replace(DATE_SUFFIX, "")
-  let prev = ""
-  while (prev !== k) {
-    prev = k
-    k = k.replace(VARIANT_SUFFIX, "")
-  }
-  // Drop every pure-version token (5.5 → 5,5 · 4 · 8 · 0309) so the surviving
-  // tier words — opus / sonnet / pro / flash / nano / codex — form the family.
-  // That folds gpt-5.4-nano under gpt-nano, claude-3-7-sonnet under claude-sonnet.
-  const parts = k.split(/[-_.]/).filter((t) => t && !/^v?\d+$/.test(t))
-  return parts.join("-") || id.toLowerCase()
-}
-
-// Models that can't serve as the agent/chat model — embeddings, TTS, image
-// generation, transcription, moderation, rerankers. Kept out of the picker so it
-// only offers things you can actually select. Deep-research + realtime chat
-// models stay (they take text in).
-const NON_CHAT_MODEL =
-  /(^|[-_/])(embedding|embeddings|tts|whisper|transcribe|moderation|image|imagine|dall-?e|sora|veo|imagen|guard|rerank)([-_]|$)/
-const isSelectableModel = (id: string) => !NON_CHAT_MODEL.test(id.toLowerCase())
-
-// Compact $/1M rate from the transformed Provider.Model cost shape
-// (cost.input/output, cost.experimentalOver200K.*). `over` swaps to the >200k tier.
-interface ModelCostShape {
-  input?: number
-  output?: number
-  experimentalOver200K?: { input?: number; output?: number }
-}
-function rateFor(cost: ModelCostShape | undefined, over: boolean) {
-  const tier = over && cost?.experimentalOver200K ? cost.experimentalOver200K : cost
-  const input = tier?.input ?? 0
-  const output = tier?.output ?? 0
-  const free = input === 0 && output === 0
-  const fmt = (v: number) => (v >= 1 ? `$${v.toFixed(2).replace(/\.?0+$/, "")}` : `$${v.toPrecision(2)}`)
-  return { free, input: fmt(input), output: fmt(output) }
-}
-
-// Skip the open/close animation when the OS asks for reduced motion.
-const REDUCE_MOTION =
-  typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
-
-// A model routes through ChatGPT subscription OAuth when served by the
-// openai-codex provider or when its id carries OpenAI's codex tag.
-const isSubscriptionModel = (providerID: string, modelID: string) =>
-  providerID === "openai-codex" || modelID.toLowerCase().includes("codex")
-
-const providerLabel = (id: string) => PROVIDER_LABEL[id] ?? id
-
-function formatTokens(value: number | undefined): string {
-  if (!value) return "?"
-  if (value >= 1_000_000) return `${Number((value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1))}M`
-  if (value >= 1_000) return `${Math.round(value / 1_000)}K`
-  return String(value)
-}
-
-type AgentName = "research"
-
-interface Attachment {
-  id: string
-  filename: string
-  mime: string
-  size: number
-  dataUrl: string
-  /** Relative project path once persisted under `.hyscience/context/`. */
-  path?: string
-  status?: "saving" | "saved" | "failed"
-}
-
-const MAX_ATTACHMENT_BYTES = 12 * 1024 * 1024 // 12MB
-const CONTEXT_DIR = ".hyscience/context"
-
-function readAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"))
-    reader.onload = () => resolve(reader.result as string)
-    reader.readAsDataURL(file)
-  })
-}
-
-function safeFilename(name: string): string {
-  // Keep the extension, slugify the stem so the path is shell-safe.
-  const dot = name.lastIndexOf(".")
-  const stem = dot > 0 ? name.slice(0, dot) : name
-  const extPart = dot > 0 ? name.slice(dot) : ""
-  const slug = stem.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "")
-  return (slug || "file") + extPart
-}
-
-function isTextLike(name: string, mime: string): boolean {
-  const kind = (mime || "").toLowerCase()
-  if (kind.startsWith("text/")) return true
-  if (
-    kind === "application/json" ||
-    kind === "application/csv" ||
-    kind === "application/x-csv" ||
-    kind === "application/xml" ||
-    kind === "application/x-yaml" ||
-    kind === "application/yaml"
-  )
-    return true
-  return /\.(csv|tsv|txt|md|markdown|json|jsonl|yaml|yml|xml|html|htm|py|r|R|ipynb|log|bed|gtf|gff|fasta|fa|fastq|sam|vcf)$/i.test(
-    name,
-  )
-}
-
-function looksLikeMarkers(name: string): boolean {
-  return /marker|cluster|cell.?type|annot|deg|diff.?exp|findallmarkers|rank.?genes/i.test(name)
-}
-
-function decodeDataUrl(dataUrl: string): string {
-  const comma = dataUrl.indexOf(",")
-  const raw = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl
-  const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0))
-  return new TextDecoder().decode(bytes)
-}
-
-function attachmentGuidance(atts: Attachment[]): string {
-  if (atts.length === 0) return ""
-  const lines = atts.map((a) => {
-    const dest = a.path ?? `${CONTEXT_DIR}/${safeFilename(a.filename)}`
-    const state =
-      a.status === "saved"
-        ? "on disk — read this path with the read tool"
-        : a.status === "failed"
-          ? "persist failed — ask the user to re-attach"
-          : "saving"
-    return `- ${dest} (${state}, ${a.mime || "unknown"})`
-  })
-  const markers = atts.some((a) => looksLikeMarkers(a.filename) || /\.(csv|tsv)$/i.test(a.filename))
-  const markerHint = markers
-    ? `\nThese look like cluster/marker tables. Read them from disk with the read tool (do not ask the user to re-upload). Infer columns (cluster id, gene symbol, score/logFC/p-value/pct). Annotate EVERY cluster id present — do not stop early. Follow the single-cell annotation deliverable: grouped summary table, key findings, and write a locale-aware \`*_annotation.xlsx\` via \`annotation_report.py\` into the Result folder (visible, not only .context).`
-    : ""
-  return `HYscience attachments (durable scratchpad):\n${lines.join("\n")}\nPaths are under \`${CONTEXT_DIR}/\` at the project working directory. Prefer \`read\` / bash on these paths — do not rely on inline data URLs.${markerHint}`
-}
-
-export function Composer(): JSX.Element {
+export function Composer(props: { imcFlow?: boolean }): JSX.Element {
   const params = useParams()
   const navigate = useNavigate()
   const sdk = useSDK()
@@ -300,8 +144,26 @@ export function Composer(): JSX.Element {
   }
   const [queue, setQueue] = createSignal<QueuedPrompt[]>([])
   const [inflight, setInflight] = createSignal(false)
+  const [lastSent, setLastSent] = createSignal("")
   const [taskControl, setTaskControl] = createSignal<TaskControl>()
   const [taskControlOpen, setTaskControlOpen] = createSignal(false)
+  const [imcOpen, setImcOpen] = createSignal(false)
+  let imcRef: HTMLDivElement | undefined
+  createEffect(() => {
+    if (!imcOpen()) return
+    const close = (e: MouseEvent) => {
+      if (imcRef && !imcRef.contains(e.target as Node)) setImcOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setImcOpen(false)
+    }
+    document.addEventListener("mousedown", close)
+    document.addEventListener("keydown", onEsc)
+    onCleanup(() => {
+      document.removeEventListener("mousedown", close)
+      document.removeEventListener("keydown", onEsc)
+    })
+  })
   const selectedTaskControl = createMemo(() => taskControls.find((item) => item.id === taskControl()))
   createEffect(
     on(
@@ -318,6 +180,27 @@ export function Composer(): JSX.Element {
   // no spaces). Arrow keys move selection; Enter inserts `/<name> `.
   const [slashIndex, setSlashIndex] = createSignal(0)
   const [skillsOpen, setSkillsOpen] = createSignal(false)
+  createEffect(() => {
+    if (centerTabs.active() === "chat") return
+    setModelOpen(false)
+    setEffortOpen(false)
+    setSkillsOpen(false)
+    setTaskControlOpen(false)
+    setImcOpen(false)
+  })
+  createEffect(
+    on(
+      () => params.dir,
+      () => {
+        setModelOpen(false)
+        setEffortOpen(false)
+        setSkillsOpen(false)
+        setTaskControlOpen(false)
+        setImcOpen(false)
+      },
+      { defer: true },
+    ),
+  )
   const [caret, setCaret] = createSignal(0)
   let textareaRef: HTMLTextAreaElement | undefined
   let fileInputRef: HTMLInputElement | undefined
@@ -666,20 +549,87 @@ export function Composer(): JSX.Element {
   const sessionStatus = createMemo(() => {
     const id = sessionPending()
     if (!id) return undefined
-    return (sync.data.session_status?.[id] as { type?: string } | undefined)?.type
+    return sync.data.session_status?.[id] as { type?: string; phase?: string } | undefined
   })
   const isWorking = () => {
     const s = sessionStatus()
-    return s !== undefined && s !== "idle"
+    if (!s || s.type === "idle") return false
+    if (s.type === "busy" && s.phase === "finalizing") return false
+    return true
+  }
+  const pendingQuestions = createMemo(() => {
+    const sid = sessionPending()
+    if (!sid) return []
+    return sync.data.question?.[sid] ?? []
+  })
+  const awaitingQuestion = () => pendingQuestions().length > 0
+  const turnLocked = () => (isWorking() || inflight()) && !awaitingQuestion()
+  const stillGenerating = createMemo(() => {
+    if (!isWorking()) return false
+    const sid = sessionPending()
+    if (!sid) return true
+    const msgs = sync.data.message[sid] ?? []
+    let lastUser = -1
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i]?.role === "user") {
+        lastUser = i
+        break
+      }
+    }
+    const assistants = lastUser >= 0 ? msgs.slice(lastUser + 1) : []
+    let textClosed = false
+    for (const msg of assistants) {
+      for (const part of sync.data.part[msg.id] ?? []) {
+        if (part.type === "tool") {
+          const status = "state" in part ? part.state?.status : undefined
+          if (status === "pending" || status === "running") return true
+        }
+        if (part.type === "reasoning" && !("time" in part && part.time && "end" in part.time && part.time.end)) {
+          return true
+        }
+        if (part.type === "text" && "text" in part && String(part.text ?? "").trim()) {
+          textClosed = Boolean((part as { time?: { end?: number } }).time?.end)
+        }
+      }
+    }
+    return !textClosed
+  })
+  const streaming = () => stillGenerating() && !awaitingQuestion()
+
+  const restore = (prompt: string) => {
+    const body = prompt.trim()
+    if (!body) return
+    grow(body)
+    textareaRef?.focus()
+  }
+
+  const lastUserPrompt = () => {
+    const sid = sessionPending()
+    if (sid) {
+      const msgs = sync.data.message[sid] ?? []
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const msg = msgs[i]
+        if (msg?.role !== "user") continue
+        const text = (sync.data.part[msg.id] ?? [])
+          .filter((part) => part.type === "text" && !(part as { hybio?: boolean }).hybio)
+          .map((part) => ("text" in part ? part.text : ""))
+          .join("\n")
+          .trim()
+        if (text) return text
+      }
+    }
+    return lastSent()
   }
 
   const stop = async () => {
     const sid = sessionPending()
     if (!sid) return
+    const prompt = lastUserPrompt()
     try {
       const pending = sync.data.question?.[sid] ?? []
       await Promise.all(pending.map((q) => sdk.client.question.reject({ requestID: q.id }).catch(() => undefined)))
       await sdk.client.session.abort({ sessionID: sid } as any)
+      restore(prompt)
     } catch (e: any) {
       console.error("session.abort failed", e)
       toast.error("could not stop", e?.message ?? String(e))
@@ -948,6 +898,21 @@ export function Composer(): JSX.Element {
       openSetupDialog(dialog)
       return
     }
+    const waiting = pendingQuestions()[0]
+    if (waiting && trimmed) {
+      setText("")
+      if (textareaRef) textareaRef.style.height = "auto"
+      try {
+        await sdk.client.question.reply({
+          requestID: waiting.id,
+          answers: waiting.questions.map((_, index) => (index === 0 ? [trimmed] : [])),
+        })
+      } catch (e: any) {
+        toast.error("could not reply", e?.message ?? String(e))
+      }
+      return
+    }
+
     const payload: QueuedPrompt = {
       id: Identifier.ascending("message"),
       text: trimmed,
@@ -965,7 +930,7 @@ export function Composer(): JSX.Element {
     if (textareaRef) textareaRef.style.height = "auto"
 
     // Mid-turn sends queue; the drain effect below fires them when idle.
-    if (isWorking() || inflight()) {
+    if (turnLocked()) {
       setQueue((q) => [...q, payload])
       return
     }
@@ -1002,20 +967,32 @@ export function Composer(): JSX.Element {
       return
     }
     setSubmitting(true)
+    setLastSent(p.text)
     try {
       await ensureDirectory(sdk.url, platform.fetch ?? fetch, sdk.directory)
-      let sessionID = sessionPending()
+      const existing = sessionPending()
+      const createdID = existing
+        ? null
+        : await (async () => {
+            const derived = deriveSessionTitleFromMessage(p.text)
+            const seed = derived && !isGenericSessionTitle(derived) ? derived : undefined
+            const title = seed
+              ? makeUniqueSessionTitle(
+                  seed,
+                  sync.data.session.map((item) => sessionTitleLocal.get(item.id)?.title ?? item.title),
+                )
+              : undefined
+            const res: any = await sdk.client.session.create({
+              directory: sdk.directory,
+              ...(title ? { title } : {}),
+            } as any)
+            const data = res?.data ?? res
+            return (data?.id ?? data?.sessionID) as string | undefined
+          })()
+      const sessionID = existing ?? createdID
       if (!sessionID) {
-        const res: any = await sdk.client.session.create({
-          directory: sdk.directory,
-        } as any)
-        const data = res?.data ?? res
-        sessionID = data?.id ?? data?.sessionID
-        if (!sessionID) {
-          toast.error("could not start session", "session.create returned no id")
-          return
-        }
-        navigate(`/${params.dir}/session/${sessionID}`, { replace: true })
+        toast.error("could not start session", "session.create returned no id")
+        return
       }
 
       const messageID = Identifier.ascending("message")
@@ -1102,6 +1079,10 @@ export function Composer(): JSX.Element {
 
       maybeUpdateSessionTitle(sessionID, p.text)
 
+      if (!existing) {
+        navigate(`/${params.dir}/session/${sessionID}`, { replace: true })
+      }
+
       // Fire-and-forget: session.prompt resolves only when the whole turn
       // completes, so awaiting it here is what used to freeze the composer
       // for the entire generation. `inflight` tracks the turn instead.
@@ -1120,6 +1101,7 @@ export function Composer(): JSX.Element {
           mergeTaskContext: mergesContext(p.taskControl),
         } as any)
         .catch((e: any) => {
+          if (isUserStopError(e)) return
           console.error("session.prompt failed", e)
           toast.error("send failed", e?.message ?? String(e))
         })
@@ -1130,6 +1112,7 @@ export function Composer(): JSX.Element {
 
       models.recent.push(p.model)
     } catch (e: any) {
+      if (isUserStopError(e)) return
       console.error("session.prompt failed", e)
       toast.error("send failed", e?.message ?? String(e))
     } finally {
@@ -1140,7 +1123,7 @@ export function Composer(): JSX.Element {
   // Drain the queue: whenever the session is idle and nothing is in flight,
   // send the next queued prompt.
   createEffect(() => {
-    if (isWorking() || inflight() || submitting()) return
+    if (turnLocked() || submitting() || awaitingQuestion()) return
     const next = queue()[0]
     if (!next) return
     setQueue((q) => q.slice(1))
@@ -1231,7 +1214,7 @@ export function Composer(): JSX.Element {
               dragOver() || focused()
                 ? "0 0 0 4px color-mix(in srgb, var(--color-focus) 10%, transparent), var(--shadow-xs)"
                 : "var(--shadow-xs)",
-            background: dragOver() ? "var(--color-accent-subtle)" : "var(--color-surface-solid)",
+            background: dragOver() ? "var(--color-accent-subtle)" : "none",
             "border-radius": "14px",
             transition: "background 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
           }}
@@ -1257,51 +1240,14 @@ export function Composer(): JSX.Element {
             </div>
           </Show>
           <Show when={queue().length > 0}>
-            <div
-              style={{
-                display: "flex",
-                "flex-wrap": "wrap",
-                "align-items": "center",
-                gap: "6px",
-                "margin-bottom": "2px",
-              }}
-            >
-              <span
-                style={{
-                  "font-family": FONT_MONO,
-                  "font-size": "10px",
-                  color: "var(--color-text-faint)",
-                  "letter-spacing": "0.08em",
-                  "text-transform": "lowercase",
-                }}
-              >
-                queued · {queue().length}
-              </span>
+            <div class="cs-composer-queue" aria-label="Queued messages">
+              <span class="cs-composer-queue-label">Next · {queue().length}</span>
               <For each={queue()}>
-                {(q) => (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      "align-items": "center",
-                      gap: "6px",
-                      border: "1px solid var(--color-border)",
-                      "border-radius": "4px",
-                      padding: "3px 8px",
-                      "font-family": FONT_SANS,
-                      "font-size": "12px",
-                      color: "var(--color-text-muted)",
-                      background: "var(--color-bg-elevated)",
-                      "max-width": "340px",
-                    }}
-                  >
+                {(q, index) => (
+                  <span class="cs-composer-queue-item" data-next={index() === 0 ? "true" : undefined}>
                     <span
+                      class="cs-composer-queue-text"
                       title="click to edit — moves back into the input"
-                      style={{
-                        overflow: "hidden",
-                        "text-overflow": "ellipsis",
-                        "white-space": "nowrap",
-                        cursor: "pointer",
-                      }}
                       onClick={() => {
                         if (text().trim().length > 0) {
                           toast.info("input not empty", "clear the input to pull a queued message back")
@@ -1317,12 +1263,10 @@ export function Composer(): JSX.Element {
                     <button
                       type="button"
                       aria-label="remove from queue"
-                      onClick={() => setQueue((qs) => qs.filter((x) => x.id !== q.id))}
-                      style={{
-                        all: "unset",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        color: "var(--color-text-faint)",
+                      class="cs-composer-queue-remove"
+                      onClick={() => {
+                        setQueue((qs) => qs.filter((x) => x.id !== q.id))
+                        restore(q.text)
                       }}
                     >
                       <IconX size={11} strokeWidth={1.5} />
@@ -1380,6 +1324,53 @@ export function Composer(): JSX.Element {
               </div>
             )}
           </Show>
+          <Show when={props.imcFlow}>
+            <div class="cs-imc-flow-dock" ref={imcRef}>
+              <button
+                type="button"
+                class="cs-imc-flow-trigger"
+                aria-expanded={imcOpen()}
+                aria-haspopup="menu"
+                onClick={() => {
+                  setTaskControlOpen(false)
+                  setImcOpen((open) => !open)
+                }}
+              >
+                {language.t("chat.welcome.imc.flow.title")}
+                <IconChevronDown size={11} strokeWidth={1.6} />
+              </button>
+              <Show when={imcOpen()}>
+                <div class="cs-imc-flow-pop" role="menu">
+                  <div class="cs-chat-welcome-flow-grid">
+                    <For each={IMC_STEPS}>
+                      {(step, index) => {
+                        const Glyph = step[3]
+                        return (
+                          <button
+                            type="button"
+                            class="cs-chat-welcome-flow-card"
+                            role="menuitem"
+                            onClick={() => {
+                              grow(language.t(step[2]))
+                              setImcOpen(false)
+                              textareaRef?.focus()
+                            }}
+                          >
+                            <span class="cs-chat-welcome-flow-mark">
+                              <Glyph size={16} strokeWidth={1.6} />
+                              <span class="cs-chat-welcome-flow-num">{String(index() + 1).padStart(2, "0")}</span>
+                            </span>
+                            <span class="cs-chat-welcome-flow-name">{language.t(step[0])}</span>
+                            <span class="cs-chat-welcome-flow-hint">{language.t(step[1])}</span>
+                          </button>
+                        )
+                      }}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+            </div>
+          </Show>
           <div style={{ position: "relative", width: "100%" }}>
             <textarea
               ref={textareaRef}
@@ -1399,7 +1390,7 @@ export function Composer(): JSX.Element {
               style={{
                 all: "unset",
                 "font-family": FONT_SANS,
-                "font-size": "13px",
+                "font-size": "var(--app-font-size, 14px)",
                 "line-height": 1.55,
                 color: "var(--color-text)",
                 "min-height": "20px",
@@ -1510,7 +1501,7 @@ export function Composer(): JSX.Element {
 
           <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
             {/* Model picker portal — trigger lives top-right beside Notebook. */}
-            <Show when={modelOpen()}>
+            <Show when={modelOpen() && centerTabs.active() === "chat"}>
               <Portal>
                 <div onClick={() => setModelOpen(false)} style={{ position: "fixed", inset: 0, "z-index": 190 }} />
                 <Show when={anchor()}>
@@ -2054,7 +2045,7 @@ export function Composer(): JSX.Element {
 
             <span style={{ flex: 1 }} />
 
-            <Show when={isWorking() || inflight()}>
+            <Show when={streaming()}>
               <span
                 style={{
                   "font-family": FONT_MONO,
@@ -2085,12 +2076,12 @@ export function Composer(): JSX.Element {
                   color: "var(--color-text-faint)",
                 }}
               >
-                {isWorking() || inflight() ? "↵ to queue · ⇧↵ newline" : "↵ to send · ⇧↵ newline"}
+                {turnLocked() ? "↵ to queue · ⇧↵ newline" : "↵ to send · ⇧↵ newline"}
               </span>
             </Show>
 
             <Show
-              when={isWorking() || inflight()}
+              when={streaming()}
               fallback={
                 <button
                   onClick={() => void submit()}
@@ -2168,292 +2159,6 @@ export function Composer(): JSX.Element {
           composeWrapRef={composeWrapRef}
         />
       </div>
-    </div>
-  )
-}
-
-// Faint caption preceding a segmented control ("effort" / "speed" / "context").
-const CONTROL_LABEL: JSX.CSSProperties = {
-  "font-family": FONT_MONO,
-  "font-size": "10px",
-  color: "var(--color-text-faint)",
-  "text-transform": "lowercase",
-}
-
-// Cursor-style segmented control: a quiet row of peers where the selected one is
-// marked by a faint tint + hairline border at a consistent weight — never bold.
-// Used on the active model row for the effort keys, the fast/normal speed toggle,
-// and the context tier.
-function Segmented(props: {
-  options: { id: string; label: string }[]
-  value: string
-  onPick: (id: string) => void
-}): JSX.Element {
-  return (
-    <span style={{ display: "inline-flex", gap: "2px" }} onClick={(e) => e.stopPropagation()}>
-      <For each={props.options}>
-        {(o) => {
-          const on = () => props.value === o.id
-          return (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                props.onPick(o.id)
-              }}
-              style={{
-                all: "unset",
-                cursor: "pointer",
-                "font-family": FONT_MONO,
-                "font-size": "11px",
-                "font-weight": 400,
-                "text-transform": "lowercase",
-                color: on() ? "var(--color-text)" : "var(--color-text-muted)",
-                background: on() ? "var(--color-accent-subtle)" : "transparent",
-                border: on() ? "1px solid var(--color-border)" : "1px solid transparent",
-                "border-radius": "4px",
-                padding: "1px 7px",
-                "line-height": 1.5,
-                transition: "background 120ms ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!on()) e.currentTarget.style.background = "var(--color-bg-elevated)"
-              }}
-              onMouseLeave={(e) => {
-                if (!on()) e.currentTarget.style.background = "transparent"
-              }}
-            >
-              {o.label}
-            </button>
-          )
-        }}
-      </For>
-    </span>
-  )
-}
-
-function AttachmentChip(props: { att: Attachment; onRemove: () => void }): JSX.Element {
-  const isImage = () => props.att.mime.startsWith("image/")
-  const sizeLabel = () => {
-    const s = props.att.size
-    if (s < 1024) return `${s}B`
-    if (s < 1024 * 1024) return `${(s / 1024).toFixed(0)}KB`
-    return `${(s / (1024 * 1024)).toFixed(1)}MB`
-  }
-  const statusLabel = () => {
-    if (props.att.status === "saving") return "saving…"
-    if (props.att.status === "failed") return "not saved"
-    if (props.att.path) return props.att.path
-    return CONTEXT_DIR + "/"
-  }
-  return (
-    <div
-      title={`${props.att.filename} · ${sizeLabel()} · ${statusLabel()}`}
-      style={{
-        display: "inline-flex",
-        "align-items": "center",
-        gap: "6px",
-        padding: "3px 6px 3px 4px",
-        "border-radius": "4px",
-        border: "1px solid var(--color-border)",
-        background: "var(--color-bg-elevated)",
-        "font-family": FONT_MONO,
-        "font-size": "11px",
-        color: "var(--color-text)",
-        "max-width": "280px",
-        opacity: props.att.status === "saving" ? 0.7 : 1,
-      }}
-    >
-      <Show when={isImage()} fallback={<IconPaperclip size={11} strokeWidth={1.5} />}>
-        <img
-          src={props.att.dataUrl}
-          alt={props.att.filename}
-          style={{
-            width: "18px",
-            height: "18px",
-            "object-fit": "cover",
-            "border-radius": "4px",
-          }}
-        />
-      </Show>
-      <span
-        style={{
-          overflow: "hidden",
-          "text-overflow": "ellipsis",
-          "white-space": "nowrap",
-          flex: 1,
-          "min-width": 0,
-        }}
-      >
-        {props.att.filename}
-      </span>
-      <span style={{ color: "var(--color-text-faint)", "font-size": "10px" }}>
-        {props.att.status === "saving" ? "…" : props.att.status === "failed" ? "!" : sizeLabel()}
-      </span>
-      <button
-        type="button"
-        title="remove"
-        onClick={(e) => {
-          e.stopPropagation()
-          props.onRemove()
-        }}
-        style={{
-          all: "unset",
-          cursor: "pointer",
-          padding: "0 4px",
-          color: "var(--color-text-faint)",
-          "font-size": "11px",
-          "line-height": 1,
-        }}
-        onMouseEnter={(el) => (el.currentTarget.style.color = "var(--color-error)")}
-        onMouseLeave={(el) => (el.currentTarget.style.color = "var(--color-text-faint)")}
-      >
-        ×
-      </button>
-    </div>
-  )
-}
-
-// ── Floating controls (model + effort chips, below the composer) ──
-// Rendered inline inside cs-composer-inner, below the input box. Only the
-// effort slider popover is portaled.
-function FloatingControls(props: {
-  modelOpen: () => boolean
-  setModelOpen: (v: boolean) => void
-  selectedLabel: () => { name: string; providerID: string } | undefined
-  selectedSource: () => { color: string; opacity: number; title: string } | undefined
-  modelBtnRef: (el: HTMLButtonElement) => void
-  effortOpen: () => boolean
-  setEffortOpen: (v: boolean) => void
-  variantKeys: () => string[]
-  effort: () => string | undefined
-  setEffort: (v: string | undefined) => void
-  effortBtnRef: (el: HTMLButtonElement) => void
-  effortAnchor: () => { left: number; bottom: number; width: number; up: boolean } | undefined
-  composeWrapRef: HTMLDivElement | undefined
-}): JSX.Element {
-  const effortLabel = () => {
-    const key = props.effort()
-    if (!key) return undefined
-    const labels: Record<string, string> = {
-      none: "none",
-      minimal: "minimal",
-      low: "low",
-      medium: "medium",
-      high: "high",
-      xhigh: "xhigh",
-      max: "max",
-    }
-    return labels[key] ?? key
-  }
-
-  return (
-    <div
-      class="cs-floating-controls"
-      style={{
-        display: "flex",
-        "align-items": "flex-end",
-        gap: "8px",
-        "margin-top": "8px",
-        "pointer-events": "none",
-      }}
-    >
-      {/* Effort chip */}
-      <Show when={props.variantKeys().length > 0}>
-        <button
-          ref={props.effortBtnRef}
-          type="button"
-          class="cs-floating-chip"
-          data-action="model-variant-cycle"
-          onClick={() => props.setEffortOpen(!props.effortOpen())}
-          title={`reasoning effort: ${effortLabel() ?? "none"}`}
-        >
-          <span
-            style={{
-              "font-family": FONT_MONO,
-              "font-size": "11px",
-              "text-transform": "lowercase",
-            }}
-          >
-            {effortLabel() ?? "effort"}
-          </span>
-          <IconChevronDown size={8} strokeWidth={1.5} />
-        </button>
-      </Show>
-
-      {/* Model chip */}
-      <button
-        ref={props.modelBtnRef}
-        type="button"
-        class="cs-floating-chip"
-        onClick={() => props.setModelOpen(!props.modelOpen())}
-        title={
-          props.selectedLabel()
-            ? `${props.selectedLabel()!.name}${props.selectedSource() ? ` — ${props.selectedSource()!.title}` : ""}`
-            : "select model"
-        }
-      >
-        <Show when={props.selectedSource()}>
-          {(dot) => (
-            <span
-              style={{
-                width: "6px",
-                height: "6px",
-                "border-radius": "50%",
-                "flex-shrink": 0,
-                background: dot().color,
-                opacity: dot().opacity,
-              }}
-            />
-          )}
-        </Show>
-        <span
-          style={{
-            "font-family": FONT_MONO,
-            "font-size": "11px",
-            "max-width": "180px",
-            overflow: "hidden",
-            "text-overflow": "ellipsis",
-            "white-space": "nowrap",
-          }}
-        >
-          {props.selectedLabel()?.name ?? "select model"}
-        </span>
-        <IconChevronDown size={8} strokeWidth={1.5} />
-      </button>
-
-      {/* Effort slider popover */}
-      <Show when={props.effortOpen()}>
-        <Portal>
-          <div onClick={() => props.setEffortOpen(false)} style={{ position: "fixed", inset: 0, "z-index": 190 }} />
-          <Show when={props.effortAnchor()}>
-            {(a) => (
-              <div
-                class="thesis-fade-in cs-effort-popover"
-                role="dialog"
-                aria-label="Reasoning effort"
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "fixed",
-                  left: `${a().left}px`,
-                  bottom: `${a().bottom}px`,
-                  width: `${a().width}px`,
-                }}
-              >
-                <span class="cs-effort-popover-label">effort</span>
-                <EffortSlider
-                  options={props.variantKeys()}
-                  value={props.effort() ?? props.variantKeys()[0]}
-                  onPick={(key) => {
-                    props.setEffort(key)
-                    props.setEffortOpen(false)
-                  }}
-                />
-              </div>
-            )}
-          </Show>
-        </Portal>
-      </Show>
     </div>
   )
 }

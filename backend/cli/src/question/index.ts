@@ -3,6 +3,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { Identifier } from "@/id/id"
 import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
+import { SessionStatus } from "@/session/status"
 import z from "zod"
 
 export namespace Question {
@@ -105,6 +106,8 @@ export namespace Question {
         onReply?: (answers: Answer[]) => Promise<void>
         onReject?: () => Promise<void>
         onTimeout?: () => Promise<void>
+        /** Session status before the question paused the loop; restored on reply/reject. */
+        prior?: SessionStatus.Info
       }
     > = {}
 
@@ -112,6 +115,31 @@ export namespace Question {
       pending,
     }
   })
+
+  /**
+   * A pending question hands the turn back to the user: the loop is parked, not
+   * computing. Surface that as `busy/waiting` so clients stop spinners and
+   * clocks instead of showing "thinking" until the user picks an option.
+   */
+  async function pause(sessionID: string, requestID: string) {
+    const s = await state()
+    const entry = s.pending[requestID]
+    if (!entry) return
+    const current = SessionStatus.get(sessionID)
+    if (current.type !== "busy" || current.phase === "waiting") return
+    entry.prior = current
+    SessionStatus.set(sessionID, { type: "busy", phase: "waiting", step: current.step })
+  }
+
+  async function resume(sessionID: string, prior?: SessionStatus.Info) {
+    const current = SessionStatus.get(sessionID)
+    if (current.type !== "busy" || current.phase !== "waiting") return
+    const s = await state()
+    // Another question for the same session may still be open; stay parked.
+    if (Object.values(s.pending).some((entry) => entry.info.sessionID === sessionID)) return
+    const phase = prior?.type === "busy" ? (prior.phase ?? "processing") : "processing"
+    SessionStatus.set(sessionID, { type: "busy", phase, step: current.step })
+  }
 
   export async function ask(input: {
     sessionID: string
@@ -144,6 +172,7 @@ export namespace Question {
         onTimeout: input.onTimeout,
       }
       Bus.publish(Event.Asked, info)
+      pause(input.sessionID, id)
       if (input.decision) {
         s.pending[id].timer = setTimeout(
           () => {
@@ -168,6 +197,7 @@ export namespace Question {
     }
     if (existing.timer) clearTimeout(existing.timer)
     delete s.pending[input.requestID]
+    await resume(existing.info.sessionID, existing.prior)
 
     log.info("replied", { requestID: input.requestID, answers: input.answers })
 
@@ -190,6 +220,7 @@ export namespace Question {
     }
     if (existing.timer) clearTimeout(existing.timer)
     delete s.pending[requestID]
+    await resume(existing.info.sessionID, existing.prior)
 
     log.info("rejected", { requestID })
 

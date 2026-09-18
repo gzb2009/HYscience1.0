@@ -1,15 +1,16 @@
-import type { AssistantMessage, Part as PartType, ToolPart } from "@hysci/sdk/v2/client"
+import type { AssistantMessage, Part as PartType, TextPart, ToolPart } from "@hysci/sdk/v2/client"
 
 export type ResultFile = {
   path: string
   name: string
-  kind: "xlsx" | "csv" | "tsv" | "md" | "png" | "jpg" | "svg" | "pdf" | "json" | "code" | "other"
+  kind: "xlsx" | "csv" | "tsv" | "md" | "png" | "jpg" | "svg" | "pdf" | "json" | "code" | "docx" | "pptx" | "other"
   role: "primary" | "supporting"
   mime?: string
   size?: number
   verified: boolean
   clusters?: number
   sheets?: number
+  how?: string
 }
 
 export type ResultSection = {
@@ -20,6 +21,8 @@ export type ResultSection = {
 function resultKind(name: string): ResultFile["kind"] {
   const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : ""
   if (ext === "xlsx" || ext === "xls") return "xlsx"
+  if (ext === "docx") return "docx"
+  if (ext === "pptx") return "pptx"
   if (ext === "csv") return "csv"
   if (ext === "tsv") return "tsv"
   if (ext === "md" || ext === "markdown") return "md"
@@ -37,19 +40,12 @@ function resultRole(name: string, parentDir?: string): ResultFile["role"] {
   if (/^cluster_annotation/i.test(name)) return "primary"
   if (/figures?\//i.test(parentDir ?? "")) return "primary"
   if (/报告|report|template|模板|annotation|annot/i.test(name)) return "primary"
+  if (/panel|marker|清单/i.test(name)) return "primary"
   return "supporting"
 }
 
-const RESULT_EXTS = /\.(xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|rds)$/i
-
-/** @deprecated Prefer collectTaskFileNames or collectRecentTurnFileNames */
-export function collectSessionFileNames(input: {
-  assistantMessages: { id: string }[]
-  partsByMessage: Record<string, PartType[] | undefined>
-  responseText: string
-}): Set<string> {
-  return collectResultFileNames(input)
-}
+const RESULT_EXTS =
+  /\.(xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|rds|docx|pptx)$/i
 
 /** Assistant messages belonging to the latest user turn (after the last user message). */
 export function assistantMessagesForLastTurn(messages: { id: string; role: string }[]): { id: string }[] {
@@ -111,7 +107,7 @@ export function collectInferredFileNamesFromTools(input: {
       if (part?.type !== "tool") continue
       const tool = part as ToolPart
       const state = tool.state as { input?: { filePath?: string; command?: string }; output?: string } | undefined
-      if (tool.tool === "write" || tool.tool === "edit") {
+      if (tool.tool === "write" || tool.tool === "edit" || tool.tool === "office") {
         if (state?.input?.filePath) add(state.input.filePath)
         continue
       }
@@ -134,7 +130,7 @@ export function collectInferredFileNamesFromTools(input: {
     }
   }
   const fp =
-    /(?:^|[\s\[(`"'、，。；：>\-])([^\s\]`"'()、，。；：\n<>]+?\.(?:xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad))(?:$|[\s\]`"'),.、，。；：\n<>])/gi
+    /(?:^|[\s\[(`"'、，。；：>\-])([^\s\]`"'()、，。；：\n<>]+?\.(?:xlsx|xls|csv|tsv|md|markdown|png|jpg|jpeg|webp|svg|gif|pdf|json|jsonl|py|r|sh|h5ad|docx|pptx))(?:$|[\s\]`"'),.、，。；：\n<>])/gi
   for (const m of (input.responseText || "").matchAll(fp)) add(m[1])
   return names
 }
@@ -192,7 +188,7 @@ export function collectResultFiles(input: {
   const seenPath = new Set<string>()
   const seenName = new Set<string>()
   const out: ResultFile[] = []
-  const push = (raw: string, extra?: { parentDir?: string; mime?: string; size?: number }) => {
+  const push = (raw: string, extra?: { parentDir?: string; mime?: string; size?: number; how?: string }) => {
     let path = raw
       .replace(/^file:\/\//, "")
       .replace(/^["'`]+|["'`,;:.]+$/g, "")
@@ -215,6 +211,7 @@ export function collectResultFiles(input: {
       mime: extra?.mime,
       size: extra?.size,
       verified: true,
+      how: extra?.how,
     }
     out.push(file)
     return file
@@ -228,13 +225,20 @@ export function collectResultFiles(input: {
       const state = tool.state as
         | {
             metadata?: {
-              artifacts?: { path?: string; name?: string; mime?: string; size?: number; verified?: boolean }[]
+              artifacts?: {
+                path?: string
+                name?: string
+                mime?: string
+                size?: number
+                verified?: boolean
+                how?: string
+              }[]
             }
           }
         | undefined
       for (const artifact of state?.metadata?.artifacts ?? []) {
         if (!artifact.verified || !artifact.path) continue
-        push(artifact.path, { mime: artifact.mime, size: artifact.size })
+        push(artifact.path, { mime: artifact.mime, size: artifact.size, how: artifact.how })
       }
     }
   }
@@ -533,4 +537,212 @@ export function splitResultSections(text: string): ResultSection[] {
 export function hasStructuredResult(sections: ResultSection[], fileCount: number) {
   if (fileCount > 0) return true
   return sections.some((section) => section.kind !== "body")
+}
+
+function stripRecommendMark(label: string) {
+  const trimmed = label.trim()
+  if (trimmed.toLowerCase().endsWith("(recommended)")) return trimmed.slice(0, -"(recommended)".length).trim()
+  if (trimmed.endsWith("（推荐）")) return trimmed.slice(0, -"（推荐）".length).trim()
+  if (trimmed.endsWith("(推荐)")) return trimmed.slice(0, -"(推荐)".length).trim()
+  return trimmed
+}
+
+export function optionRecommended(label: string, recommendation?: string) {
+  const trimmed = label.trim()
+  const bare = stripRecommendMark(trimmed)
+  if (
+    bare !== trimmed ||
+    trimmed.toLowerCase().includes("(recommended)") ||
+    trimmed.includes("（推荐）") ||
+    trimmed.includes("(推荐)")
+  )
+    return true
+  const rec = recommendation?.trim()
+  if (!rec) return false
+  if (trimmed === rec) return true
+  return bare === rec || trimmed.includes(rec) || rec.includes(bare)
+}
+
+export type DecisionCard = {
+  messageID: string
+  partID: string
+  question: string
+  answer: string
+  options: { label: string; description?: string }[]
+  recommendation?: string
+}
+
+export function revertAfterPart(input: {
+  messages: { id: string }[]
+  partsByMessage: Record<string, { id: string }[] | undefined>
+  messageID: string
+  partID: string
+}) {
+  const parts = input.partsByMessage[input.messageID] ?? []
+  const index = parts.findIndex((part) => part.id === input.partID)
+  const next = index >= 0 ? parts[index + 1] : undefined
+  if (next) return { messageID: input.messageID, partID: next.id }
+  const later = input.messages.find((msg) => msg.id > input.messageID)
+  if (later) return { messageID: later.id }
+}
+
+type QuestionInput = {
+  question?: string
+  header?: string
+  options?: { label?: string; description?: string }[]
+}
+
+export function isCompletedQuestion(part: PartType | undefined) {
+  if (part?.type !== "tool") return false
+  const tool = part as ToolPart
+  if (tool.tool !== "question") return false
+  const state = tool.state as { metadata?: { answers?: string[][] } } | undefined
+  const answers = state?.metadata?.answers ?? []
+  return answers.some((answer) => answer.some((item) => item.trim()))
+}
+
+export function isStatusNarration(text: string) {
+  const line = text.trim()
+  if (!line || line.length > 160 || /\n\n/.test(line)) return false
+  return /(?:限流|rate.?limit|放慢节奏|文献核验中|正在核验|正在检索|正在搜索|重试中|retrying|触发了一次)/i.test(line)
+}
+
+export function splitTextAroundQuestion(input: {
+  assistantMessages: { id: string }[]
+  partsByMessage: Record<string, PartType[] | undefined>
+}): { before: TextPart[]; after: TextPart[] } {
+  const before: TextPart[] = []
+  const after: TextPart[] = []
+  let seen = false
+  for (const msg of input.assistantMessages) {
+    for (const part of input.partsByMessage[msg.id] ?? []) {
+      if (part?.type === "tool" && (part as ToolPart).tool === "question") {
+        seen = true
+        continue
+      }
+      if (part?.type !== "text") continue
+      const text = (part as TextPart).text?.trim()
+      if (!text) continue
+      ;(seen ? after : before).push(part as TextPart)
+    }
+  }
+  return { before, after }
+}
+
+export function collectDecisionCards(input: {
+  assistantMessages: { id: string }[]
+  partsByMessage: Record<string, PartType[] | undefined>
+}): DecisionCard[] {
+  const cards: DecisionCard[] = []
+  for (const msg of input.assistantMessages) {
+    for (const part of input.partsByMessage[msg.id] ?? []) {
+      if (part?.type !== "tool") continue
+      const tool = part as ToolPart
+      if (tool.tool !== "question") continue
+      const state = tool.state as
+        | {
+            input?: { questions?: QuestionInput[] }
+            metadata?: { answers?: string[][] }
+          }
+        | undefined
+      const questions = state?.input?.questions ?? []
+      const answers = state?.metadata?.answers ?? []
+      const recommendation =
+        typeof state?.input === "object" && state.input && "decision" in state.input
+          ? (state.input as { decision?: { recommendation?: string } }).decision?.recommendation
+          : undefined
+      for (const [index, item] of questions.entries()) {
+        const question = item?.question?.trim() || item?.header?.trim()
+        const answer = (answers[index] ?? [])
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .join("、")
+        if (!question || !answer) continue
+        cards.push({
+          messageID: msg.id,
+          partID: tool.id,
+          question,
+          answer,
+          recommendation,
+          options: (item?.options ?? [])
+            .map((option) => ({
+              label: option.label?.trim() ?? "",
+              description: option.description?.trim(),
+            }))
+            .filter((option) => option.label),
+        })
+      }
+    }
+  }
+  return cards
+}
+
+export function resultFileVisual(file: ResultFile) {
+  return (
+    file.kind === "png" ||
+    file.kind === "jpg" ||
+    file.kind === "svg" ||
+    file.kind === "pdf" ||
+    file.kind === "csv" ||
+    file.kind === "tsv"
+  )
+}
+
+export function resultFileGlyph(kind: ResultFile["kind"]) {
+  if (kind === "xlsx") return { mark: "X", tone: "excel" }
+  if (kind === "docx") return { mark: "W", tone: "word" }
+  if (kind === "pptx") return { mark: "P", tone: "ppt" }
+  if (kind === "code") return { mark: "</>", tone: "code" }
+  if (kind === "json") return { mark: "{ }", tone: "code" }
+  if (kind === "md") return { mark: "MD", tone: "md" }
+  return { mark: "·", tone: "file" }
+}
+
+export function resultFileHowLabel(file: ResultFile, locale = "en") {
+  if (!file.how) return
+  if (file.kind === "xlsx" || file.kind === "docx" || file.kind === "pptx" || file.kind === "md") return
+  return locale.startsWith("zh") ? `怎么来的：${file.how}` : `How: ${file.how}`
+}
+
+export function resultFileTypeLabel(kind: ResultFile["kind"], locale = "en") {
+  const zh = locale.startsWith("zh")
+  if (kind === "xlsx") return zh ? "Excel 表格" : "Excel"
+  if (kind === "docx") return zh ? "Word 文档" : "Word"
+  if (kind === "pptx") return "PowerPoint"
+  if (kind === "md") return "Markdown"
+  if (kind === "code") return zh ? "代码" : "Code"
+  if (kind === "json") return "JSON"
+  if (kind === "csv" || kind === "tsv") return zh ? "表格" : "Table"
+  return zh ? "文件" : "File"
+}
+
+export function resultFileCtaName(name: string) {
+  const base = name.includes(".") ? name.slice(0, name.lastIndexOf(".")) : name
+  if (/panel/i.test(base)) return "panel"
+  return base.replace(/[_-]+/g, " ").trim() || name
+}
+
+export function resultFileCtaKind(file: ResultFile): "table" | "file" {
+  if (file.kind === "xlsx" || file.kind === "csv" || file.kind === "tsv") return "table"
+  return "file"
+}
+
+const STOP_MESSAGE =
+  /\bab(?:ort|orted)\b|cancell?ed|the operation was aborted|user aborted|tool execution aborted|signal is aborted|request was aborted/i
+
+/** User-initiated stop — not a failure. Hide red error chrome. */
+export function isUserStopError(error: unknown) {
+  if (!error) return false
+  if (typeof error === "string") return STOP_MESSAGE.test(error)
+  if (typeof error !== "object") return false
+  const name = String("name" in error ? error.name : "")
+  if (name === "AbortError" || name === "MessageAbortedError") return true
+  const message = String(
+    "message" in error
+      ? error.message
+      : "data" in error && error.data && typeof error.data === "object" && "message" in error.data
+        ? error.data.message
+        : "",
+  )
+  return STOP_MESSAGE.test(message)
 }

@@ -16,14 +16,15 @@ export const dict = {
 
   "ui.sessionTurn.steps.show": "Show steps",
   "ui.sessionTurn.steps.hide": "Hide steps",
-  "ui.sessionTurn.summary.response": "Response",
   "ui.sessionTurn.resultFile.open": "Open",
   "ui.sessionTurn.resultFile.showInFiles": "Show in Files",
   "ui.sessionTurn.resultFile.showInFolder": "Show in Folder",
   "ui.sessionTurn.resultFile.openInExcel": "Open in Microsoft Excel",
   "ui.sessionTurn.resultFile.openInApp": "Open",
   "ui.sessionTurn.resultFile.viewExcel": "View {{name}} Excel",
+  "ui.sessionTurn.resultFile.viewTable": "View {{name}} table",
   "ui.sessionTurn.resultFile.viewFile": "View {{name}}",
+  "ui.sessionTurn.stopped": "Stopped",
   "ui.sessionTurn.resultFile.sheetBlurb":
     "Sheets: subset summary (confidence ✓/⚠/△/✗), keep-for-downstream (priority), contamination + stats, key findings.",
   "ui.sessionTurn.resultFile.spreadsheet": "Spreadsheet",
@@ -53,6 +54,7 @@ export const dict = {
   "ui.sessionTurn.status.analyzingResults": "Analyzing results",
   "ui.sessionTurn.status.synthesizingFindings": "Synthesizing findings",
   "ui.sessionTurn.status.writingOutput": "Writing output",
+  "ui.sessionTurn.status.waitingChoice": "Waiting for your choice",
 
   "ui.messagePart.reasoning.title": "Thought process",
 
@@ -60,7 +62,6 @@ export const dict = {
   "ui.messagePart.title.edit": "Edit",
   "ui.messagePart.title.write": "Write",
   "ui.messagePart.option.typeOwnAnswer": "Type your own answer",
-  "ui.messagePart.review.title": "Review your answers",
 
   "ui.list.loading": "Loading",
   "ui.list.empty": "No results",
@@ -120,13 +121,17 @@ export const dict = {
 
   "ui.question.subtitle.answered": "{{count}} answered",
   "ui.question.answer.none": "(no answer)",
-  "ui.question.review.notAnswered": "(not answered)",
   "ui.question.multiHint": "(select all that apply)",
-  "ui.question.custom.placeholder": "Type your answer...",
+  "ui.question.custom.placeholder": "Or type your own answer...",
+  "ui.question.recommended": "Recommended",
+  "ui.question.action.back": "Back",
   "ui.question.action.stop": "Stop",
-  "ui.question.action.skip": "Skip — you decide",
+  "ui.question.action.skip": "Skip",
+  "ui.question.action.edit": "Change answer",
+  "ui.question.action.agentDecide": "Let the agent decide",
   "ui.question.action.useRecommended": "Continue with recommendation",
   "ui.question.skip.default": "Agent decides",
+  "ui.question.revise.hint": "Change answer — submitting will rewind and re-run from this question.",
   "ui.question.decision.waiting":
     "Recommendation kept. Continue with it, pick another option, or stop — answering is optional.",
 }

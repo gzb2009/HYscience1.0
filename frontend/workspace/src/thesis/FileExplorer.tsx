@@ -546,7 +546,7 @@ function isDelimited(name: string) {
 }
 
 function isReport(name: string) {
-  return ["md", "markdown", "html", "pdf", "txt"].includes(ext(name))
+  return ["md", "markdown", "html", "pdf", "txt", "docx", "pptx"].includes(ext(name))
 }
 
 function kindLabel(name: string) {
@@ -595,6 +595,8 @@ function downloadMime(name: string) {
   if (e === "json" || e === "jsonl") return "application/json;charset=utf-8"
   if (e === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   if (e === "xls") return "application/vnd.ms-excel"
+  if (e === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  if (e === "pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
   if (e === "pdf") return "application/pdf"
   if (e === "png") return "image/png"
   if (e === "jpg" || e === "jpeg") return "image/jpeg"
@@ -765,16 +767,13 @@ function ArtifactsGrid(props: {
   const hiddenVersionCount = createMemo(() => filterLatestFileNodes(mergedScoped()).hiddenCount)
   const images = createMemo(() => rows().filter((n) => isImage(n.name)))
   const open = (node: FileNode) => {
-    if (isImage(node.name)) {
+    if (isImage(node.name) || ext(node.name) === "pdf") {
       uiStore.setImagePreview({
         directory: props.directory,
         path: node.path,
         name: node.name,
+        kind: ext(node.name) === "pdf" ? "pdf" : "image",
       })
-      return
-    }
-    if (isDelimited(node.name)) {
-      centerTabs.openFile(props.directory, node.path)
       return
     }
     centerTabs.openFile(props.directory, node.path)
@@ -2291,6 +2290,7 @@ function previewOverlay(visible = true): JSX.CSSProperties {
     "place-items": "center",
     padding: "28px",
     opacity: visible ? 1 : 0,
+    "pointer-events": visible ? "auto" : "none",
     transition: "opacity 150ms ease",
   } as JSX.CSSProperties
 }

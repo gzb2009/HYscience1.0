@@ -337,6 +337,7 @@ export namespace Project {
   }
 
   export async function list() {
+    await dropMissing()
     const keys = await Storage.list(["project"])
     const projects = await Promise.all(keys.map((x) => Storage.read<Info>(x)))
     const visible = await Promise.all(
@@ -359,6 +360,23 @@ export namespace Project {
         ...project,
         sandboxes: project.sandboxes?.filter((x) => existsSync(x)),
       }))
+  }
+
+  /** Drop project records whose folder is gone so the home list cannot reopen a dead tree. */
+  export async function dropMissing() {
+    const keys = await Storage.list(["project"])
+    const dropped: string[] = []
+    for (const key of keys) {
+      const project = await Storage.read<Info>(key).catch(() => undefined)
+      if (!project?.worktree || project.id === "global") continue
+      if (existsSync(project.worktree)) continue
+      const sessions = await Storage.list(["session", project.id]).catch(() => [])
+      for (const session of sessions) await Storage.remove(session).catch(() => undefined)
+      await Storage.remove(["project", project.id]).catch(() => undefined)
+      dropped.push(project.worktree)
+      log.info("dropped missing project", { id: project.id, worktree: project.worktree })
+    }
+    return dropped
   }
 
   export const update = fn(

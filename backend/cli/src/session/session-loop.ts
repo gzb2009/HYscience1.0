@@ -2,7 +2,7 @@ import type { MessageV2 } from "./message-v2"
 import type { SessionStatus } from "./status"
 
 export namespace SessionLoop {
-  export type Phase = "processing" | "subtask" | "compacting" | "pruning" | "finalizing"
+  export type Phase = "processing" | "subtask" | "compacting" | "pruning" | "finalizing" | "waiting"
 
   export type Action =
     | { type: "run-subtask"; task: MessageV2.SubtaskPart }

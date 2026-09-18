@@ -1,9 +1,17 @@
-Use this tool when a user choice would change irreversible or expensive execution. This allows you to:
-1. Clarify ambiguous instructions that block progress
-2. Get decisions on method/backend choices with real tradeoffs
-3. Confirm high-impact actions before running them
+This tool is mandatory when a result-changing slot is still open and continuing would require a guess. Do not keep reasoning about a default meaning. Call this tool first, then stop. This includes:
+1. What a term or acronym means (unless already closed this conversation). Project direction and skill names do not define it. Options are that token's candidate meanings only
+2. Assay or platform that defines reagents and channels, when a panel/assay has none
+3. Species (human / mouse / other) when clones or antibodies depend on it
+4. Tissue or cancer type when it would change markers, clones, or validation
+5. Scientific aim / directional bias for a panel, assay, or protocol (general vs T-biased vs B/TLS vs myeloid vs tumor-stroma). A tissue name or a keyword like TLS / 三级淋巴结构 is not the aim
+6. Deliverable form (table / Excel / markdown / figure) when the user did not specify
+7. Sample, depth, or other parameters that would change the result
+8. Missing files or variables that block execution
+Put every still-open result-changing slot into this one call. Do not answer first and ask the rest later. After a slot is closed, do not re-ask it and do not keep rival assays in the question text.
 
-Do NOT use this tool for soft preferences (report format, wording, demo vs methodology tone) when a clear recommendation exists — state the recommendation and continue. The user can always interrupt.
+After calling this tool, stop. Do not write more user-visible text, keep thinking, or call more tools until the user picks an option, types an answer in the composer, or skips. The question card is the end of this turn.
+
+Do NOT use this tool for wording, heading language, or tone. Do NOT skip asking because a workspace file or nearby jargon makes one meaning look likely.
 
 Usage notes:
 - When `custom` is enabled (default), a "Type your own answer" option is added automatically; don't include "Other" or catch-all options

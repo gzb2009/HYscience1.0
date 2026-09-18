@@ -9,7 +9,7 @@ export const ServeCommand = cmd({
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)
-    console.log(`hyscience server listening on http://localhost:${server.port}`)
+    console.log(`hyscience server listening on http://localhost:${server.port} (API only; UI: http://localhost:4444)`)
     await new Promise(() => {})
     await server.stop()
   },

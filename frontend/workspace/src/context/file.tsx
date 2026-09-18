@@ -9,15 +9,11 @@ import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { useLanguage } from "@/context/language"
 import { Persist, persisted } from "@/utils/persist"
+import { isUserStopError } from "@hysci/ui/session-result"
 
-// Aborted / cancelled requests are expected when the user clicks quickly
-// (switching files or folders cancels the in-flight fetch). Surfacing those as
-// error toasts reads as a jarring flash on every click, so swallow them.
-function isTransientError(e: any): boolean {
-  const name = e?.name ?? ""
-  if (name === "AbortError" || name === "TimeoutError") return true
-  const msg = String(e?.message ?? e ?? "")
-  return /\bab(?:ort|orted)\b|cancell?ed|the user aborted|signal is aborted/i.test(msg)
+function isTransientError(e: unknown) {
+  if (isUserStopError(e)) return true
+  return typeof e === "object" && e !== null && "name" in e && e.name === "TimeoutError"
 }
 
 export type FileSelection = {

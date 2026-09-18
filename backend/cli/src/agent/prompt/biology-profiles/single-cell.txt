@@ -1,19 +1,32 @@
 <biology-task-profile name="single-cell">
-Focus: scRNA-seq / multiome — QC, clustering, annotation, DEG, enrichment.
+Focus: scRNA-seq / multiome — QC, integration, clustering, annotation, DEG, enrichment, trajectory, cell–cell communication.
 
-Load skills first: `scanpy`, `anndata`, `scvi-tools` (if batch correction needed).
-Golden path (preferred):
-  python $HYSCIENCE_SKILLS/biology/scanpy/scripts/pipeline.py --input <h5ad> --output-dir ./scrna_out
-Then annotate clusters from markers; write a complete cluster table (all clusters).
+## Ask first
+- Species and tissue; disease / treatment groups and which comparison matters.
+- Processing state: raw counts vs already QC'd / normalised / clustered (a <data-profile> block often answers this — read it first).
+- Multiple samples? Then batch correction choice is a result-changing slot.
+- Annotation scope: all clusters, or one lineage subset (T/NK, myeloid...)?
 
-BLOCKING (only when executing COMPUTE on real data — not for general methodology Q&A):
-1. literature-review.md before methodology/COMPUTE (unless user waived)
-2. Do not skip QC → markers stages in the pipeline contract
-3. provenance_record on adata.h5ad, UMAP figures, annotation tables (code_path + env + inputs_hash)
+## Data forms
+- `.h5ad` / `.rds` / 10x `filtered_feature_bc_matrix` → check raw/layers/obs before deciding where to start the pipeline.
+- Marker tables (`*markers*.csv|tsv`, FindAllMarkers / rank_genes_groups output) → annotation task; no re-clustering.
+Skills: `scanpy`, `anndata`, `scvi-tools` (batch correction), `single-cell-pipeline`.
+Golden path: `python $HYSCIENCE_SKILLS/biology/scanpy/scripts/pipeline.py --input <h5ad> --output-dir ./scrna_out`, then annotate clusters from markers.
 
-For general methodology questions without data execution: answer directly and concisely; do not spawn literature-review or require literature-review.md.
+## Hard constraints
+- Do not skip QC → normalisation → markers stages when running the pipeline on raw data; state the thresholds used (min genes, max mito %, doublets).
+- Every cluster in the markers file is annotated; never stop early.
+- Marker evidence is written with HGNC symbols and, when available, pct expressed / logFC.
+- Cell-state programs (cycling, IFN response, stress, dissociation) are labelled state-only, not new cell types.
+- DEG between conditions uses pseudobulk or a method that accounts for sample as the replicate unit; per-cell tests across conditions are flagged.
 
-## Cluster annotation deliverable
+## Review
+- Cluster count in markers file = annotations.json = workbook summary?
+- Any cluster without marker evidence or without a keep/validate/label/exclude action?
+- Any cell type claimed from state-only markers?
+- Condition DEG with cells (not samples) as replicates?
+
+## Deliverable — cluster annotation
 
 Every cluster in the markers file must be annotated. Do not stop early. Each annotation needs: cell type name, marker evidence, confidence, and an explicit keep/validate/label/exclude action.
 

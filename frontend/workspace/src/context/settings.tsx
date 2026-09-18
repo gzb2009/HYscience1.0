@@ -94,6 +94,39 @@ export function monoFontFamily(font: string | undefined) {
   return monoFonts[font ?? defaultSettings.appearance.font] ?? monoFonts[defaultSettings.appearance.font]
 }
 
+export const FONT_SIZE_PRESETS = [12, 14, 16, 18] as const
+const FONT_SIZE_MIN = FONT_SIZE_PRESETS[0]
+const FONT_SIZE_MAX = FONT_SIZE_PRESETS[FONT_SIZE_PRESETS.length - 1]
+const FONT_SIZE_BASE = defaultSettings.appearance.fontSize
+
+export function clampFontSize(value: number) {
+  if (!Number.isFinite(value)) return FONT_SIZE_BASE
+  return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(value)))
+}
+
+function applyFontSize(size: number) {
+  if (typeof document === "undefined") return
+  const next = clampFontSize(size)
+  const delta = next - FONT_SIZE_BASE
+  const px = (value: number) => `${Math.max(8, value + delta)}px`
+  const root = document.documentElement
+  root.style.setProperty("--app-font-size", `${next}px`)
+  root.style.setProperty("--font-size-2x-small", px(10))
+  root.style.setProperty("--font-size-x-small", px(11))
+  root.style.setProperty("--font-size-small", px(12))
+  root.style.setProperty("--font-size-base", px(13))
+  root.style.setProperty("--font-size-large", px(15))
+  root.style.setProperty("--font-size-x-large", px(18))
+  root.style.setProperty("--text-2xs", px(9))
+  root.style.setProperty("--text-xs", px(10))
+  root.style.setProperty("--text-sm", px(11))
+  root.style.setProperty("--text-base", px(12))
+  root.style.setProperty("--text-md", px(13))
+  root.style.setProperty("--text-lg", px(14))
+  root.style.setProperty("--text-xl", px(16))
+  root.style.setProperty("--text-2xl", px(20))
+}
+
 export const { use: useSettings, provider: SettingsProvider } = createSimpleContext({
   name: "Settings",
   init: () => {
@@ -102,6 +135,10 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
     createEffect(() => {
       if (typeof document === "undefined") return
       document.documentElement.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.font))
+    })
+
+    createEffect(() => {
+      applyFontSize(store.appearance?.fontSize ?? defaultSettings.appearance.fontSize)
     })
 
     return {
@@ -126,9 +163,9 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         },
       },
       appearance: {
-        fontSize: createMemo(() => store.appearance?.fontSize ?? defaultSettings.appearance.fontSize),
+        fontSize: createMemo(() => clampFontSize(store.appearance?.fontSize ?? defaultSettings.appearance.fontSize)),
         setFontSize(value: number) {
-          setStore("appearance", "fontSize", value)
+          setStore("appearance", "fontSize", clampFontSize(value))
         },
         font: createMemo(() => store.appearance?.font ?? defaultSettings.appearance.font),
         setFont(value: string) {

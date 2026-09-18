@@ -65,6 +65,35 @@ describe("SessionReview.shouldReview — boundaries", () => {
   })
 })
 
+describe("SessionReview.repair", () => {
+  const long = "We trained the model in train.py and reached an accuracy of 0.93 on the holdout set. ".repeat(6)
+
+  test("builds a repair prompt from findings and the original answer", () => {
+    const prompt = SessionReview.repairPrompt(long, [
+      { severity: "blocking", message: "Row Tfh lists 14 markers but claims 16", evidence: [] },
+    ])
+    expect(prompt).toContain("Row Tfh lists 14 markers but claims 16")
+    expect(prompt).toContain(long)
+  })
+
+  test("accepts a full rewritten answer and rejects notes or JSON", () => {
+    expect(SessionReview.acceptRepair(long, `${long} Corrected the marker count to 14.`)).toBe(true)
+    expect(SessionReview.acceptRepair(long, "Fixed.")).toBe(false)
+    expect(SessionReview.acceptRepair(long, '{"verdict":"CLEAN","findings":[]}')).toBe(false)
+    expect(SessionReview.acceptRepair(long, long)).toBe(false)
+  })
+
+  test("reads only user-facing text parts", () => {
+    expect(
+      SessionReview.answerText([
+        { type: "text", text: "visible" },
+        { type: "text", text: "hidden", hybio: true },
+        { type: "tool" },
+      ]),
+    ).toBe("visible")
+  })
+})
+
 describe("SessionReview.parse", () => {
   test("parses clean and flagged JSON verdicts", () => {
     expect(SessionReview.parse('{"verdict":"CLEAN","findings":[]}')).toEqual({
@@ -121,11 +150,31 @@ describe("SessionReview policy", () => {
         reviewGate: "enforce",
         reviewTimeoutMs: 30_000,
         reviewMaxSteps: 8,
+        reviewRetryMax: 2,
       },
     })
     expect(config.experimental?.reviewGate).toBe("enforce")
     expect(config.experimental?.reviewTimeoutMs).toBe(30_000)
     expect(config.experimental?.reviewMaxSteps).toBe(8)
+    expect(config.experimental?.reviewRetryMax).toBe(2)
+  })
+
+  test("treats IMC metal mixed with PhenoCycler as a silent rewrite target", async () => {
+    const prompt = await Bun.file(new URL("../../src/agent/prompt/reviewer.txt", import.meta.url)).text()
+    expect(prompt).toContain("mixing mutually exclusive assay ontologies")
+    expect(prompt).toContain("unofficial marker nicknames")
+    expect(prompt).toContain("The parent will apply the correction silently")
+  })
+
+  test("corrected records keep their findings visible", () => {
+    const findings = [
+      { severity: "blocking" as const, message: "Marker count 12 vs table rows 14", evidence: [] },
+      { severity: "warning" as const, message: "GrzB is not an official symbol", evidence: [] },
+    ]
+    expect(SessionReview.correctedSummary(findings)).toBe(
+      "Corrected before delivery (2 issues): Marker count 12 vs table rows 14",
+    )
+    expect(SessionReview.correctedSummary([findings[0]])).toContain("(1 issue)")
   })
 
   test("annotate is fail-open while enforce blocks flagged and error records", () => {
@@ -133,5 +182,15 @@ describe("SessionReview policy", () => {
     expect(SessionReview.decide(record("enforce", "CLEAN")).verdict).toBe("CLEAN")
     expect(() => SessionReview.decide(record("enforce", "FLAGGED"))).toThrow(SessionReview.BlockedError)
     expect(() => SessionReview.decide(record("enforce", "ERROR"))).toThrow(SessionReview.BlockedError)
+  })
+
+  test("retries only while blocking findings remain under the cap", () => {
+    const blocking = [{ severity: "blocking" as const, message: "same isotope twice", evidence: [] }]
+    const warning = [{ severity: "warning" as const, message: "spot vs cell type", evidence: [] }]
+    expect(SessionReview.shouldRetry({ attempt: 0, max: 2, findings: blocking })).toBe(true)
+    expect(SessionReview.shouldRetry({ attempt: 2, max: 2, findings: blocking })).toBe(false)
+    expect(SessionReview.shouldRetry({ attempt: 0, max: 2, findings: warning })).toBe(false)
+    expect(SessionReview.retryPrompt(blocking, 0, 2)).toContain("same isotope twice")
+    expect(SessionReview.retryPrompt(blocking, 0, 2)).toContain("<review-retry>")
   })
 })

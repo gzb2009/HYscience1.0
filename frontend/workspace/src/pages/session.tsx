@@ -13,14 +13,18 @@ import {
   Switch,
   type JSX,
 } from "solid-js"
-import { Portal } from "solid-js/web"
 import { useNavigate, useParams } from "@solidjs/router"
 import { produce } from "solid-js/store"
 import { Binary } from "@hysci/util/binary"
+import { base64Encode } from "@hysci/util/encode"
+import type { Project } from "@hysci/sdk/v2/client"
+import { sessionRunning } from "@/utils/sessionActivity"
 import { SessionTurn } from "@hysci/ui/session-turn"
+import { DropdownMenu } from "@hysci/ui/dropdown-menu"
 import { useSync } from "@/context/sync"
 import { useGlobalSync } from "@/context/global-sync"
 import { useSDK } from "@/context/sdk"
+import { useServer } from "@/context/server"
 import { usePlatform } from "@/context/platform"
 import { useLayout } from "@/context/layout"
 import { Composer } from "@/thesis/Composer"
@@ -47,6 +51,7 @@ import {
   IconSettings,
   IconFile,
   IconX,
+  IconArrowDown,
   IconChevronDown,
   IconChevronRight,
   IconChevronLeft,
@@ -62,10 +67,8 @@ import { AgentIcon } from "@/thesis/shared/AgentIcon"
 import { useLanguage } from "@/context/language"
 import { projectPrefs } from "@/thesis/store/projectPrefs"
 import { SessionStatusLight } from "@/thesis/shared/SessionStatusLight"
-import { ReviewStatusCard } from "@/components/session/review-status-card"
 import { DomainSwitchCard } from "@/domain/DomainSwitchCard"
 import { switchFromParts } from "@/domain/switch"
-import { reviewForTurn, reviewState } from "@/utils/review"
 import { InlineRename } from "@/thesis/shared/InlineRename"
 import { decode64 } from "@/utils/base64"
 import { projectLabel } from "@/utils/projectLabel"
@@ -86,19 +89,32 @@ import {
 } from "@hysci/ui/session-result"
 import {
   migrateResultDirectory,
+  isResultDirectory,
   isResultFolderName,
   normalizeResultFolderName,
   resultFolderName,
 } from "@/utils/projectResult"
 import { firstUserMessageText, getSessionDisplayTitle } from "@/utils/sessionDisplayTitle"
+import { isEmptyDraftSession } from "@/utils/sessionNaming"
 import { projectMetaLocal } from "@/thesis/store/projectMetaLocal"
 import { projectDomainId } from "@/domain/registry"
+import { IMC_STEPS } from "@/domain/imc-flow"
 import { lastSelectedDomain } from "@/domain/store"
 import { sessionTitleLocal } from "@/thesis/store/sessionTitleLocal"
 import { toast } from "@/thesis/Toast"
+import { ArtifactLightbox } from "@/thesis/ArtifactLightbox"
 import { artifactImageUrl, artifactTable, type ArtifactData } from "@/utils/artifactPreview"
 
 type SyncSession = ReturnType<typeof useSync>["data"]["session"][number]
+type SidebarSession = { session: SyncSession; title: string; busy: boolean }
+type SidebarGroup = {
+  worktree: string
+  directory: string
+  name: string
+  pinned: boolean
+  current: boolean
+  sessions: SidebarSession[]
+}
 /**
  * Session page — sidebar + chat/files center + inspector rail (terminal/review).
  */
@@ -110,9 +126,8 @@ export default function Page(): JSX.Element {
   const sdk = useSDK()
   const platform = usePlatform()
   const layout = useLayout()
+  const server = useServer()
   const dialog = useDialog()
-  const [creating, setCreating] = createSignal(false)
-
   async function resolveOutputFile(path: string): Promise<HostFileRef> {
     const worktree = sync.data.path.directory || sdk.directory || sync.project?.worktree || ""
     const ref = resolveHostFileRef(worktree, path)
@@ -150,15 +165,17 @@ export default function Page(): JSX.Element {
     return ref
   }
 
-  async function previewImage(path: string) {
+  async function previewArtifact(path: string) {
     const ref = await resolveOutputFile(path)
     if (!ref.path) {
       toast.error("preview failed", "invalid file path")
       return
     }
+    const name = ref.path.split("/").pop() || ref.path
     uiStore.setImagePreview({
       ...ref,
-      name: ref.path.split("/").pop() || ref.path,
+      name,
+      kind: name.toLowerCase().endsWith(".pdf") ? "pdf" : "image",
     })
   }
 
@@ -188,25 +205,8 @@ export default function Page(): JSX.Element {
     toast.error("open failed", body.error ?? body.message ?? `HTTP ${res.status}`)
   }
 
-  async function newSession() {
-    if (creating()) return
-    setCreating(true)
-    try {
-      const res: any = await sdk.client.session.create({
-        directory: sdk.directory,
-      } as any)
-      const data = res?.data ?? res
-      const id = data?.id ?? data?.sessionID
-      if (id) {
-        navigate(`/${params.dir}/session/${id}`)
-      } else {
-        navigate(`/${params.dir}/session/new`)
-      }
-    } catch {
-      navigate(`/${params.dir}/session/new`)
-    } finally {
-      setCreating(false)
-    }
+  function newSession() {
+    navigate(`/${params.dir}/session/new`)
   }
 
   const language = useLanguage()
@@ -294,6 +294,9 @@ export default function Page(): JSX.Element {
         if (!dir) return
         centerTabs.resetForProject(dir)
         setVisitedFiles(false)
+        uiStore.setImagePreview(undefined)
+        uiStore.setHelpOpen(false)
+        uiStore.setPaletteOpen(false)
         ;(async () => {
           try {
             await sync.session.fetch(50)
@@ -312,6 +315,12 @@ export default function Page(): JSX.Element {
       () => params.id,
       (id) => {
         if (!id || id === "new") return
+        // First send already wrote the user turn locally. Don't refetch
+        // before the server has it — reconcile would wipe the bubble.
+        if (sync.data.message[id]?.some((item) => item.role === "user")) {
+          void sync.session.review(id).catch(() => undefined)
+          return
+        }
         ;(async () => {
           try {
             await Promise.all([sync.session.sync(id), sync.session.review(id)])
@@ -355,11 +364,87 @@ export default function Page(): JSX.Element {
 
   const sessions = createMemo<SyncSession[]>(() => {
     const dir = workspaceDir()
+    const active = params.id
     return [...sync.data.session]
       .filter((s) => !s.parentID)
       .filter((s) => !s.directory || s.directory === dir)
+      .filter((s) => s.id === active || !isEmptyDraftSession(s, sync.data.message[s.id]))
       .sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
   })
+
+  const siblingProjects = createMemo(() => {
+    projectMetaLocal.all()
+    const hide = projectPrefs.hidden()
+    const domain = projectDomainId(projectRecord())
+    const current = projectWorktree()
+    const byWorktree = new Map<string, Project>()
+    const norm = (w: string) => w.replace(/\/$/, "")
+    for (const p of globalSync.data.project) {
+      if (!p.worktree || hide.has(p.worktree) || hide.has(norm(p.worktree))) continue
+      if (isResultDirectory(p.worktree)) continue
+      if (projectDomainId(p) !== domain) continue
+      byWorktree.set(p.worktree, p)
+    }
+    const rec = projectRecord()
+    if (current && rec && !byWorktree.has(current)) {
+      byWorktree.set(current, { ...rec, worktree: current })
+    }
+    return Array.from(byWorktree.values()).sort((a, b) => {
+      if (a.worktree === current) return -1
+      if (b.worktree === current) return 1
+      return projectLabel(a).localeCompare(projectLabel(b), "zh")
+    })
+  })
+
+  const sidebarGroups = createMemo(() => {
+    projectMetaLocal.all()
+    sessionTitleLocal.all()
+    const current = projectWorktree()
+    const live = sessions()
+    return siblingProjects().map((project) => {
+      const dir = resolveProjectWorkingDir(project.worktree)
+      const isCurrent = project.worktree === current || dir === resolveProjectWorkingDir(current)
+      const [child] = globalSync.child(dir, { bootstrap: false })
+      const list = isCurrent
+        ? live
+        : [...child.session]
+            .filter((s) => !s.parentID && !s.time?.archived)
+            .filter((s) => !s.directory || s.directory === dir)
+            .filter((s) => s.id === params.id || !isEmptyDraftSession(s, child.message[s.id]))
+            .sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
+      return {
+        worktree: project.worktree,
+        directory: dir,
+        name: projectLabel(project),
+        pinned: projectPrefs.isFavorite(project.worktree),
+        current: isCurrent,
+        sessions: list.map((session) => {
+          return {
+            session,
+            title: getSessionDisplayTitle(session, child.message[session.id], child.part),
+            busy: sessionRunning(child.session_status[session.id]),
+          }
+        }),
+      }
+    })
+  })
+
+  createEffect((prev?: string) => {
+    const dirs = siblingProjects().map((p) => p.worktree)
+    const key = dirs.slice().sort().join("\0")
+    if (key === prev) return key
+    if (dirs.length === 0) return key
+    void Promise.all(dirs.map((dir) => globalSync.project.loadSessions(resolveProjectWorkingDir(dir))))
+    return key
+  })
+
+  function openProject(directory: string, sessionId?: string) {
+    projectPrefs.unhide(directory)
+    layout.projects.open(directory)
+    server.projects.touch(directory)
+    const slug = base64Encode(directory)
+    navigate(sessionId ? `/${slug}/session/${sessionId}` : `/${slug}/session`)
+  }
   const messages = createMemo(() => (params.id ? (sync.data.message[params.id] ?? []) : []))
   const taskFileNames = createMemo(() => {
     const id = params.id
@@ -492,6 +577,11 @@ export default function Page(): JSX.Element {
   createEffect(() => {
     if (centerTabs.active() === "files") setVisitedFiles(true)
   })
+  createEffect(() => {
+    if (centerTabs.active() === "chat") return
+    const focused = document.activeElement
+    if (focused instanceof HTMLElement && focused.closest(".cs-chat-stage")) focused.blur()
+  })
 
   // Chat scroll. The container resizes whenever the right pane opens/closes
   // (the chat column narrows/widens) or the window changes size. A bare reflow
@@ -501,24 +591,36 @@ export default function Page(): JSX.Element {
   // preserving their distance from the bottom when they had scrolled up.
   let scrollRef: HTMLDivElement | undefined
   let scrollObserver: ResizeObserver | undefined
+  let contentObserver: ResizeObserver | undefined
   let boundScroll: HTMLDivElement | undefined
+  let boundContent: HTMLDivElement | undefined
   const NEAR_BOTTOM_PX = 120
-  let pinnedToBottom = true
+  const [pinnedToBottom, setPinnedToBottom] = createSignal(true)
   let distanceFromBottom = 0
 
   const recordScroll = () => {
     if (!scrollRef) return
     distanceFromBottom = scrollRef.scrollHeight - scrollRef.scrollTop - scrollRef.clientHeight
-    pinnedToBottom = distanceFromBottom <= NEAR_BOTTOM_PX
+    setPinnedToBottom(distanceFromBottom <= NEAR_BOTTOM_PX)
   }
 
   const stickToBottom = () => {
-    if (scrollRef) scrollRef.scrollTop = scrollRef.scrollHeight
+    if (!scrollRef) return
+    scrollRef.scrollTop = scrollRef.scrollHeight
+    distanceFromBottom = 0
+    setPinnedToBottom(true)
+  }
+
+  const jumpToLatest = () => {
+    if (!scrollRef) return
+    setPinnedToBottom(true)
+    distanceFromBottom = 0
+    scrollRef.scrollTo({ top: scrollRef.scrollHeight, behavior: "smooth" })
   }
 
   const reanchor = () => {
     if (!scrollRef) return
-    if (pinnedToBottom) stickToBottom()
+    if (pinnedToBottom()) stickToBottom()
     else scrollRef.scrollTop = Math.max(0, scrollRef.scrollHeight - scrollRef.clientHeight - distanceFromBottom)
   }
 
@@ -528,23 +630,25 @@ export default function Page(): JSX.Element {
     if (boundScroll) boundScroll.removeEventListener("scroll", recordScroll)
     boundScroll = el
     scrollRef = el
-    pinnedToBottom = true
+    setPinnedToBottom(true)
     el.addEventListener("scroll", recordScroll, { passive: true })
-    // First callback fires synchronously on observe; ignore it (initial layout)
-    // and only re-anchor on genuine resizes after that.
-    let primed = false
-    scrollObserver = new ResizeObserver(() => {
-      if (!primed) {
-        primed = true
-        return
-      }
-      reanchor()
-    })
+    scrollObserver = new ResizeObserver(reanchor)
     scrollObserver.observe(el)
+  }
+
+  const attachContent = (el: HTMLDivElement) => {
+    if (boundContent === el) return
+    if (contentObserver) contentObserver.disconnect()
+    boundContent = el
+    contentObserver = new ResizeObserver(() => {
+      if (pinnedToBottom()) stickToBottom()
+    })
+    contentObserver.observe(el)
   }
 
   onCleanup(() => {
     if (scrollObserver) scrollObserver.disconnect()
+    if (contentObserver) contentObserver.disconnect()
     if (boundScroll) boundScroll.removeEventListener("scroll", recordScroll)
   })
 
@@ -555,10 +659,10 @@ export default function Page(): JSX.Element {
       () => [messages().length, params.id],
       ([, id], prev) => {
         const sessionChanged = !prev || prev[1] !== id
-        if (sessionChanged) pinnedToBottom = true
-        if (scrollRef && pinnedToBottom)
+        if (sessionChanged) setPinnedToBottom(true)
+        if (scrollRef && pinnedToBottom())
           requestAnimationFrame(() => {
-            if (scrollRef && pinnedToBottom) stickToBottom()
+            if (scrollRef && pinnedToBottom()) stickToBottom()
           })
       },
     ),
@@ -575,9 +679,9 @@ export default function Page(): JSX.Element {
         if (part.type === "text" || part.type === "reasoning") size += part.text?.length ?? 0
       }
     }
-    if (!size || !scrollRef || !pinnedToBottom) return
+    if (!size || !scrollRef || !pinnedToBottom()) return
     requestAnimationFrame(() => {
-      if (scrollRef && pinnedToBottom) stickToBottom()
+      if (scrollRef && pinnedToBottom()) stickToBottom()
     })
   })
 
@@ -600,9 +704,7 @@ export default function Page(): JSX.Element {
     >
       <ToastContainer />
       <Show when={uiStore.imagePreview()}>
-        {(artifact) => (
-          <ArtifactImagePreview artifact={artifact()} onClose={() => uiStore.setImagePreview(undefined)} />
-        )}
+        {(artifact) => <ArtifactLightbox artifact={artifact()} onClose={() => uiStore.setImagePreview(undefined)} />}
       </Show>
       <HelpOverlay open={uiStore.helpOpen()} onClose={() => uiStore.setHelpOpen(false)} />
       <CommandPalette open={uiStore.paletteOpen()} onClose={() => uiStore.setPaletteOpen(false)} />
@@ -621,12 +723,8 @@ export default function Page(): JSX.Element {
       >
         <SessionsSidebar
           open={sidebarOpen()}
-          projectName={projectName()}
-          projectWorktree={projectWorktree() || resolveProjectWorkingDir(workspaceDir())}
-          projectPinned={projectPrefs.isFavorite(projectWorktree())}
-          sessions={sessions()}
+          groups={sidebarGroups()}
           activeId={params.id}
-          creating={creating()}
           filesActive={centerTabs.filesOpen() && centerTabs.active() === "files"}
           onToggle={() => setSidebarOpen((v) => !v)}
           onBack={() => navigate(`/domain/${projectDomainId(projectRecord()) || lastSelectedDomain() || "general"}`)}
@@ -639,9 +737,16 @@ export default function Page(): JSX.Element {
             setVisitedFiles(true)
             centerTabs.showFiles()
           }}
-          onSelect={(id) => {
+          onOpenProject={(worktree) => {
             centerTabs.showChat()
-            navigate(`/${params.dir}/session/${id}`)
+            uiStore.setImagePreview(undefined)
+            const here = projectWorktree()
+            if (worktree === here || resolveProjectWorkingDir(worktree) === resolveProjectWorkingDir(here)) return
+            openProject(worktree)
+          }}
+          onSelect={(worktree, id) => {
+            centerTabs.showChat()
+            openProject(worktree, id)
           }}
           onDelete={(id) => void deleteSession(id)}
           onRenameProject={(name) => void renameProject(name)}
@@ -661,7 +766,13 @@ export default function Page(): JSX.Element {
           }}
         >
           <Show when={centerTabs.tabStripVisible()}>
-            <CenterTabStrip chatTitle={chatTitle()} />
+            <CenterTabStrip
+              chatTitle={chatTitle()}
+              onCloseChat={() => {
+                centerTabs.showChat()
+                void newSession()
+              }}
+            />
           </Show>
 
           <div
@@ -679,125 +790,137 @@ export default function Page(): JSX.Element {
             <div
               class="cs-chat-stage"
               style={{
-                display: centerTabs.active() === "chat" ? "flex" : "none",
+                display: centerTabs.chatOpen() && centerTabs.active() === "chat" ? "flex" : "none",
                 flex: 1,
                 "min-height": 0,
                 "flex-direction": "column",
+                "pointer-events": centerTabs.chatOpen() && centerTabs.active() === "chat" ? "auto" : "none",
               }}
             >
               <Switch>
                 <Match when={params.id && messages().length > 0}>
-                  <div
-                    ref={attachScroll}
-                    class="thesis-scroll thesis-chat-scroll cs-chat-scroll"
-                    style={{
-                      flex: 1,
-                      "min-height": 0,
-                      "overflow-y": "auto",
-                      "overflow-x": "hidden",
-                      "padding-top": "12px",
-                    }}
-                  >
-                    <For each={turnMessages()}>
-                      {(message, index) => {
-                        const toolCount = (sync.data.part[message.id] ?? []).filter(
-                          (part) => part.type === "tool",
-                        ).length
-                        const review = () => reviewForTurn(messages(), sync.data.review[params.id!] ?? [], message.id)
-                        const reviewStatus = () => reviewState(review())
-                        return (
-                          <div
-                            data-message-id={message.id}
-                            class={`cs-chat-turn${message.role === "assistant" ? " hys-turn-card" : ""}`}
-                            style={{
-                              "min-width": 0,
-                              width: "100%",
-                              "max-width": message.role === "assistant" ? "100%" : "100%",
-                            }}
-                          >
-                            <Show when={message.role === "assistant" && message.agent}>
+                  <div class="cs-chat-thread">
+                    <div class="cs-chat-live-dock" data-chat-live-dock />
+                    <div
+                      ref={attachScroll}
+                      class="thesis-scroll thesis-chat-scroll cs-chat-scroll"
+                      style={{
+                        flex: 1,
+                        "min-height": 0,
+                        "overflow-y": "auto",
+                        "overflow-x": "hidden",
+                        "padding-top": "12px",
+                      }}
+                    >
+                      <div ref={attachContent} class="cs-chat-scroll-inner">
+                        <For each={turnMessages()}>
+                          {(message, index) => {
+                            return (
                               <div
-                                class="hys-turn-card-header"
+                                data-message-id={message.id}
+                                class={`cs-chat-turn${message.role === "assistant" ? " hys-turn-card" : ""}`}
                                 style={{
-                                  padding: "6px 12px 2px",
-                                  "font-family": "var(--font-sans)",
-                                  "font-size": "11px",
-                                  "font-weight": "600",
-                                  color: "var(--color-text-muted)",
-                                  display: "flex",
-                                  "align-items": "center",
-                                  gap: "8px",
+                                  "min-width": 0,
+                                  width: "100%",
+                                  "max-width": message.role === "assistant" ? "100%" : "100%",
                                 }}
                               >
-                                <span>
-                                  {((message.agent as string) || "assistant")
-                                    .replace(/_/g, " ")
-                                    .replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                                </span>
-                                <Show when={message.role === "assistant" && message.agent && toolCount > 0}>
-                                  <span style={{ color: "var(--color-text-faint)", "font-weight": "400" }}>
-                                    · {toolCount} tools
-                                  </span>
+                                <Show when={message.role === "assistant" && message.agent}>
+                                  <div
+                                    class="hys-turn-card-header"
+                                    style={{
+                                      padding: "6px 12px 2px",
+                                      "font-family": "var(--font-sans)",
+                                      "font-size": "11px",
+                                      "font-weight": "600",
+                                      color: "var(--color-text-muted)",
+                                      display: "flex",
+                                      "align-items": "center",
+                                      gap: "8px",
+                                    }}
+                                  >
+                                    <span>
+                                      {((message.agent as string) || "assistant")
+                                        .replace(/_/g, " ")
+                                        .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                                    </span>
+                                  </div>
+                                </Show>
+                                <SessionTurn
+                                  sessionID={params.id!}
+                                  messageID={message.id}
+                                  lastUserMessageID={lastUserMessage()?.id}
+                                  stepsExpanded={stepsExpanded()[message.id] ?? false}
+                                  onStepsExpandedToggle={() => toggleSteps(message.id)}
+                                  onRevertMessage={(id) => void revertTo(id)}
+                                  onOpenFile={(path) => void openFile(path)}
+                                  onPreviewFile={(path) => void previewArtifact(path)}
+                                  renderFilePreview={(file) =>
+                                    file.kind === "png" || file.kind === "jpg" || file.kind === "svg" ? (
+                                      <ArtifactImageThumb
+                                        directory={sync.data.path.directory || sdk.directory}
+                                        file={file}
+                                      />
+                                    ) : file.kind === "pdf" ? (
+                                      <ArtifactPdfThumb
+                                        directory={sync.data.path.directory || sdk.directory}
+                                        file={file}
+                                      />
+                                    ) : file.kind === "csv" || file.kind === "tsv" ? (
+                                      <ArtifactTableThumb
+                                        directory={sync.data.path.directory || sdk.directory}
+                                        file={file}
+                                      />
+                                    ) : undefined
+                                  }
+                                  onRevealFile={(path) => void openLocalFile(path, "reveal")}
+                                  onOpenInApp={(path, app) => void openLocalFile(path, "app", app)}
+                                  hideTools={["task"]}
+                                  classes={{
+                                    root: "min-w-0 w-full relative",
+                                    content: "flex flex-col justify-between min-w-0",
+                                    container: "w-full min-w-0",
+                                  }}
+                                />
+                                <Show
+                                  when={message.role === "user" && switchFromParts(sync.data.part[message.id] ?? [])}
+                                >
+                                  {(hit) => <DomainSwitchCard hit={hit()} />}
+                                </Show>
+                                {/* Space, not a rule — the bubbles already separate turns. */}
+                                <Show when={index() < turnMessages().length - 1}>
+                                  <div style={{ height: "22px" }} />
                                 </Show>
                               </div>
-                            </Show>
-                            <SessionTurn
-                              sessionID={params.id!}
-                              messageID={message.id}
-                              lastUserMessageID={lastUserMessage()?.id}
-                              stepsExpanded={stepsExpanded()[message.id] ?? false}
-                              onStepsExpandedToggle={() => toggleSteps(message.id)}
-                              onRevertMessage={(id) => void revertTo(id)}
-                              onOpenFile={(path) => void openFile(path)}
-                              onPreviewFile={(path) => void previewImage(path)}
-                              renderFilePreview={(file) =>
-                                file.kind === "png" || file.kind === "jpg" || file.kind === "svg" ? (
-                                  <ArtifactImageThumb
-                                    directory={sync.data.path.directory || sdk.directory}
-                                    file={file}
-                                  />
-                                ) : file.kind === "pdf" ? (
-                                  <ArtifactPdfThumb directory={sync.data.path.directory || sdk.directory} file={file} />
-                                ) : file.kind === "csv" || file.kind === "tsv" ? (
-                                  <ArtifactTableThumb
-                                    directory={sync.data.path.directory || sdk.directory}
-                                    file={file}
-                                  />
-                                ) : undefined
-                              }
-                              onRevealFile={(path) => void openLocalFile(path, "reveal")}
-                              onOpenInApp={(path, app) => void openLocalFile(path, "app", app)}
-                              hideTools={["task"]}
-                              hideResponse={reviewStatus().blocked}
-                              classes={{
-                                root: "min-w-0 w-full relative overflow-x-hidden",
-                                content: "flex flex-col justify-between min-w-0 overflow-x-hidden",
-                                container: "w-full min-w-0",
-                              }}
-                            />
-                            <Show when={message.role === "user" && switchFromParts(sync.data.part[message.id] ?? [])}>
-                              {(hit) => <DomainSwitchCard hit={hit()} />}
-                            </Show>
-                            <Show when={review()}>
-                              {(record) => (
-                                <ReviewStatusCard
-                                  record={record()}
-                                  onInspect={() => uiStore.inspectReview(params.id!, record().messageID)}
-                                />
-                              )}
-                            </Show>
-                            {/* Space, not a rule — the bubbles already separate turns. */}
-                            <Show when={index() < turnMessages().length - 1}>
-                              <div style={{ height: "22px" }} />
-                            </Show>
-                          </div>
-                        )
-                      }}
-                    </For>
+                            )
+                          }}
+                        </For>
+                      </div>
+                    </div>
+                    <Show when={!pinnedToBottom()}>
+                      <button
+                        type="button"
+                        class="cs-chat-latest"
+                        onClick={jumpToLatest}
+                        title={language.t("chat.jumpLatest")}
+                      >
+                        <IconArrowDown size={13} strokeWidth={1.75} />
+                        <span>{language.t("chat.jumpLatest")}</span>
+                      </button>
+                    </Show>
                   </div>
                 </Match>
                 <Match when={true}>
-                  <ChatWelcome domain={projectDomainId(projectRecord())} />
+                  <ChatWelcome
+                    domain={projectDomainId(projectRecord())}
+                    name={projectName()}
+                    projects={sidebarGroups().map((g) => ({
+                      worktree: g.worktree,
+                      name: g.name,
+                      current: g.current,
+                    }))}
+                    onOpenProject={openProject}
+                  />
                 </Match>
               </Switch>
 
@@ -841,7 +964,7 @@ export default function Page(): JSX.Element {
                 </div>
               </Show>
 
-              <Composer />
+              <Composer imcFlow={projectDomainId(projectRecord()) === "imc" && turnMessages().length > 0} />
             </div>
 
             {/* files — the host explorer, mounted on first visit */}
@@ -852,6 +975,7 @@ export default function Page(): JSX.Element {
                   flex: 1,
                   "min-height": 0,
                   "flex-direction": "column",
+                  "pointer-events": centerTabs.active() === "files" ? "auto" : "none",
                 }}
               >
                 <ErrorBoundary fallback={(err) => <FilesError error={err} />}>
@@ -875,6 +999,7 @@ export default function Page(): JSX.Element {
                     flex: 1,
                     "min-height": 0,
                     "flex-direction": "column",
+                    "pointer-events": centerTabs.active() === doc.id ? "auto" : "none",
                   }}
                 >
                   <FileView
@@ -895,7 +1020,13 @@ export default function Page(): JSX.Element {
   )
 }
 
-function CenterTabStrip(props: { chatTitle: string }): JSX.Element {
+function closeTab(event: MouseEvent, close: () => void) {
+  event.preventDefault()
+  event.stopPropagation()
+  close()
+}
+
+function CenterTabStrip(props: { chatTitle: string; onCloseChat: () => void }): JSX.Element {
   const active = centerTabs.active
   return (
     <div class="cs-center-tabs thesis-scroll">
@@ -907,17 +1038,15 @@ function CenterTabStrip(props: { chatTitle: string }): JSX.Element {
           title={props.chatTitle}
         >
           <span class="cs-center-tab-label">{props.chatTitle}</span>
-          <span
-            role="button"
+          <button
+            type="button"
             aria-label="close tab"
             class="cs-center-tab-close"
-            onClick={(e) => {
-              e.stopPropagation()
-              centerTabs.closeChat()
-            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => closeTab(e, props.onCloseChat)}
           >
             <IconX size={11} strokeWidth={1.8} />
-          </span>
+          </button>
         </div>
       </Show>
       <Show when={centerTabs.filesOpen()}>
@@ -929,17 +1058,15 @@ function CenterTabStrip(props: { chatTitle: string }): JSX.Element {
         >
           <IconFolder size={14} strokeWidth={1.6} />
           <span class="cs-center-tab-label">Files</span>
-          <span
-            role="button"
+          <button
+            type="button"
             aria-label="close tab"
             class="cs-center-tab-close"
-            onClick={(e) => {
-              e.stopPropagation()
-              centerTabs.closeFiles()
-            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => closeTab(e, centerTabs.closeFiles)}
           >
             <IconX size={11} strokeWidth={1.8} />
-          </span>
+          </button>
         </div>
       </Show>
       <For each={centerTabs.docs()}>
@@ -952,17 +1079,15 @@ function CenterTabStrip(props: { chatTitle: string }): JSX.Element {
           >
             <IconFile size={12} strokeWidth={1.6} />
             <span class="cs-center-tab-label">{doc.name}</span>
-            <span
-              role="button"
+            <button
+              type="button"
               aria-label="close tab"
               class="cs-center-tab-close"
-              onClick={(e) => {
-                e.stopPropagation()
-                centerTabs.closeDoc(doc.id)
-              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => closeTab(e, () => centerTabs.closeDoc(doc.id))}
             >
               <IconX size={11} strokeWidth={1.8} />
-            </span>
+            </button>
           </div>
         )}
       </For>
@@ -972,34 +1097,46 @@ function CenterTabStrip(props: { chatTitle: string }): JSX.Element {
 
 function SessionsSidebar(props: {
   open: boolean
-  projectName: string
-  projectWorktree: string
-  projectPinned: boolean
-  sessions: SyncSession[]
+  groups: SidebarGroup[]
   activeId: string | undefined
-  creating: boolean
   filesActive: boolean
   onToggle: () => void
   onBack: () => void
   onNew: () => void
   onCustomize: () => void
   onFiles: () => void
-  onSelect: (id: string) => void
+  onOpenProject: (worktree: string) => void
+  onSelect: (worktree: string, id: string) => void
   onDelete: (id: string) => void
   onRenameProject: (name: string) => void
   onRenameSession: (sessionID: string, title: string) => void
 }): JSX.Element {
   const language = useLanguage()
   const [search, setSearch] = createSignal("")
-  const [groupCollapsed, setGroupCollapsed] = createSignal(false)
+  const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({})
 
-  const filteredSessions = createMemo(() => {
+  const visible = createMemo(() => {
     const q = search().trim().toLowerCase()
-    return props.sessions.filter((s) => {
-      if (!q) return true
-      return (s.title || "").toLowerCase().includes(q)
-    })
+    return props.groups
+      .map((group) => {
+        const nameHit = !q || group.name.toLowerCase().includes(q)
+        const sessions = nameHit
+          ? group.sessions
+          : group.sessions.filter(
+              (row) => row.title.toLowerCase().includes(q) || (row.session.title || "").toLowerCase().includes(q),
+            )
+        return { ...group, sessions }
+      })
+      .filter((group) => !q || group.sessions.length > 0 || group.name.toLowerCase().includes(q))
   })
+
+  function isCollapsed(worktree: string) {
+    return collapsed()[worktree] ?? false
+  }
+
+  function toggleGroup(worktree: string) {
+    setCollapsed((prev) => ({ ...prev, [worktree]: !prev[worktree] }))
+  }
 
   return (
     <aside
@@ -1061,73 +1198,99 @@ function SessionsSidebar(props: {
         </div>
 
         <div class="cs-sidebar-scroll thesis-scroll">
-          <button type="button" class="cs-sidebar-new-task" disabled={props.creating} onClick={props.onNew}>
+          <button type="button" class="cs-sidebar-new-task" onClick={props.onNew}>
             <span class="cs-sidebar-new-task-icon">
               <IconPlus size={16} strokeWidth={1.75} />
             </span>
-            <span>{props.creating ? "Creating…" : language.t("sidebar.newSubTask")}</span>
+            <span>{language.t("sidebar.newSubTask")}</span>
           </button>
 
-          <div class="cs-sidebar-project-group">
-            <div class="cs-sidebar-project-head">
-              <button
-                type="button"
-                class="cs-sidebar-project-toggle"
-                aria-label={groupCollapsed() ? "expand" : "collapse"}
-                onClick={() => setGroupCollapsed((v) => !v)}
-              >
-                <Show when={groupCollapsed()} fallback={<IconChevronDown size={14} strokeWidth={1.5} />}>
-                  <IconChevronRight size={14} strokeWidth={1.5} />
-                </Show>
-              </button>
-              <IconFolder size={14} strokeWidth={1.5} style={{ color: "var(--color-text-faint)", "flex-shrink": 0 }} />
-              <Show when={props.projectPinned}>
-                <span class="cs-star-amber">
-                  <IconStarFilled size={13} strokeWidth={1.5} />
-                </span>
-              </Show>
-              <InlineRename
-                class="cs-sidebar-project-name"
-                inputClass="cs-inline-rename-input cs-sidebar-project-name-input"
-                value={props.projectName}
-                title={language.t("common.rename")}
-                onSave={props.onRenameProject}
-              />
-              <span class="cs-sidebar-project-count">{filteredSessions().length}</span>
-            </div>
+          <For each={visible()}>
+            {(group) => (
+              <div class="cs-sidebar-project-group">
+                <div class="cs-sidebar-project-head" data-current={group.current ? "true" : "false"}>
+                  <button
+                    type="button"
+                    class="cs-sidebar-project-toggle"
+                    aria-label={isCollapsed(group.worktree) ? "expand" : "collapse"}
+                    onClick={() => toggleGroup(group.worktree)}
+                  >
+                    <Show when={isCollapsed(group.worktree)} fallback={<IconChevronDown size={14} strokeWidth={1.5} />}>
+                      <IconChevronRight size={14} strokeWidth={1.5} />
+                    </Show>
+                  </button>
+                  <IconFolder
+                    size={14}
+                    strokeWidth={1.5}
+                    style={{ color: "var(--color-text-faint)", "flex-shrink": 0 }}
+                  />
+                  <Show when={group.pinned}>
+                    <span class="cs-star-amber">
+                      <IconStarFilled size={13} strokeWidth={1.5} />
+                    </span>
+                  </Show>
+                  <Show
+                    when={group.current}
+                    fallback={
+                      <button
+                        type="button"
+                        class="cs-sidebar-project-name cs-sidebar-project-open"
+                        title={group.name}
+                        onClick={() => props.onOpenProject(group.worktree)}
+                      >
+                        {group.name}
+                      </button>
+                    }
+                  >
+                    <InlineRename
+                      class="cs-sidebar-project-name cs-sidebar-project-open"
+                      inputClass="cs-inline-rename-input cs-sidebar-project-name-input"
+                      value={group.name}
+                      title={language.t("common.rename")}
+                      onSave={props.onRenameProject}
+                      onActivate={() => props.onOpenProject(group.worktree)}
+                    />
+                  </Show>
+                  <span class="cs-sidebar-project-count">{group.sessions.length}</span>
+                </div>
 
-            <Show when={!groupCollapsed()}>
-              <div class="cs-sidebar-project-sessions">
-                <Show
-                  when={filteredSessions().length > 0}
-                  fallback={
-                    <div
-                      style={{
-                        padding: "12px 16px",
-                        "font-family": FONT_SANS,
-                        "font-size": "12px",
-                        color: "var(--color-text-faint)",
-                      }}
+                <Show when={!isCollapsed(group.worktree)}>
+                  <div class="cs-sidebar-project-sessions">
+                    <Show
+                      when={group.sessions.length > 0}
+                      fallback={
+                        <div
+                          style={{
+                            padding: "12px 16px",
+                            "font-family": FONT_SANS,
+                            "font-size": "12px",
+                            color: "var(--color-text-faint)",
+                          }}
+                        >
+                          {language.t("home.noRecentSessions")}
+                        </div>
+                      }
                     >
-                      {language.t("home.noRecentSessions")}
-                    </div>
-                  }
-                >
-                  <For each={filteredSessions()}>
-                    {(s) => (
-                      <SessionRow
-                        session={s}
-                        active={props.activeId === s.id}
-                        onSelect={() => props.onSelect(s.id)}
-                        onDelete={() => props.onDelete(s.id)}
-                        onRename={(title) => props.onRenameSession(s.id, title)}
-                      />
-                    )}
-                  </For>
+                      <For each={group.sessions}>
+                        {(row) => (
+                          <SessionRow
+                            session={row.session}
+                            title={row.title}
+                            busy={row.busy}
+                            readonly={!group.current}
+                            active={group.current && props.activeId === row.session.id}
+                            onSelect={() => props.onSelect(group.worktree, row.session.id)}
+                            onDelete={() => props.onDelete(row.session.id)}
+                            onRename={(title) => props.onRenameSession(row.session.id, title)}
+                          />
+                        )}
+                      </For>
+                    </Show>
+                  </div>
                 </Show>
               </div>
-            </Show>
-          </div>
+            )}
+          </For>
 
           <button
             type="button"
@@ -1160,6 +1323,9 @@ function SessionsSidebar(props: {
 
 function SessionRow(props: {
   session: SyncSession
+  title?: string
+  busy?: boolean
+  readonly?: boolean
   active: boolean
   onSelect: () => void
   onDelete: () => void
@@ -1167,8 +1333,8 @@ function SessionRow(props: {
 }): JSX.Element {
   const sync = useSync()
   const language = useLanguage()
-  const displayTitle = createMemo(() =>
-    getSessionDisplayTitle(props.session, sync.data.message[props.session.id], sync.data.part),
+  const displayTitle = createMemo(
+    () => props.title ?? getSessionDisplayTitle(props.session, sync.data.message[props.session.id], sync.data.part),
   )
   const fullTitle = createMemo(
     () => firstUserMessageText(sync.data.message[props.session.id], sync.data.part) || displayTitle(),
@@ -1190,47 +1356,95 @@ function SessionRow(props: {
         }
       }}
     >
-      <SessionStatusLight sessionID={props.session.id} />
-      <InlineRename
-        class="cs-session-title"
-        inputClass="cs-inline-rename-input cs-session-title-input"
-        value={displayTitle()}
-        title={language.t("common.rename")}
-        onSave={props.onRename}
-      />
-      <button
-        type="button"
-        class="cs-session-delete"
-        title="delete session"
-        aria-label="delete session"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation()
-          e.preventDefault()
-          props.onDelete()
-        }}
-      >
-        <IconTrash size={11} strokeWidth={1.5} />
-      </button>
+      <SessionStatusLight sessionID={props.session.id} running={props.readonly ? props.busy : undefined} />
+      <Show when={!props.readonly} fallback={<span class="cs-session-title">{displayTitle()}</span>}>
+        <InlineRename
+          class="cs-session-title"
+          inputClass="cs-inline-rename-input cs-session-title-input"
+          value={displayTitle()}
+          title={language.t("common.rename")}
+          onSave={props.onRename}
+        />
+      </Show>
+      <Show when={!props.readonly}>
+        <button
+          type="button"
+          class="cs-session-delete"
+          title="delete session"
+          aria-label="delete session"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            props.onDelete()
+          }}
+        >
+          <IconTrash size={11} strokeWidth={1.5} />
+        </button>
+      </Show>
     </div>
   )
 }
 
-function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX.Element {
+function launchWelcome(prompt: string) {
+  uiStore.setPrefillSend(false)
+  uiStore.setPrefill(prompt)
+}
+
+function ChatWelcome(props: {
+  domain: ReturnType<typeof projectDomainId>
+  name: string
+  projects: Array<{ worktree: string; name: string; current: boolean }>
+  onOpenProject: (worktree: string) => void
+}): JSX.Element {
   const models = useModels()
   const dialog = useDialog()
   const language = useLanguage()
+  const [switchOpen, setSwitchOpen] = createSignal(false)
+  createEffect(() => {
+    if (centerTabs.active() !== "chat") setSwitchOpen(false)
+  })
   const noModel = () => models.list().length === 0
+  const flow = () => props.domain === "imc"
   const prompts = createMemo(() => {
+    if (flow()) return []
     const id = props.domain
-    return [language.t(`chat.welcome.${id}.1`), language.t(`chat.welcome.${id}.2`), language.t(`chat.welcome.${id}.3`)]
+    return ([1, 2, 3] as const).map((n) => language.t(`chat.welcome.${id}.${n}`))
+  })
+  let title: HTMLHeadingElement | undefined
+  const fitTitle = () => {
+    const el = title
+    if (!el) return
+    el.style.removeProperty("font-size")
+    const cap = el.clientWidth
+    if (cap <= 0) return
+    const base = Number.parseFloat(getComputedStyle(el).fontSize)
+    const shrink = (size: number) => {
+      if (el.scrollWidth <= cap || size <= 16) return
+      const next = size - 1
+      el.style.fontSize = `${next}px`
+      shrink(next)
+    }
+    shrink(base)
+  }
+  createEffect(() => {
+    props.name
+    language.t("chat.welcome.title.before")
+    language.t("chat.welcome.title.after")
+    requestAnimationFrame(fitTitle)
+  })
+  onMount(() => {
+    if (!title) return
+    const ro = new ResizeObserver(() => fitTitle())
+    ro.observe(title)
+    onCleanup(() => ro.disconnect())
   })
   return (
     <div class="thesis-fade-in cs-chat-welcome">
       <div class="cs-chat-welcome-hero">
         <div class="cs-chat-welcome-mark">
           <AgentIcon
-            size={52}
+            size={76}
             style={{
               "--agent-icon-ink": "var(--color-text)",
               "--agent-icon-paper": "var(--color-surface-solid, var(--color-bg))",
@@ -1238,13 +1452,39 @@ function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX
           />
         </div>
         <div class="cs-chat-welcome-copy">
-          <h2 class="cs-chat-welcome-title">
-            {language.t("chat.welcome.title")}
-            <span class="thesis-blink" style={{ color: "var(--color-text-faint)" }}>
-              _
-            </span>
+          <h2 class="cs-chat-welcome-title" ref={title}>
+            {language.t("chat.welcome.title.before")}
+            <DropdownMenu open={switchOpen()} onOpenChange={setSwitchOpen} modal={false}>
+              <DropdownMenu.Trigger
+                class="cs-chat-welcome-name"
+                title={language.t("chat.welcome.switchProject")}
+                aria-label={language.t("chat.welcome.switchProject")}
+              >
+                <span class="cs-chat-welcome-name-text">{props.name}</span>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  class="cs-menu cs-chat-welcome-project-menu"
+                  onCloseAutoFocus={(event) => event.preventDefault()}
+                >
+                  <For each={props.projects}>
+                    {(project) => (
+                      <DropdownMenu.Item
+                        class="cs-menu-item"
+                        data-current={project.current ? "true" : "false"}
+                        onSelect={() => {
+                          if (!project.current) props.onOpenProject(project.worktree)
+                        }}
+                      >
+                        {project.name}
+                      </DropdownMenu.Item>
+                    )}
+                  </For>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu>
+            {language.t("chat.welcome.title.after")}
           </h2>
-          <p class="cs-chat-welcome-lead">{language.t("chat.welcome.lead")}</p>
         </div>
       </div>
 
@@ -1258,6 +1498,34 @@ function ChatWelcome(props: { domain: ReturnType<typeof projectDomainId> }): JSX
       </Show>
 
       <div class="cs-chat-welcome-prompts">
+        <Show when={flow()}>
+          <section class="cs-chat-welcome-flow">
+            <div class="cs-chat-welcome-flow-head">
+              <span class="cs-chat-welcome-flow-title">{language.t("chat.welcome.imc.flow.title")}</span>
+            </div>
+            <div class="cs-chat-welcome-flow-grid">
+              <For each={IMC_STEPS}>
+                {(step, index) => {
+                  const Glyph = step[3]
+                  return (
+                    <button
+                      type="button"
+                      class="cs-chat-welcome-flow-card"
+                      onClick={() => launchWelcome(language.t(step[2]))}
+                    >
+                      <span class="cs-chat-welcome-flow-mark">
+                        <Glyph size={16} strokeWidth={1.6} />
+                        <span class="cs-chat-welcome-flow-num">{String(index() + 1).padStart(2, "0")}</span>
+                      </span>
+                      <span class="cs-chat-welcome-flow-name">{language.t(step[0])}</span>
+                      <span class="cs-chat-welcome-flow-hint">{language.t(step[1])}</span>
+                    </button>
+                  )
+                }}
+              </For>
+            </div>
+          </section>
+        </Show>
         <For each={prompts()}>
           {(p) => (
             <button type="button" class="cs-chat-welcome-prompt" onClick={() => uiStore.setPrefill(p)}>
@@ -1468,177 +1736,4 @@ function ArtifactPdfThumb(props: { directory: string; file: ResultFile }): JSX.E
   })
 
   return <canvas data-slot="session-turn-result-pdf-preview" ref={canvas} aria-label={`${props.file.name} 首页预览`} />
-}
-
-function ArtifactImagePreview(props: {
-  artifact: { directory: string; path: string; name: string; mime?: string }
-  onClose: () => void
-}): JSX.Element {
-  const sdk = useSDK()
-  const [data, setData] = createSignal<ArtifactData>()
-  const [ready, setReady] = createSignal("")
-  const [zoom, setZoom] = createSignal(1)
-  const source = () => artifactImageUrl(data(), props.artifact.mime)
-  const setZoomBounded = (value: number) => setZoom(Math.min(6, Math.max(0.5, value)))
-
-  createEffect(() => {
-    const directory = props.artifact.directory
-    const path = props.artifact.path
-    setData(undefined)
-    setReady("")
-    setZoom(1)
-    if (!directory || !path) return
-    void sdk.client.file
-      .read({ directory, path })
-      .then((res: any) => setData((res?.data ?? res) as ArtifactData))
-      .catch(() => undefined)
-  })
-
-  createEffect(() => {
-    const value = source()
-    if (!value) return
-    const image = new Image()
-    const reveal = () => {
-      if (source() === value) setReady(value)
-    }
-    image.decoding = "async"
-    image.onload = reveal
-    image.src = value
-    void image.decode().then(reveal).catch(reveal)
-    onCleanup(() => {
-      image.onload = null
-    })
-  })
-
-  return (
-    <Show when={ready()}>
-      {(image) => (
-        <Portal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`查看图片：${props.artifact.name}`}
-            onClick={props.onClose}
-            style={{
-              position: "fixed",
-              inset: 0,
-              display: "grid",
-              "place-items": "center",
-              padding: "12px",
-              background: "rgba(20, 24, 30, 0.24)",
-              "backdrop-filter": "blur(2px)",
-              "z-index": "var(--z-modal)",
-            }}
-          >
-            <section
-              onClick={(event) => event.stopPropagation()}
-              style={{
-                width: "min(1400px, calc(100vw - 24px))",
-                height: "min(900px, calc(100dvh - 24px))",
-                display: "flex",
-                "flex-direction": "column",
-                overflow: "hidden",
-                "border-radius": "8px",
-                border: "1px solid var(--color-border)",
-                background: "var(--color-surface-solid)",
-                "box-shadow": "0 18px 64px rgba(0, 0, 0, 0.28)",
-              }}
-            >
-              <header
-                style={{
-                  height: "38px",
-                  display: "flex",
-                  "align-items": "center",
-                  gap: "8px",
-                  padding: "0 12px",
-                  "border-bottom": "1px solid var(--color-border)",
-                  "font-family": FONT_MONO,
-                  "font-size": "11px",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                <span style={{ flex: 1, overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-                  {props.artifact.name}
-                </span>
-                <button
-                  type="button"
-                  title="缩小"
-                  onClick={() => setZoomBounded(zoom() - 0.25)}
-                  style={previewButton()}
-                >
-                  −
-                </button>
-                <span style={{ width: "38px", "text-align": "center", "font-size": "10px" }}>
-                  {Math.round(zoom() * 100)}%
-                </span>
-                <button
-                  type="button"
-                  title="放大"
-                  onClick={() => setZoomBounded(zoom() + 0.25)}
-                  style={previewButton()}
-                >
-                  +
-                </button>
-                <button type="button" title="原始比例" onClick={() => setZoom(1)} style={previewButton()}>
-                  1:1
-                </button>
-                <a
-                  href={image()}
-                  download={props.artifact.name}
-                  title="下载"
-                  style={{ ...previewButton(), "text-decoration": "none" }}
-                >
-                  ↓
-                </a>
-                <button type="button" title="关闭" onClick={props.onClose} style={previewButton()}>
-                  ×
-                </button>
-              </header>
-              <div
-                style={{
-                  flex: 1,
-                  "min-height": 0,
-                  display: "grid",
-                  "place-items": "center",
-                  padding: "18px",
-                  overflow: "auto",
-                  background: "var(--color-bg-subtle)",
-                }}
-                onWheel={(event) => {
-                  event.preventDefault()
-                  setZoomBounded(zoom() + (event.deltaY < 0 ? 0.25 : -0.25))
-                }}
-              >
-                <img
-                  src={image()}
-                  alt={props.artifact.name}
-                  onClick={() => setZoom(zoom() === 1 ? 2 : 1)}
-                  style={{
-                    width: zoom() === 1 ? "auto" : `${zoom() * 100}%`,
-                    "max-width": zoom() === 1 ? "100%" : "none",
-                    "max-height": zoom() === 1 ? "100%" : "none",
-                    "object-fit": "contain",
-                    cursor: zoom() === 1 ? "zoom-in" : "zoom-out",
-                  }}
-                />
-              </div>
-            </section>
-          </div>
-        </Portal>
-      )}
-    </Show>
-  )
-}
-
-function previewButton(): JSX.CSSProperties {
-  return {
-    all: "unset",
-    cursor: "pointer",
-    display: "inline-grid",
-    "place-items": "center",
-    width: "28px",
-    height: "26px",
-    "border-radius": "4px",
-    color: "var(--color-text-muted)",
-  }
 }

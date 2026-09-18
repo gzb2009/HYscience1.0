@@ -1,9 +1,13 @@
 import { Config } from "../config/config"
 import { Log } from "../util/log"
 import { Identifier } from "../id/id"
-import type { MessageV2 } from "./message-v2"
+import { MessageV2 } from "./message-v2"
 import { ReviewRecord } from "./review-record"
 import { Instance } from "../project/instance"
+import { CitationCheck } from "./citation-check"
+import { ThemeSlots } from "./theme-slots"
+import { BiologyProfile } from "./biology-profile"
+import { isBiologyTheme } from "@hysci/util/themes"
 import z from "zod"
 
 export namespace SessionReview {
@@ -11,6 +15,9 @@ export namespace SessionReview {
   const REVIEWABLE = ["research", "biology", "ml", "physics"]
   const MIN_TEXT = 400
   const DEFAULT_TIMEOUT = 120_000
+  const RETRY_MAX = 2
+  const REPAIR_SYSTEM =
+    "You correct finished scientific answers. Rewrite the complete user-facing answer so every count, table row, citation, and claim is internally consistent. Fix only the listed issues. Do not redesign. Do not mention review, flags, or that you corrected anything. Return only the corrected answer."
   const Result = z
     .object({
       verdict: z.enum(["CLEAN", "FLAGGED"]),
@@ -56,7 +63,74 @@ export namespace SessionReview {
     })
   }
 
-  function promptFor(text: string): string {
+  function answerParts(parts: MessageV2.Part[]) {
+    return parts.filter((part): part is MessageV2.TextPart => part.type === "text" && !MessageV2.isHybio(part))
+  }
+
+  async function markerClusters(
+    messages: { info?: { role?: string }; parts?: { type?: string; filename?: string; url?: string }[] }[],
+  ) {
+    const user = [...messages].reverse().find((message) => message.info?.role === "user")
+    if (!user?.parts) return undefined
+    for (const part of user.parts) {
+      if (part.type !== "file") continue
+      const name = part.filename ?? part.url ?? ""
+      if (!/marker/i.test(name)) continue
+      const file = part.url?.startsWith("file://") ? decodeURIComponent(part.url.slice(7)) : part.url
+      if (!file) continue
+      const raw = await Bun.file(file)
+        .text()
+        .catch(() => "")
+      const ids = ThemeSlots.clustersFromCsv(raw)
+      if (ids.length) return ids
+    }
+    return undefined
+  }
+
+  export function answerText(parts: { type?: string; text?: string; hybio?: boolean; synthetic?: boolean }[]) {
+    return parts
+      .filter((part) => part.type === "text" && part.text && !MessageV2.isHybio(part))
+      .map((part) => part.text)
+      .join("\n")
+      .trim()
+  }
+
+  export function repairPrompt(text: string, findings: ReviewRecord.Finding[]) {
+    return [
+      "Fix the finished answer so it is internally consistent. Do not add commentary.",
+      "",
+      "<findings>",
+      findings.map((finding) => `- ${finding.message}`).join("\n"),
+      "</findings>",
+      "",
+      "<final_answer>",
+      text,
+      "</final_answer>",
+    ].join("\n")
+  }
+
+  /** Summary for a record whose answer was rewritten; findings stay visible in the Evidence pane. */
+  export function correctedSummary(findings: ReviewRecord.Finding[]) {
+    return `Corrected before delivery (${findings.length} issue${findings.length === 1 ? "" : "s"}): ${findings[0]?.message ?? ""}`.trim()
+  }
+
+  export function acceptRepair(original: string, repaired: string) {
+    const next = repaired.trim()
+    if (next.length < 80) return false
+    if (next.length < Math.floor(original.trim().length * 0.4)) return false
+    if (/^\s*\{"verdict"/.test(next)) return false
+    return next !== original.trim()
+  }
+
+  /** Theme-specific review checklist from the active biology profile, if any. */
+  export function checklist(subdomain: string | undefined) {
+    if (!isBiologyTheme(subdomain)) return ""
+    const items = BiologyProfile.review(subdomain)
+    if (!items) return ""
+    return ['<theme_checklist theme="' + subdomain + '">', items, "</theme_checklist>"].join("\n")
+  }
+
+  function promptFor(text: string, note = ""): string {
     return [
       "Blindly review the FINAL ANSWER below. You did not write it; do not trust it.",
       "Independently trace every claim, number, and citation to evidence you can verify from the workspace.",
@@ -69,7 +143,20 @@ export namespace SessionReview {
       "<final_answer>",
       text,
       "</final_answer>",
-    ].join("\n")
+      note,
+    ]
+      .filter(Boolean)
+      .join("\n")
+  }
+
+  /** Merge deterministic citation findings into the reviewer verdict. */
+  export function merge(
+    parsed: { verdict: "CLEAN" | "FLAGGED"; findings: ReviewRecord.Finding[] },
+    extra: ReviewRecord.Finding[],
+  ) {
+    const findings = [...extra, ...parsed.findings]
+    const blocking = findings.some((finding) => finding.severity === "blocking")
+    return { verdict: blocking || parsed.verdict === "FLAGGED" ? ("FLAGGED" as const) : ("CLEAN" as const), findings }
   }
 
   export function parse(text: string) {
@@ -94,19 +181,148 @@ export namespace SessionReview {
     return record
   }
 
+  export function retryMax(configured?: number) {
+    return configured ?? RETRY_MAX
+  }
+
+  export function shouldRetry(input: { attempt: number; max: number; findings: ReviewRecord.Finding[] }) {
+    if (input.attempt >= input.max) return false
+    return input.findings.some((finding) => finding.severity === "blocking")
+  }
+
+  export function retryPrompt(findings: ReviewRecord.Finding[], attempt: number, max: number) {
+    const blocking = findings.filter((finding) => finding.severity === "blocking")
+    return [
+      "<review-retry>",
+      `Deterministic review blocked delivery (${attempt + 1}/${max}).`,
+      "Do not claim the task is finished. Fix every blocking issue using files or tool output as evidence.",
+      ...blocking.map((finding) => `- ${finding.message}`),
+      "</review-retry>",
+    ].join("\n")
+  }
+
+  /** Theme/citation-free local scan used to bounce a finished turn without spawning a reviewer. */
+  export async function scan(input: { text: string; messages: MessageV2.WithParts[] }) {
+    const subdomain = (() => {
+      try {
+        return Instance.project.research?.subdomain
+      } catch {
+        return undefined
+      }
+    })()
+    return ThemeSlots.check(subdomain, input.text, { markerClusters: await markerClusters(input.messages) })
+  }
+
+  export async function kick(input: {
+    sessionID: string
+    agent?: string
+    model: { providerID: string; modelID: string }
+    attempt: number
+  }) {
+    if (!input.agent || !REVIEWABLE.includes(input.agent)) return false
+    const config = await Config.get()
+    const max = retryMax(config.experimental?.reviewRetryMax)
+    const { Session } = await import("./index")
+    const messages = await Session.messages({ sessionID: input.sessionID })
+    const last = messages.filter((message) => message.info.role === "assistant" && message.info.finish).at(-1)
+    if (!last) return false
+    const text = answerText(last.parts)
+    if (!text) return false
+    const findings = await scan({ text, messages })
+    if (!shouldRetry({ attempt: input.attempt, max, findings })) return false
+    const user = await Session.updateMessage({
+      id: Identifier.ascending("message"),
+      role: "user",
+      sessionID: input.sessionID,
+      time: { created: Date.now() },
+      agent: input.agent,
+      model: input.model,
+    })
+    await Session.updatePart({
+      id: Identifier.ascending("part"),
+      messageID: user.id,
+      sessionID: input.sessionID,
+      type: "text",
+      hybio: true,
+      text: retryPrompt(findings, input.attempt, max),
+      time: { start: Date.now(), end: Date.now() },
+    })
+    log.info("review retry", { sessionID: input.sessionID, attempt: input.attempt + 1, max, findings: findings.length })
+    return true
+  }
+
+  async function applyAnswer(last: MessageV2.WithParts, text: string) {
+    const { Session } = await import("./index")
+    const parts = answerParts(last.parts)
+    if (parts.length === 0) return
+    const target = parts[parts.length - 1]
+    await Session.updatePart({ ...target, text })
+    await Promise.all(
+      parts.slice(0, -1).map((part) => (part.text ? Session.updatePart({ ...part, text: "" }) : undefined)),
+    )
+  }
+
+  async function rewrite(input: {
+    sessionID: string
+    text: string
+    findings: ReviewRecord.Finding[]
+    model: { providerID: string; modelID: string }
+    timeout: number
+  }) {
+    const { Agent } = await import("../agent/agent")
+    const { Provider } = await import("../provider/provider")
+    const { LLM } = await import("./llm")
+    const reviewer = await Agent.get("reviewer")
+    const model = await Provider.getModel(input.model.providerID, input.model.modelID).catch(() => undefined)
+    if (!model) return
+    const abort = new AbortController()
+    const timer = setTimeout(() => abort.abort(), input.timeout)
+    try {
+      const stream = await LLM.stream({
+        agent: { ...reviewer, prompt: REPAIR_SYSTEM, steps: 1 },
+        user: {
+          id: Identifier.ascending("message"),
+          role: "user",
+          sessionID: input.sessionID,
+          time: { created: Date.now() },
+          agent: "reviewer",
+          model: input.model,
+        },
+        system: [],
+        tools: {},
+        model,
+        abort: abort.signal,
+        sessionID: input.sessionID,
+        retries: 1,
+        messages: [{ role: "user", content: repairPrompt(input.text, input.findings) }],
+      })
+      const raw = await stream.text
+      if (!acceptRepair(input.text, raw)) return
+      return raw.trim()
+    } catch (error) {
+      log.warn("review repair failed", {
+        sessionID: input.sessionID,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   export async function gate(input: {
     sessionID: string
     agent?: string
     model: { providerID: string; modelID: string }
   }): Promise<ReviewRecord.Info | undefined> {
     const config = await Config.get()
-    const domain = (() => {
+    const research = (() => {
       try {
-        return Instance.project.research?.domain
+        return Instance.project.research
       } catch {
         return undefined
       }
     })()
+    const domain = research?.domain
     const mode = modeFor(input.agent, config.experimental?.reviewGate, domain)
     if (mode === "off" || !input.agent) return
 
@@ -115,18 +331,35 @@ export namespace SessionReview {
     const messages = await Session.messages({ sessionID: input.sessionID })
     const last = messages.filter((message) => message.info.role === "assistant" && message.info.finish).at(-1)
     if (!last) return
-    const text = last.parts
-      .filter((part) => part.type === "text")
-      .map((part) => (part as MessageV2.TextPart).text)
-      .join("\n")
-      .trim()
-    if (!shouldReview({ agent: input.agent, text })) return
-    if (!sessionHasToolCalls(messages)) return
-
+    const text = answerText(last.parts)
     const existing = await ReviewRecord.get(input.sessionID, last.info.id)
     if (existing) return decide(existing)
 
     const started = Date.now()
+    const citations = await CitationCheck.verify(text).catch(() => ({ items: [], verified: 0, missing: 0, errors: 0 }))
+    const cited = [
+      ...CitationCheck.findings(citations),
+      ...ThemeSlots.check(research?.subdomain, text, { markerClusters: await markerClusters(messages) }),
+    ]
+    const full = shouldReview({ agent: input.agent, text }) && sessionHasToolCalls(messages)
+    if (!full) {
+      if (!cited.some((finding) => finding.severity === "blocking")) return
+      const record: ReviewRecord.Info = {
+        id: Identifier.ascending("review"),
+        sessionID: input.sessionID,
+        messageID: last.info.id,
+        agent: input.agent,
+        reviewer: "citation-check",
+        mode,
+        model: input.model,
+        verdict: "FLAGGED",
+        findings: cited,
+        summary: cited[0]?.message,
+        time: { started, completed: Date.now() },
+      }
+      await ReviewRecord.save(record).catch(() => undefined)
+      return decide(record)
+    }
     const reviewer = reviewerFor(input.agent, domain)
     const base = {
       id: Identifier.ascending("review"),
@@ -162,7 +395,9 @@ export namespace SessionReview {
       }
       const child = created
       try {
-        const parts = await SessionPrompt.resolvePromptParts(promptFor(text))
+        const parts = await SessionPrompt.resolvePromptParts(
+          promptFor(text, [CitationCheck.note(citations), checklist(research?.subdomain)].filter(Boolean).join("\n")),
+        )
         const run = SessionPrompt.prompt({
           messageID: Identifier.ascending("message"),
           sessionID: child.id,
@@ -187,8 +422,35 @@ export namespace SessionReview {
           .map((part) => (part as MessageV2.TextPart).text)
           .join("\n")
           .trim()
-        const parsed = parse(raw)
+        const parsed = merge(parse(raw), cited)
         const info = result.info as MessageV2.Assistant
+        if (parsed.verdict === "FLAGGED") {
+          const repaired = await rewrite({
+            sessionID: input.sessionID,
+            text,
+            findings: parsed.findings,
+            model: input.model,
+            timeout: config.experimental?.reviewTimeoutMs ?? DEFAULT_TIMEOUT,
+          })
+          if (repaired) {
+            const { OutputClean } = await import("./output-clean")
+            await applyAnswer(last, OutputClean.clean(repaired))
+            log.info("review gate corrected answer", {
+              sessionID: input.sessionID,
+              findings: parsed.findings.length,
+            })
+            return {
+              ...base,
+              reviewerSessionID: child.id,
+              verdict: "CLEAN",
+              findings: parsed.findings,
+              summary: correctedSummary(parsed.findings),
+              tokens: info.tokens,
+              cost: info.cost,
+              time: { started, completed: Date.now() },
+            }
+          }
+        }
         return {
           ...base,
           reviewerSessionID: child.id,

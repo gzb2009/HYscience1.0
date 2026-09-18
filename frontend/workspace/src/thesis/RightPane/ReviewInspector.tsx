@@ -108,7 +108,15 @@ export function ReviewInspector(props: { sessionID?: string }): JSX.Element {
                 </section>
 
                 <section class="cs-review-inspector-section">
-                  <h3>Findings · {record().findings.length}</h3>
+                  <h3>
+                    {record().verdict === "CLEAN" && record().findings.length > 0 ? "Corrected" : "Findings"} ·{" "}
+                    {record().findings.length}
+                  </h3>
+                  <Show when={record().verdict === "CLEAN" && record().findings.length > 0}>
+                    <div class="cs-review-inspector-clear">
+                      These issues were fixed in the delivered answer before you saw it.
+                    </div>
+                  </Show>
                   <Show
                     when={record().findings.length > 0}
                     fallback={<div class="cs-review-inspector-clear">No blocking findings.</div>}

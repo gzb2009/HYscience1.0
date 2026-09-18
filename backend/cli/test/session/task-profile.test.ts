@@ -24,11 +24,12 @@ describe("TaskProfile", () => {
     expect(fragment).toContain('name="genomics"')
   })
 
-  test("locks IMC projects onto the IMC theme", () => {
+  test("states the IMC project direction without over-locking", () => {
     const context = TaskProfile.context({ domain: "biology", subdomain: "imc" })
-    expect(context).toContain("BLOCKING direction lock")
     expect(context).toContain('subdomain="imc"')
-    expect(context).toContain("切换领域")
+    expect(context).toContain("Hard limit")
+    expect(context).toContain("Not limited")
+    expect(context).not.toContain("BLOCKING")
   })
 
   test("loads physics and ML subdomain strategies", () => {

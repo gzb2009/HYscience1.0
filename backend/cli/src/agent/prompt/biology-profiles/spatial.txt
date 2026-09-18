@@ -1,13 +1,31 @@
 <biology-task-profile name="spatial">
-Focus: spatial transcriptomics — Visium / Stereo-seq / MERFISH, neighborhoods, ligand–receptor, deconvolution.
+Focus: spatial transcriptomics — Visium / Visium HD / Stereo-seq (spot- or bin-level, mixed cells) and MERFISH / Xenium / CosMx (single-cell, targeted panel).
 
-Load skills first: `squidpy`, `spatial-deconv`, `scanpy`, `anndata`, `cellchat`.
-If a scRNA-seq reference is present, deconvolve spots before claiming cell-type maps.
+## Ask first
+- Platform and resolution: spot/bin (mixed) vs single-cell targeted; the answer decides whether deconvolution is needed.
+- Coordinate system / image registration status, and whether an H&E or DAPI image is available.
+- scRNA-seq reference present for deconvolution? Same tissue and species?
+- Comparison design: regions, conditions, or samples.
 
-BLOCKING before COMPUTE:
-1. Confirm platform, coordinate system, and whether spots are single-cell or mixed
-2. Write methodology citing literature-review.md
-3. Record provenance_record on h5ad, spatial figures, and deconvolution tables
+## Data forms
+- `.h5ad` with `obsm["spatial"]` (+ `uns["spatial"]` images) → analysis-ready; verify coordinates are not dropped.
+- Space Ranger `filtered_feature_bc_matrix` + `spatial/` folder → build the object first.
+- Xenium / MERFISH `cells.csv` + `transcripts.csv` → single-cell, targeted gene set: no whole-transcriptome claims.
+Skills: `squidpy`, `spatial-deconv`, `scanpy`, `anndata`, `cellchat`.
 
-Do not ignore spatial coordinates or treat the object as a regular AnnData without spatial keys.
+## Hard constraints
+- Spot-level data never yields "cell types" without deconvolution; report cell-type proportions per spot, not labels.
+- Keep spatial coordinates in every derived object; a UMAP-only view is not a spatial result.
+- Neighborhood / ligand–receptor statistics must state the permutation count and the null model.
+- Targeted panels (Xenium, MERFISH) cannot support genome-wide DEG or enrichment; say so.
+
+## Deliverable
+- Spatial figure with tissue image underlay when available; region / niche composition table; deconvolution proportions table when spots are mixed.
+- provenance_record on the h5ad, spatial figures, deconvolution tables.
+
+## Review
+- Were spot data treated as single cells anywhere?
+- Do coordinates survive into every saved object?
+- Is the reference used for deconvolution the same tissue and species as the sample?
+- Are neighborhood statistics reported with their null model?
 </biology-task-profile>

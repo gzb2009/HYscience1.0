@@ -17,6 +17,7 @@
   }
 
   &[data-closed] {
+    pointer-events: none !important;
     animation: dropdown-menu-close 0.15s ease-out;
   }
 

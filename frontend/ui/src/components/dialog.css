@@ -4,6 +4,7 @@
   position: fixed;
   inset: 0;
   z-index: 50;
+  pointer-events: none;
   background-color: hsl(from var(--background-base) h s l / 0.2);
   /* Start invisible so the very first paint matches the animation's
      from-state — without this the overlay flashes at full opacity for one
@@ -15,6 +16,7 @@
     /* `backwards` applies the from-keyframe before the animation starts,
        so the element is invisible from the first paint and there's no
        jump-then-fade flicker on mount. */
+    pointer-events: auto;
     animation: overlayShow 180ms ease-out both;
   }
 }

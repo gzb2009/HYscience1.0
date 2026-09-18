@@ -13,6 +13,18 @@ import {
   collectTaskFileNames,
   collectInferredFileNamesFromTools,
   splitResultSections,
+  collectDecisionCards,
+  revertAfterPart,
+  optionRecommended,
+  splitTextAroundQuestion,
+  isStatusNarration,
+  resultFileCtaName,
+  resultFileCtaKind,
+  resultFileVisual,
+  resultFileGlyph,
+  resultFileHowLabel,
+  resultFileTypeLabel,
+  isUserStopError,
 } from "./session-result"
 
 describe("splitResultSections", () => {
@@ -279,8 +291,13 @@ describe("recent vs task file names", () => {
       ] as unknown as PartType[],
     }
     expect(assistantMessagesForLastTurn(messages).map((message) => message.id)).toEqual(["a2"])
-    expect([...collectRecentTurnFileNames({ messages, partsByMessage })]).toEqual(["new.png"])
-    expect([...collectTaskFileNames({ messages, partsByMessage })].sort()).toEqual(["new.png", "old.png"])
+    expect([...collectRecentTurnFileNames({ messages, partsByMessage })].sort()).toEqual(["new.png", "result/new.png"])
+    expect([...collectTaskFileNames({ messages, partsByMessage })].sort()).toEqual([
+      "new.png",
+      "old.png",
+      "result/new.png",
+      "result/old.png",
+    ])
   })
 
   test("collectInferredFileNamesFromTools reads write tool paths without verified metadata", () => {
@@ -297,6 +314,199 @@ describe("recent vs task file names", () => {
         ] as unknown as PartType[],
       },
     })
-    expect([...names]).toEqual(["legacy_plot.png"])
+    expect([...names].sort()).toEqual(["legacy_plot.png", "result/legacy_plot.png"])
+  })
+
+  test("collectInferredFileNamesFromTools reads office tool xlsx paths", () => {
+    const message = { id: "a1", role: "assistant" }
+    const names = collectInferredFileNamesFromTools({
+      assistantMessages: [message],
+      partsByMessage: {
+        a1: [
+          {
+            type: "tool",
+            tool: "office",
+            state: { input: { filePath: "result/pcf_panel.xlsx" } },
+          },
+        ] as unknown as PartType[],
+      },
+    })
+    expect([...names].sort()).toEqual(["pcf_panel.xlsx", "result/pcf_panel.xlsx"])
+  })
+})
+
+describe("optionRecommended", () => {
+  test("marks an explicit Recommended label", () => {
+    expect(optionRecommended("一并剔除 cl20 (Recommended)", "一并剔除 cl20")).toBe(true)
+    expect(optionRecommended("保留 cl20", "一并剔除 cl20")).toBe(false)
+  })
+})
+
+describe("collectDecisionCards", () => {
+  test("keeps answered question forks as assumption cards", () => {
+    const message = { id: "a1" }
+    const cards = collectDecisionCards({
+      assistantMessages: [message],
+      partsByMessage: {
+        a1: [
+          {
+            id: "q1",
+            type: "tool",
+            tool: "question",
+            state: {
+              input: {
+                questions: [
+                  { question: "PCF 是否指 PhenoCycler-Fusion？样本是 FFPE 吗？" },
+                  { question: "TLS 免疫分型要做多深？" },
+                ],
+              },
+              metadata: {
+                answers: [["PhenoCycler-Fusion / FFPE"], ["TLS 为主，肿瘤作背景"]],
+              },
+            },
+          },
+        ] as unknown as PartType[],
+      },
+    })
+    expect(cards).toEqual([
+      {
+        messageID: "a1",
+        partID: "q1",
+        question: "PCF 是否指 PhenoCycler-Fusion？样本是 FFPE 吗？",
+        answer: "PhenoCycler-Fusion / FFPE",
+        recommendation: undefined,
+        options: [],
+      },
+      {
+        messageID: "a1",
+        partID: "q1",
+        question: "TLS 免疫分型要做多深？",
+        answer: "TLS 为主，肿瘤作背景",
+        recommendation: undefined,
+        options: [],
+      },
+    ])
+  })
+
+  test("revertAfterPart targets the next part or the next message", () => {
+    expect(
+      revertAfterPart({
+        messages: [{ id: "a1" }, { id: "a2" }],
+        partsByMessage: { a1: [{ id: "q1" }, { id: "t2" }] },
+        messageID: "a1",
+        partID: "q1",
+      }),
+    ).toEqual({ messageID: "a1", partID: "t2" })
+    expect(
+      revertAfterPart({
+        messages: [{ id: "a1" }, { id: "a2" }],
+        partsByMessage: { a1: [{ id: "q1" }] },
+        messageID: "a1",
+        partID: "q1",
+      }),
+    ).toEqual({ messageID: "a2" })
+  })
+})
+
+describe("splitTextAroundQuestion", () => {
+  test("keeps the asking intro before answered cards and continuation after", () => {
+    const split = splitTextAroundQuestion({
+      assistantMessages: [{ id: "a1" }, { id: "a2" }],
+      partsByMessage: {
+        a1: [
+          { type: "text", id: "t1", text: "设计前先确定两个关键点。" },
+          { type: "tool", tool: "question" },
+        ] as unknown as PartType[],
+        a2: [{ type: "text", id: "t2", text: "按通用全景写 40-plex。" }] as unknown as PartType[],
+      },
+    })
+    expect(split.before.map((part) => part.text)).toEqual(["设计前先确定两个关键点。"])
+    expect(split.after.map((part) => part.text)).toEqual(["按通用全景写 40-plex。"])
+  })
+
+  test("treats rate-limit chatter as status, not an answer", () => {
+    expect(isStatusNarration("文献核验中，刚触发了一次限流。我放慢节奏逐个确认关键支撑文献。")).toBe(true)
+    expect(isStatusNarration("CD8A 在该群稳定高表达，建议与 TRAC 交叉确认。")).toBe(false)
+  })
+
+  test("ignores whitespace-only text as no section", () => {
+    expect(splitResultSections("   \n\n")).toEqual([])
+  })
+})
+
+describe("resultFile chip", () => {
+  test("office and code files use the chip, not the thumbnail grid", () => {
+    expect(
+      resultFileVisual({ name: "panel.docx", path: "a.docx", kind: "docx", role: "primary", verified: true }),
+    ).toBe(false)
+    expect(resultFileVisual({ name: "plot.png", path: "a.png", kind: "png", role: "primary", verified: true })).toBe(
+      true,
+    )
+    expect(resultFileGlyph("docx")).toEqual({ mark: "W", tone: "word" })
+    expect(resultFileGlyph("xlsx")).toEqual({ mark: "X", tone: "excel" })
+    expect(resultFileTypeLabel("docx", "zh")).toBe("Word 文档")
+    expect(resultFileTypeLabel("xlsx", "en")).toBe("Excel")
+  })
+
+  test("shows provenance only on compute artifacts", () => {
+    expect(
+      resultFileHowLabel(
+        { name: "umap.png", path: "a.png", kind: "png", role: "primary", verified: true, how: "python plot.py" },
+        "zh",
+      ),
+    ).toBe("怎么来的：python plot.py")
+    expect(
+      resultFileHowLabel(
+        { name: "panel.xlsx", path: "a.xlsx", kind: "xlsx", role: "primary", verified: true, how: "office" },
+        "zh",
+      ),
+    ).toBeUndefined()
+  })
+})
+
+describe("resultFileCtaName", () => {
+  test("uses panel as the table label", () => {
+    expect(resultFileCtaName("prostate_tls_panel.xlsx")).toBe("panel")
+    expect(
+      resultFileCtaKind({
+        name: "panel.xlsx",
+        path: "result/panel.xlsx",
+        kind: "xlsx",
+        role: "primary",
+        verified: true,
+      }),
+    ).toBe("table")
+  })
+
+  test("marks panel files as primary deliverables", () => {
+    const message = { id: "message-panel" } as unknown as AssistantMessage
+    const files = collectResultFiles({
+      assistantMessages: [message],
+      partsByMessage: {
+        [message.id]: [
+          {
+            type: "tool",
+            tool: "write",
+            state: {
+              metadata: {
+                artifacts: [{ path: "result/prostate_tls_panel.xlsx", verified: true }],
+              },
+            },
+          } as unknown as PartType,
+        ],
+      },
+      responseText: "",
+    })
+    expect(files[0]?.role).toBe("primary")
+  })
+})
+
+describe("isUserStopError", () => {
+  test("treats abort as a stop, not a failure", () => {
+    expect(isUserStopError({ name: "MessageAbortedError", data: { message: "The operation was aborted." } })).toBe(true)
+    expect(isUserStopError("Tool execution aborted")).toBe(true)
+    expect(
+      isUserStopError({ name: "StreamGuardTimeoutError", data: { message: "Reasoning exceeded the limit" } }),
+    ).toBe(false)
   })
 })

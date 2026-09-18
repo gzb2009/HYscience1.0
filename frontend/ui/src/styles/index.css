@@ -32,6 +32,7 @@
 @import "../components/agent-icon.css" layer(components);
 @import "../components/logo.css" layer(components);
 @import "../components/markdown.css" layer(components);
+@import "../components/choice-card.css" layer(components);
 @import "../components/message-part.css" layer(components);
 @import "../components/notebook-cell.css" layer(components);
 @import "../components/popover.css" layer(components);

@@ -18,7 +18,6 @@ export const dict: Record<Keys, string> = {
   "ui.lineComment.submit": "Kommenter",
   "ui.sessionTurn.steps.show": "Vis trinn",
   "ui.sessionTurn.steps.hide": "Skjul trinn",
-  "ui.sessionTurn.summary.response": "Svar",
   "ui.sessionTurn.resultFile.open": "Åpne",
   "ui.sessionTurn.resultFile.showInFiles": "Vis i Files",
   "ui.sessionTurn.resultFile.showInFolder": "Vis i mappe",
@@ -62,7 +61,6 @@ export const dict: Record<Keys, string> = {
   "ui.messagePart.title.edit": "Rediger",
   "ui.messagePart.title.write": "Skriv",
   "ui.messagePart.option.typeOwnAnswer": "Skriv ditt eget svar",
-  "ui.messagePart.review.title": "Gjennomgå svarene dine",
 
   "ui.list.loading": "Laster",
   "ui.list.empty": "Ingen resultater",
@@ -122,7 +120,6 @@ export const dict: Record<Keys, string> = {
 
   "ui.question.subtitle.answered": "{{count}} besvart",
   "ui.question.answer.none": "(ingen svar)",
-  "ui.question.review.notAnswered": "(ikke besvart)",
   "ui.question.multiHint": "(velg alle som gjelder)",
   "ui.question.custom.placeholder": "Skriv svaret ditt...",
   "ui.question.action.stop": "Stopp",
@@ -131,4 +128,12 @@ export const dict: Record<Keys, string> = {
   "ui.question.skip.default": "Agenten bestemmer",
   "ui.question.decision.waiting":
     "Anbefaling beholdt. Fortsett med den, velg et annet alternativ, eller stopp — svar er valgfritt.",
+  "ui.question.action.agentDecide": "La agenten bestemme",
+  "ui.question.action.back": "Tilbake",
+  "ui.question.action.edit": "Endre svar",
+  "ui.question.recommended": "Anbefalt",
+  "ui.question.revise.hint": "Endre svar — innsending spoler tilbake og kjører på nytt fra dette spørsmålet.",
+  "ui.sessionTurn.resultFile.viewTable": "Vis {{name}}-tabell",
+  "ui.sessionTurn.status.waitingChoice": "Venter på valget ditt",
+  "ui.sessionTurn.stopped": "Stoppet",
 }

@@ -41,6 +41,23 @@ describe("OutputClean reviewer removal", () => {
     expect(result).toBe("CD8A 和 NKG7 支持该群为细胞毒性淋巴细胞，仍需结合 TRAC 和 FCGR3A 排除混合群。")
   })
 
+  test("shortens a conversion ack that names tools or structure", () => {
+    const text = "好的，把同一套 50-marker 设计转成 Word 文档（docx），结构与 Excel 一致，直接用 office 工具生成。"
+    expect(OutputClean.clean(text)).toBe("好的，正在把 Excel 转成 Word。")
+  })
+
+  test("strips a standalone rate-limit status line", () => {
+    const text = ["文献核验中，刚触发了一次限流。我放慢节奏逐个确认关键支撑文献。", "", "CD8A 在该群稳定高表达。"].join(
+      "\n",
+    )
+    expect(OutputClean.clean(text)).toBe("CD8A 在该群稳定高表达。")
+  })
+
+  test("rewrites antibody-catalog marker nicknames to official symbols", () => {
+    const text = "胞内靶标如 FoxP3、Ki-67、GrzB、Grmb 在 PCF 上依赖透化。"
+    expect(OutputClean.clean(text)).toBe("胞内靶标如 FOXP3、Ki-67、GZMB、GZMB 在 PCF 上依赖透化。")
+  })
+
   test("preserves scientific terms and user-facing failure explanations", () => {
     const text = [
       "该 agent-based model 的参数尚未收敛。",

@@ -74,6 +74,22 @@ export namespace File {
         .optional(),
       encoding: z.literal("base64").optional(),
       mimeType: z.string().optional(),
+      preview: z
+        .object({
+          kind: z.enum(["xlsx", "docx", "pptx"]),
+          sheets: z.array(z.object({ name: z.string(), rows: z.array(z.array(z.string())) })).optional(),
+          blocks: z
+            .array(
+              z.object({
+                type: z.enum(["heading", "paragraph", "table"]),
+                text: z.string().optional(),
+                rows: z.array(z.array(z.string())).optional(),
+              }),
+            )
+            .optional(),
+          slides: z.array(z.object({ title: z.string(), lines: z.array(z.string()) })).optional(),
+        })
+        .optional(),
     })
     .meta({
       ref: "FileContent",
@@ -360,7 +376,9 @@ export namespace File {
       const buffer = await bunFile.arrayBuffer().catch(() => new ArrayBuffer(0))
       const content = Buffer.from(buffer).toString("base64")
       const mimeType = bunFile.type || "application/octet-stream"
-      return { type: "text", content, mimeType, encoding: "base64" }
+      const { officePreview } = await import("../tool/office-read")
+      const preview = officePreview(full, new Uint8Array(buffer))
+      return { type: "text", content, mimeType, encoding: "base64", preview }
     }
 
     // Return the file content verbatim — callers like the web editor write

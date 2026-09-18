@@ -17,7 +17,9 @@
   color: var(--text-base);
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
+  max-width: 100%;
 
   [data-slot="user-message-attachments"] {
     display: flex;
@@ -98,13 +100,16 @@
 
   [data-slot="user-message-text"] {
     position: relative;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
     white-space: pre-wrap;
     word-break: break-word;
     overflow: hidden;
-    background: var(--surface-raised-base);
-    border: 1px solid var(--border-base);
-    padding: 10px 14px;
-    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-text, var(--text-strong)) 7%, var(--color-bg, var(--background-base)));
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
 
     [data-highlight="file"] {
       color: var(--syntax-property);
@@ -288,6 +293,22 @@
     max-height: 240px;
     overflow-y: auto;
     word-break: break-word;
+  }
+}
+
+[data-component="tool-output"][data-kernel-output] {
+  border-top: 1px solid var(--border-weak-base, rgba(127, 127, 127, 0.18));
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-weak, inherit);
+
+  &[data-failed="true"] {
+    color: var(--text-critical-base, #c0392b);
   }
 }
 
@@ -609,8 +630,9 @@
   }
 
   &[data-question="true"] {
-    background: var(--background-base);
-    border: 1px solid var(--border-weak-base);
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
 }
 
@@ -648,10 +670,9 @@
 [data-component="question-prompt"] {
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  background-color: var(--surface-inset-base);
-  border-radius: 0 0 6px 6px;
-  gap: 12px;
+  padding: 0;
+  background: transparent;
+  gap: 8px;
 
   [data-slot="question-tabs"] {
     display: flex;
@@ -772,35 +793,6 @@
 
       [data-component="button"] {
         height: auto;
-      }
-    }
-  }
-
-  [data-slot="question-review"] {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    [data-slot="review-title"] {
-      display: none;
-    }
-
-    [data-slot="review-item"] {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      font-size: 13px;
-
-      [data-slot="review-label"] {
-        color: var(--text-weak);
-      }
-
-      [data-slot="review-value"] {
-        color: var(--text-strong);
-
-        &[data-answered="false"] {
-          color: var(--text-weak);
-        }
       }
     }
   }

@@ -1,13 +1,32 @@
 <biology-task-profile name="genomics">
-Focus: variants, WGS/WES, alignment, annotation, CRISPR screens.
+Focus: DNA-level analysis — WGS / WES / targeted panels, germline and somatic variants, CNV, GWAS, CRISPR screens.
 
-Load skills first: `pysam`, `clinvar-database`, `ensembl-database`, `gene-database`.
-Prefer native tools: `query_ensembl`, `query_ncbi_gene`, `query_pubmed`.
+## Ask first
+- Reference build (GRCh38 vs GRCh37/hg19) — decides every coordinate; never assume.
+- Germline vs somatic; tumour–normal pairing; sample metadata (sex, ancestry when relevant).
+- Sequencing type and depth (WGS / WES / panel) and whether reads are already aligned.
+- Analysis aim: pathogenic variants, driver discovery, CNV, association, screen hits.
 
-BLOCKING before COMPUTE:
-1. Confirm reference genome / build (GRCh38 vs hg19) and sample metadata
-2. Write methodology citing literature-review.md
-3. For VCF/BAM inputs, record provenance_record on primary inputs
+## Data forms
+- `.fastq(.gz)` → alignment needed (bwa-mem2 / minimap2); confirm adapters and read length.
+- `.bam` / `.cram` → check header for the reference used; index present?
+- `.vcf(.gz)` → check `##reference` and INFO/FORMAT fields; multi-sample vs single.
+- MAF / count tables → cohort-level analysis, no realignment.
+Skills: `pysam`, `biopython`, `cancer-genomics-analysis`, `clinvar-database`, `ensembl-database`, `gene-database`. Prefer native tools `query_ensembl`, `query_ncbi_gene`, `query_pubmed`.
 
-Do not invent variant consequences — query ClinVar/Ensembl.
+## Hard constraints
+- Every variant is written with build + chromosome + position + ref/alt (or HGVS); consequences come from ClinVar / Ensembl VEP, never from memory.
+- Pathogenicity language follows ACMG/AMP tiers; do not call a variant pathogenic without a database record or a stated rule.
+- Somatic calls state the matched-normal status and the caller; unpaired tumour-only calls are labelled as such.
+- GWAS results carry the genome-wide threshold used and the population.
+
+## Deliverable
+- Variant table: variant | gene | consequence | ClinVar / gnomAD evidence | tier | action. Cohort analyses add a per-sample summary and QC (depth, contamination, sex check).
+- provenance_record on primary VCF/BAM inputs and on every derived table.
+
+## Review
+- Is the reference build stated once and consistent across all files?
+- Any variant consequence or pathogenicity asserted without a database lookup?
+- Tumour-only vs paired stated?
+- Coordinates and HGNC symbols consistent between text and tables?
 </biology-task-profile>

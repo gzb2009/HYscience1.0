@@ -232,10 +232,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           inflightDiff.set(key, promise)
           return promise
         },
-        async revert(sessionID: string, messageID: string) {
+        async revert(sessionID: string, messageID: string, partID?: string) {
           const client = sdk.client
           const [, setStore] = globalSync.child(sdk.directory)
-          const res = await client.session.revert({ sessionID, messageID })
+          const res = await client.session.revert({ sessionID, messageID, partID })
           if (res.data)
             setStore(
               produce((draft) => {

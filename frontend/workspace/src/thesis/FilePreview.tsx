@@ -15,6 +15,7 @@ import { useSync } from "@/context/sync"
 import { usePlatform } from "@/context/platform"
 import { FONT_MONO, FONT_SANS, FONT_CODE } from "@/styles/tokens"
 import { PdfViewer } from "@/science/renderers/documents/PdfViewer"
+import { OfficePreview, type OfficePreviewData } from "@/thesis/OfficePreview"
 import { toast } from "@/thesis/Toast"
 import { IconFile, IconX, IconCopy, IconDownload, IconBookOpen, IconBraces, IconRefresh } from "@/thesis/shared/Icon"
 
@@ -96,9 +97,9 @@ const LANG: Record<string, string> = {
   log: "text",
 }
 
-type Kind = "markdown" | "pdf" | "image" | "code" | "binary"
+type Kind = "markdown" | "pdf" | "image" | "code" | "binary" | "office"
 
-type FileData = { content?: string; encoding?: string; mimeType?: string }
+type FileData = { content?: string; encoding?: string; mimeType?: string; preview?: OfficePreviewData }
 
 /**
  * Inline file view — header (icon + name + subtitle + controls) over the
@@ -151,6 +152,7 @@ export function FileView(props: {
 
   const kind = createMemo<Kind>(() => {
     const x = e()
+    if (["xlsx", "xls", "xlsm", "docx", "pptx"].includes(x)) return "office"
     if (isBinary()) {
       if (mime().startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(x)) return "image"
       if (mime() === "application/pdf" || x === "pdf") return "pdf"
@@ -469,6 +471,12 @@ export function FileView(props: {
                         cursor: zoom() === 1 ? "zoom-in" : "zoom-out",
                       }}
                     />
+                  </div>
+                </Match>
+
+                <Match when={kind() === "office"}>
+                  <div style={{ padding: "18px 22px" }}>
+                    <OfficePreview preview={data()?.preview} />
                   </div>
                 </Match>
 

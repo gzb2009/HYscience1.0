@@ -1,137 +1,23 @@
-export type DomainId = "imc" | "single-cell" | "spatial" | "genomics" | "general"
+import { PRIMARY_THEMES, SHARED_SKILLS as SHARED, type ResearchDomain } from "@hysci/util/themes"
+
+/** Themes with a UI card. The list itself lives in @hysci/util/themes. */
+export type DomainId = (typeof PRIMARY_THEMES)[number]["id"]
 
 export type DomainInfo = {
   id: DomainId
-  researchDomain: "general" | "biology" | "physics" | "ml"
+  researchDomain: ResearchDomain
   subdomain?: string
   skills: string[]
 }
 
-/** Literature, writing, and plotting — kept on for every specialist domain. */
-export const SHARED_SKILLS = [
-  "research-lookup",
-  "literature-review",
-  "pubmed-database",
-  "biorxiv-database",
-  "scientific-writing",
-  "citation-management",
-  "scientific-slides",
-  "peer-review",
-  "hypothesis-generation",
-  "scientific-critical-thinking",
-  "grill-me",
-  "statistical-analysis",
-  "exploratory-data-analysis",
-  "matplotlib",
-  "seaborn",
-  "plotly",
-]
+export const SHARED_SKILLS: string[] = [...SHARED]
 
-export const DOMAINS: DomainInfo[] = [
-  {
-    id: "imc",
-    researchDomain: "biology",
-    subdomain: "imc",
-    skills: [
-      "imc-analysis",
-      "pcf-analysis",
-      "bioimage-analysis",
-      "squidpy",
-      "pathml",
-      "histolab",
-      "immunology-assays",
-      "cellchat",
-      "scanpy",
-      "anndata",
-      "imaging-data-commons",
-      "omero-integration",
-      "uniprot-database",
-      "string-database",
-    ],
-  },
-  {
-    id: "single-cell",
-    researchDomain: "biology",
-    subdomain: "single-cell",
-    skills: [
-      "single-cell-pipeline",
-      "scanpy",
-      "anndata",
-      "scvi-tools",
-      "scvelo",
-      "cellchat",
-      "cellxgene-census",
-      "pydeseq2",
-      "umap-learn",
-      "flow-cytometry-analysis",
-      "flowio",
-      "curated-bio-datasets",
-      "geo-database",
-      "gene-database",
-    ],
-  },
-  {
-    id: "spatial",
-    researchDomain: "biology",
-    subdomain: "spatial",
-    skills: [
-      "squidpy",
-      "spatial-deconv",
-      "scanpy",
-      "anndata",
-      "scvi-tools",
-      "cellchat",
-      "bioimage-analysis",
-      "cellxgene-census",
-      "gene-database",
-      "imaging-data-commons",
-    ],
-  },
-  {
-    id: "genomics",
-    researchDomain: "biology",
-    subdomain: "genomics",
-    skills: [
-      "biopython",
-      "pysam",
-      "deeptools",
-      "gget",
-      "cancer-genomics-analysis",
-      "pydeseq2",
-      "bioservices",
-      "scikit-bio",
-      "gtars",
-      "dna-visualization",
-      "ensembl-database",
-      "clinvar-database",
-      "cosmic-database",
-      "gwas-database",
-      "kegg-database",
-      "reactome-database",
-      "geo-database",
-      "ena-database",
-    ],
-  },
-  {
-    id: "general",
-    researchDomain: "general",
-    skills: [
-      "research-lookup",
-      "literature-review",
-      "pubmed-database",
-      "openalex-database",
-      "scientific-writing",
-      "peer-review",
-      "hypothesis-generation",
-      "grill-me",
-      "scientific-brainstorming",
-      "statistical-analysis",
-      "exploratory-data-analysis",
-      "matplotlib",
-      "biopython",
-    ],
-  },
-]
+export const DOMAINS: DomainInfo[] = PRIMARY_THEMES.map((theme) => ({
+  id: theme.id,
+  researchDomain: theme.researchDomain,
+  subdomain: "subdomain" in theme ? theme.subdomain : undefined,
+  skills: [...theme.skills],
+}))
 
 const IDS = new Set<string>(DOMAINS.map((item) => item.id))
 

@@ -1,21 +1,11 @@
 /**
- * Adaptive Agent Router v2 — LLM-based semantic intent classification
- * with regex fallback. Routes user input to the best agent + model tier,
- * and recommends whether to search, query databases, or run analysis tools.
- *
- * Uses a cheap/small model for classification (~200 tokens, <1s latency).
- * Falls back to regex matching if the LLM is unavailable.
+ * Agent Router — regex-based intent hints for the injection boundary and a
+ * deterministic interaction contract (interpret) used by prompt injection.
  */
 
-import { Log } from "../util/log"
-import { Provider } from "../provider/provider"
-import { LLM } from "./llm"
-import { Agent } from "../agent/agent"
-import { Identifier } from "../id/id"
+import { AIM, ASSAY, BIOLOGY_FILE, IMC_CONFIRMED, IMC_TOKEN, PLATFORM_ANY, SPECIES, TISSUE } from "./biology-lexicon"
 
 export namespace AgentRouter {
-  const log = Log.create({ service: "agent-router" })
-
   export type Intent =
     | "literature_review"
     | "exploratory_analysis"
@@ -24,18 +14,6 @@ export namespace AgentRouter {
     | "result_synthesis"
     | "code_debugging"
     | "general"
-
-  export type ToolCategory = "web_search" | "bio_db" | "file_analysis" | "gpu_compute" | "literature" | "none"
-
-  export type Classification = {
-    intent: Intent
-    agent: string
-    tier: "fast" | "pro" | "ultra"
-    shouldSearch: boolean
-    tools: ToolCategory[]
-    reason: string
-    confidence: number
-  }
 
   export type Recommendation = {
     agent: string
@@ -71,7 +49,7 @@ export namespace AgentRouter {
     review: boolean
   }
 
-  // ===== REGEX FALLBACK (unchanged from v1) =====
+  // ===== REGEX INTENT HINTS =====
   const SIGNALS: Record<Intent, { pattern: RegExp; weight: number }[]> = {
     literature_review: [
       {
@@ -146,123 +124,6 @@ export namespace AgentRouter {
     return best[0] as Intent
   }
 
-  // ===== LLM-BASED CLASSIFICATION =====
-  const CLASSIFY_PROMPT = [
-    "Classify the user's research intent. Reply ONLY with JSON:",
-    "{",
-    '  "intent": "<literature_review|exploratory_analysis|hypothesis_testing|method_development|result_synthesis|code_debugging|general>",',
-    '  "agent": "<research|biology|physics|ml|plan>",',
-    '  "tier": "<fast|pro|ultra>",',
-    '  "confidence": <0.0-1.0>',
-    "}",
-    "",
-    "Rules:",
-    "- literature_review: finding/summarizing papers, systematic reviews, meta-analysis",
-    "- exploratory_analysis: exploring data, clustering, QC, preprocessing, visualization",
-    "- hypothesis_testing: statistical tests, validating claims, differential analysis, comparing groups",
-    "- method_development: building models, training ML, designing pipelines, developing tools",
-    "- result_synthesis: summarizing results, writing reports/manuscripts, making figures",
-    "- code_debugging: fixing errors, debugging, troubleshooting",
-    "- general: none of the above",
-    "",
-    'agent: "research" for general science, "biology" for bioinformatics/genomics, "physics" for simulation/PDEs, "ml" for ML/AI tasks, "plan" for planning',
-    'tier: "fast" for simple/short tasks, "pro" for moderate, "ultra" for complex multi-step research',
-    "confidence: 0.9+ for clear intent, 0.5-0.8 for ambiguous, <0.5 for uncertain",
-  ].join("\n")
-
-  async function llmClassify(text: string, filenames: string[]): Promise<Classification | undefined> {
-    const startTime = Date.now()
-    try {
-      const model = await Provider.getSmallModel("openai").catch(() => undefined)
-      if (!model) return undefined
-
-      const msg = text.slice(0, 2000) + (filenames.length > 0 ? "\nFiles: " + filenames.join(", ") : "")
-      const result = await LLM.stream({
-        user: {
-          id: "router-msg",
-          role: "user",
-          sessionID: "router",
-          time: { created: Date.now() },
-          agent: "research",
-          model: { providerID: "anthropic", modelID: "claude-haiku-4-5" },
-        } as any,
-        sessionID: "router",
-        model,
-        agent: { name: "research", mode: "primary", permission: [], steps: 1 } as any,
-        system: [CLASSIFY_PROMPT],
-        messages: [{ role: "user", content: msg }],
-        tools: {},
-        small: true,
-        abort: (() => {
-          const c = new AbortController()
-          setTimeout(() => c.abort(), 8000)
-          return c.signal
-        })(),
-        retries: 0,
-      })
-
-      let response = ""
-      for await (const chunk of result.textStream) {
-        response += chunk
-      }
-
-      // Extract JSON from response
-      const jsonMatch = response.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) return undefined
-      const parsed = JSON.parse(jsonMatch[0]) as {
-        intent?: string
-        agent?: string
-        tier?: string
-        confidence?: number
-      }
-
-      const validIntents = new Set([
-        "literature_review",
-        "exploratory_analysis",
-        "hypothesis_testing",
-        "method_development",
-        "result_synthesis",
-        "code_debugging",
-        "general",
-      ])
-      const validAgents = new Set(["research", "biology", "physics", "ml", "plan"])
-      const validTiers = new Set(["fast", "pro", "ultra"])
-
-      const intent = validIntents.has(parsed.intent ?? "") ? (parsed.intent as Intent) : "general"
-      const agent = validAgents.has(parsed.agent ?? "") ? parsed.agent! : "research"
-      const tier = validTiers.has(parsed.tier ?? "") ? (parsed.tier as "fast" | "pro" | "ultra") : "pro"
-      const confidence = typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : 0.5
-
-      log.info("llm classify", { intent, agent, tier, confidence, duration: Date.now() - startTime })
-
-      return {
-        intent,
-        agent,
-        tier,
-        shouldSearch: intent === "literature_review",
-        tools: toolsForIntent(intent),
-        reason: `LLM intent classification: ${intent} (${(confidence * 100).toFixed(0)}% confidence)`,
-        confidence,
-      }
-    } catch (err) {
-      log.warn("llm classify failed, falling back to regex", { error: String(err), duration: Date.now() - startTime })
-      return undefined
-    }
-  }
-
-  function toolsForIntent(intent: Intent): ToolCategory[] {
-    const mapping: Record<Intent, ToolCategory[]> = {
-      literature_review: ["web_search", "literature"],
-      exploratory_analysis: ["file_analysis", "bio_db"],
-      hypothesis_testing: ["file_analysis", "bio_db"],
-      method_development: ["gpu_compute", "file_analysis"],
-      result_synthesis: ["none"],
-      code_debugging: ["file_analysis"],
-      general: ["web_search"],
-    }
-    return mapping[intent] ?? []
-  }
-
   function context(text: string): string[] {
     const values = [
       ["data", /(?:dataset|data|matrix|csv|tsv|h5ad|fastq|数据集|数据|矩阵|文件)/i],
@@ -273,17 +134,133 @@ export namespace AgentRouter {
     return values.filter(([, pattern]) => pattern.test(text)).map(([name]) => name)
   }
 
+  const UNIVERSAL_ACRONYM =
+    /^(?:DNA|RNA|MRNA|CDNA|PCR|QPCR|RTPCR|NGS|WGS|WES|ATAC|CHIP|MHC|HLA|TCR|BCR|UMAP|TSNE|PCA|DEG|FDR|QC|UMI|CSV|TSV|PDF|DOI|PMID|API|GPU|CPU|JSON|HTML|HTTP|HTTPS|ID|OK|UI|USA|UK|FDA|NIH|WHO|IFN|TNF|TGF|VEGF|EGFR|HER2|KRAS|CD\d+|IL\d+)$/
+  const FACTUAL_ASK = /(?:^|[\s，。])(?:什么是|是什么|what(?:'s| is)|explain|介绍)\s/i
+  const DELIVERABLE = /(?:设计|panel|marker|清单|方案|assay|protocol|写出|输出一份|给我一份|交付)/i
+  const FORMAT_SAID =
+    /(?:表格|excel|\bxlsx\b|\bcsv\b|\btsv\b|markdown|\.md\b|md格式|图(?:表)?|figure|\bpng\b|word|\bdocx\b|ppt|pptx|powerpoint)/i
+  const EXPORT =
+    /(?:生成|导出|转成|写成|输出|给我|做一份|改成|来一[个份]).{0,12}(?:word|docx|excel|xlsx|ppt|pptx|word文档)|(?:word|docx|excel)\s*(?:版本|文件|文档|表)/i
+  const PRIOR_DESIGN = /(?:设计|panel|marker|清单|assay|方案)|PCF|phenocycler|成像质谱|胃癌|TLS/i
+
+  export function isExportFollowup(text: string, history = "") {
+    if (!EXPORT.test(text) || !PRIOR_DESIGN.test(history)) return false
+    if (DESIGN_VERB.test(text) && PANEL_OR_ASSAY.test(text)) return false
+    return true
+  }
+  const METHOD_ONLY = /(?:怎么|如何|how (?:to|should)|原理|区别|优缺点)/i
+  const PANEL_OR_ASSAY = /(?:panel|marker|清单|assay|抗体[盘组]|panel设计)/i
+  const DESIGN_VERB = /(?:设计|做|写|给|输出|交付)/i
+  const AIM_SAID = AIM
+
+  export const IMC_CONFIRM = "confirm IMC is imaging mass cytometry (成像质谱)"
+  export const PLATFORM_SLOT = "assay or platform that defines reagents and channels"
+  export const SPECIES_SLOT = "species (human / mouse / other)"
+  export const TISSUE_SLOT = "tissue or cancer type"
+  const COMPARE = /(?:区别|差异|对比|比较|versus|\bvs\.?\b|compared to|difference between)/i
+  const PLATFORM_SAID = PLATFORM_ANY
+  const SPECIES_SAID = SPECIES
+  const TISSUE_SAID = TISSUE
+
+  export function isComparison(text: string) {
+    return COMPARE.test(text) && !DESIGN_VERB.test(text)
+  }
+
+  export function unresolvedAcronyms(text: string, history = "") {
+    if (FACTUAL_ASK.test(text) && text.length < 120) return []
+    const defined = new Set<string>()
+    for (const match of `${history}\n${text}`.matchAll(/\b([A-Z]{2,5})\b\s*(?:是|指|即|is\b|=|（|\()/gi)) {
+      defined.add(match[1].toUpperCase())
+    }
+    const hits: string[] = []
+    const seen = new Set<string>()
+    for (const match of text.matchAll(/\b([A-Z]{2,5})\b/g)) {
+      const token = match[1].toUpperCase()
+      if (seen.has(token) || UNIVERSAL_ACRONYM.test(token) || defined.has(token)) continue
+      if (token === "IMC") continue
+      seen.add(token)
+      hits.push(token)
+    }
+    return hits
+  }
+
+  export function assayOntology(text: string, history = ""): "phenocycler" | "imc" | "fingerprinting" | undefined {
+    if (isComparison(text)) return undefined
+    const blob = `${history}\n${text}`
+    if (ASSAY.phenocycler.test(blob)) return "phenocycler"
+    if (ASSAY.fingerprinting.test(blob)) return "fingerprinting"
+    if (ASSAY.imc.test(blob)) return "imc"
+    return undefined
+  }
+
+  export function missingImcConfirm(text: string, history = "") {
+    if (FACTUAL_ASK.test(text) && text.length < 120) return false
+    if (isComparison(text)) return false
+    const ontology = assayOntology(text, history)
+    if (ontology === "phenocycler" || ontology === "fingerprinting") return false
+    if (IMC_CONFIRMED.test(`${history}\n${text}`)) return false
+    return IMC_TOKEN.test(text)
+  }
+
+  export function missingPlatform(text: string, history = "") {
+    if (!PANEL_OR_ASSAY.test(text) || !DESIGN_VERB.test(text)) return false
+    if (METHOD_ONLY.test(text) && !/(?:写出|输出|给我一份|交付)/i.test(text)) return false
+    if (assayOntology(text, history)) return false
+    if (PLATFORM_SAID.test(`${history}\n${text}`)) return false
+    if (IMC_TOKEN.test(text) || /\bPCF\b/.test(text)) return false
+    if (unresolvedAcronyms(text, history).length > 0) return false
+    return true
+  }
+
+  export function missingDeliverableForm(text: string) {
+    if (!DELIVERABLE.test(text) || FORMAT_SAID.test(text)) return false
+    if (METHOD_ONLY.test(text) && !/(?:panel|清单|写出|输出|给我一份|交付)/i.test(text)) return false
+    return true
+  }
+
+  export function missingDesignAim(text: string, history = "") {
+    if (!PANEL_OR_ASSAY.test(text) || !DESIGN_VERB.test(text)) return false
+    if (METHOD_ONLY.test(text) && !/(?:写出|输出|给我一份|交付)/i.test(text)) return false
+    if (AIM_SAID.test(`${history}\n${text}`)) return false
+    return true
+  }
+
+  function missingDesignSlot(text: string) {
+    if (!PANEL_OR_ASSAY.test(text) || !DESIGN_VERB.test(text)) return false
+    if (METHOD_ONLY.test(text) && !/(?:写出|输出|给我一份|交付)/i.test(text)) return false
+    return true
+  }
+
+  export function missingSpecies(text: string, history = "") {
+    if (!missingDesignSlot(text)) return false
+    return !SPECIES_SAID.test(`${history}\n${text}`)
+  }
+
+  export function missingTissue(text: string, history = "") {
+    if (!missingDesignSlot(text)) return false
+    return !TISSUE_SAID.test(`${history}\n${text}`)
+  }
+
   /**
    * Conservative deterministic interpretation for the injection boundary.
    * This is not an execution router: it only identifies when an answer needs
-   * an auditable scientific qualification. The LLM classifier remains the
-   * primary agent-routing path in classify().
+   * an auditable scientific qualification. Agent routing itself is
+   * handled by TaskProfile.
    */
   export function interpret(opts: { text: string; history?: string[]; filenames?: string[] }): Contract {
     const text = opts.text.trim()
     const prior = opts.history?.join("\n") ?? ""
     const files = opts.filenames ?? []
-    const knownContext = context(`${prior}\n${text}`)
+    const ontology = assayOntology(text, prior)
+    const exporting = isExportFollowup(text, prior)
+    const knownContext = [
+      ...context(`${prior}\n${text}`),
+      ...(ontology === "phenocycler" ? ["phenocycler chemistry"] : []),
+      ...(ontology === "imc" ? ["imc metal chemistry"] : []),
+      ...(ontology === "fingerprinting" ? ["fingerprinting chemistry"] : []),
+      ...(exporting ? ["agreed deliverable export"] : []),
+    ]
     const correction = /(?:纠正|更正|改为|不是.+而是|actually|correction|i meant)/i.test(text)
     const meta = /(?:你是|你的能力|怎么回答|what can you do|how do you respond)/i.test(text)
     const literature = /(?:文献|论文|引用|研究表明|paper|citation|literature|evidence shows)/i.test(text)
@@ -307,32 +284,47 @@ export namespace AgentRouter {
       ...(analysis || execution ? ["data" as const] : []),
     ]
     const hasData = files.length > 0
-    const missingPremises = [
-      ...(analysis || execution ? (hasData ? [] : ["data location, variables, or analysis target"]) : []),
-      ...(inference ? (knownContext.includes("comparison") ? [] : ["comparison or intervention definition"]) : []),
-    ]
+    const actionable = !exporting && (DELIVERABLE.test(text) || analysis || execution)
+    const terms = actionable ? unresolvedAcronyms(text, prior) : []
+    const missingPremises = exporting
+      ? []
+      : [
+          ...(analysis || execution ? (hasData ? [] : ["data location, variables, or analysis target"]) : []),
+          ...(inference ? (knownContext.includes("comparison") ? [] : ["comparison or intervention definition"]) : []),
+          ...terms.map((token) => `meaning of ${token}`),
+          ...(actionable && missingImcConfirm(text, prior) ? [IMC_CONFIRM] : []),
+          ...(actionable && missingPlatform(text, prior) ? [PLATFORM_SLOT] : []),
+          ...(missingDesignAim(text, prior)
+            ? ["scientific aim (general vs T-biased vs B/TLS vs myeloid vs tumor-stroma)"]
+            : []),
+          ...(missingSpecies(text, prior) ? [SPECIES_SLOT] : []),
+          ...(missingTissue(text, prior) ? [TISSUE_SLOT] : []),
+          ...(missingDeliverableForm(text) ? ["deliverable form (table / Excel / markdown / figure)"] : []),
+        ]
     const intent: InteractionIntent = correction
       ? "correction"
-      : meta
-        ? "meta_conversation"
-        : analysis
-          ? "data_analysis"
-          : execution
-            ? "execution"
-            : literature
-              ? "literature_verification"
-              : design
-                ? "research_design"
-                : inference
-                  ? "exploration"
-                  : "direct_answer"
+      : exporting
+        ? "execution"
+        : meta
+          ? "meta_conversation"
+          : analysis
+            ? "data_analysis"
+            : execution
+              ? "execution"
+              : literature
+                ? "literature_verification"
+                : design
+                  ? "research_design"
+                  : inference
+                    ? "exploration"
+                    : "direct_answer"
 
     return {
       intent,
       confidence: text ? 0.75 : 0,
       knownContext,
       missingPremises,
-      mustClarify: (analysis || execution) && !hasData,
+      mustClarify: missingPremises.length > 0,
       gates,
       coordinate,
       review: highImpact || (inference && /\d/.test(text)),
@@ -341,62 +333,18 @@ export namespace AgentRouter {
 
   // ===== PUBLIC API =====
   function domainFromFilenames(names: string[]): string | undefined {
-    if (names.some((n) => /\.(vcf|bcf|bam|fastq|fq|h5ad|loom|pdb|cif|mzml|sdf|mol)/i.test(n))) return "biology"
+    if (names.some((n) => BIOLOGY_FILE.test(n))) return "biology"
     if (names.some((n) => /\.(pt|pth|onnx|safetensors|ckpt|weights)/i.test(n))) return "ml"
     if (names.some((n) => /\.(dat|inp|msh|geo|stl)/i.test(n))) return "physics"
     return undefined
   }
 
-  /** Main entry: classify intent using LLM, fall back to regex. */
-  export async function classify(opts: { text: string; filenames?: string[] }): Promise<Classification> {
-    // Try LLM first
-    const llmResult = await llmClassify(opts.text, opts.filenames ?? [])
-    if (llmResult && llmResult.confidence >= 0.6) return llmResult
-
-    // Fall back to regex
-    const intent = regexDetect(opts.text)
-    const domain = domainFromFilenames(opts.filenames ?? [])
-    const agent =
-      intent === "exploratory_analysis"
-        ? domain === "biology"
-          ? "biology"
-          : domain === "ml"
-            ? "ml"
-            : "research"
-        : intent === "method_development"
-          ? domain === "ml"
-            ? "ml"
-            : "research"
-          : intent === "code_debugging"
-            ? "research"
-            : "research"
-
-    const tier =
-      intent === "hypothesis_testing"
-        ? "ultra"
-        : intent === "literature_review" || intent === "method_development" || intent === "result_synthesis"
-          ? "pro"
-          : "fast"
-
-    return {
-      intent,
-      agent,
-      tier,
-      shouldSearch: intent === "literature_review",
-      tools: toolsForIntent(intent),
-      reason: `Regex intent classification: ${intent}`,
-      confidence: 0.4,
-    }
-  }
-
-  /** @deprecated — use classify() instead */
   export function detect(text: string): Intent {
     return regexDetect(text)
   }
 
   /** Generate recommendation from classification result. */
   export function recommend(opts: { current: string; text: string; filenames?: string[] }): Recommendation {
-    // Synchronous version for backward compat — uses regex only
     const intent = regexDetect(opts.text)
     const domain = domainFromFilenames(opts.filenames ?? [])
 
